@@ -55,7 +55,7 @@ fun PantallaCrearGrupo(app: AplicacionVixxer, alVolver: () -> Unit)
             val datos = withContext(Dispatchers.IO) { app.api.amigos() as JSONArray }
             amigos = (0 until datos.length()).map { i ->
                 val a = datos.getJSONObject(i)
-                Amigo(a.getString("id"), a.optString("usuario"), a.optString("avatar_url"))
+                Amigo(a.getString("id"), a.optString("usuario"), a.textoO("avatar_url"))
             }
         }
     }
