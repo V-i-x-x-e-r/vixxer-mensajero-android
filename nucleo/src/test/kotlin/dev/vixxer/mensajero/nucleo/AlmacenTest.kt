@@ -86,6 +86,76 @@ class AlmacenTest
     }
 
     @Test
+    fun outboxAgregaYQuitaPorLocalId()
+    {
+        val outbox = Outbox(AlmacenEnMemoria())
+        outbox.agregar("u2", JSONObject().put("localId", "l1").put("texto", "hola"))
+        outbox.agregar("u2", JSONObject().put("localId", "l2").put("texto", "otro"))
+        assertEquals(2, outbox.leer("u2").size)
+        outbox.quitar("u2", "l1")
+        val restantes = outbox.leer("u2")
+        assertEquals(1, restantes.size)
+        assertEquals("l2", restantes[0].getString("localId"))
+        assertEquals(0, outbox.leer("u9").size)
+    }
+
+    @Test
+    fun llavesPasadasRecuerdaSinDuplicarYTopeCinco()
+    {
+        val llavero = LlavesPasadas(AlmacenEnMemoria())
+        for (i in 1..6)
+        {
+            llavero.recordar("priv$i")
+        }
+        llavero.recordar("priv6")
+        llavero.recordar(null)
+        val memoria = llavero.cargar()
+        assertEquals(listOf("priv6", "priv5", "priv4", "priv3", "priv2"), memoria)
+    }
+
+    @Test
+    fun cacheChatFiltraLocalesYRecortaA50()
+    {
+        val cache = CacheChats(AlmacenEnMemoria())
+        val mensajes = org.json.JSONArray()
+        mensajes.put(JSONObject().put("id", "local-1").put("texto", "pendiente"))
+        for (i in 1..60)
+        {
+            mensajes.put(JSONObject().put("id", "m$i").put("texto", "t$i"))
+        }
+        cache.guardarChat("u2", mensajes)
+        val leidos = cache.leerChat("u2")!!
+        assertEquals(50, leidos.length())
+        assertEquals("m11", leidos.getJSONObject(0).getString("id"))
+        assertEquals("m60", leidos.getJSONObject(49).getString("id"))
+        cache.borrarChat("u2")
+        assertNull(cache.leerChat("u2"))
+        assertNull(cache.leerLista())
+        cache.guardarLista(org.json.JSONArray().put(JSONObject().put("id", "c1")))
+        assertEquals(1, cache.leerLista()!!.length())
+    }
+
+    @Test
+    fun estadosChatAlternaYOcultaSinDuplicar()
+    {
+        val estados = EstadosChat(AlmacenEnMemoria())
+        assertEquals(listOf("c1"), estados.alternarFijado("c1"))
+        assertEquals(emptyList(), estados.alternarFijado("c1"))
+        estados.alternarArchivado("c2")
+        estados.alternarFavorito("c3")
+        estados.alternarSilenciado("c4")
+        estados.ocultar("c5")
+        estados.ocultar("c5")
+        val todos = estados.leerEstados()
+        assertEquals(listOf("c2"), todos.archivados)
+        assertEquals(listOf("c3"), todos.favoritos)
+        assertEquals(listOf("c4"), todos.silenciados)
+        assertEquals(listOf("c5"), todos.ocultos)
+        estados.mostrar("c5")
+        assertEquals(emptyList(), estados.leerEstados().ocultos)
+    }
+
+    @Test
     fun temporizadorEfimeroGuardaYCeroBorra()
     {
         val almacen = AlmacenEnMemoria()
