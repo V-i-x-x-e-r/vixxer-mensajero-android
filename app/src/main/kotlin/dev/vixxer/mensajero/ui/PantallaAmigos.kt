@@ -66,7 +66,7 @@ fun PantallaAmigos(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCh
             }
             lista = (0 until resultado.first.length()).map { i ->
                 val a = resultado.first.getJSONObject(i)
-                Amigo(a.getString("id"), a.optString("usuario"), a.optString("avatar_url"))
+                Amigo(a.getString("id"), a.optString("usuario"), a.textoO("avatar_url"))
             }
             pendientes = resultado.second
         }
@@ -88,7 +88,7 @@ fun PantallaAmigos(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCh
                 val datos = JSONArray(cache)
                 lista = (0 until datos.length()).map { i ->
                     val a = datos.getJSONObject(i)
-                    Amigo(a.getString("id"), a.optString("usuario"), a.optString("avatar_url"))
+                    Amigo(a.getString("id"), a.optString("usuario"), a.textoO("avatar_url"))
                 }
                 cargando = false
             }

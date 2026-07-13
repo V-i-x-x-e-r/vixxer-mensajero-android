@@ -54,7 +54,7 @@ fun PantallaBloqueados(app: AplicacionVixxer, alVolver: () -> Unit)
             val datos = withContext(Dispatchers.IO) { app.api.bloqueados() as JSONArray }
             lista = (0 until datos.length()).map { i ->
                 val u = datos.getJSONObject(i)
-                Amigo(u.getString("id"), u.optString("usuario"), u.optString("avatar_url"))
+                Amigo(u.getString("id"), u.optString("usuario"), u.textoO("avatar_url"))
             }
         }
         catch (e: Exception)

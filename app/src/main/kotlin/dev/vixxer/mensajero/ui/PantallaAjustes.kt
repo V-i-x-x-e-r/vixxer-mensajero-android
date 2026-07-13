@@ -75,7 +75,7 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
                 val d = app.api.miCodigo() as JSONObject
                 usuario = d.optString("usuario")
                 codigo = d.optString("codigo")
-                avatar = d.optString("avatar_url").ifEmpty { null }
+                avatar = d.textoO("avatar_url").ifEmpty { null }
                 app.estado.escribir("vixxer_perfil_cache", JSONObject()
                     .put("usuario", usuario)
                     .put("codigo", codigo)

@@ -157,8 +157,8 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
                         mapa[otroId] = Conv("Mensaje eliminado", c.optString("enviado_en"), c.optInt("no_leidos"))
                         continue
                     }
-                    app.llaves.sembrar(otroId, c.optString("llave_publica").ifEmpty { null })
-                    val pub = c.optString("llave_publica").ifEmpty { app.llaves.llavePublicaDe(otroId) }
+                    app.llaves.sembrar(otroId, c.textoO("llave_publica").ifEmpty { null })
+                    val pub = c.textoO("llave_publica").ifEmpty { app.llaves.llavePublicaDe(otroId) }
                     var claro = dev.vixxer.mensajero.nucleo.Cripto.descifrarTexto(c.getString("ultimo_cifrado"), c.getString("ultimo_nonce"), pub, priv)
                     if (claro == null)
                     {
@@ -178,7 +178,7 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
                 }
                 val todos = (0 until lista.length()).map { i ->
                     val a = lista.getJSONObject(i)
-                    Amigo(a.getString("id"), a.optString("usuario"), a.optString("avatar_url"))
+                    Amigo(a.getString("id"), a.optString("usuario"), a.textoO("avatar_url"))
                 }
                 for (a in todos)
                 {
@@ -259,7 +259,7 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
             val convsCache = cache.optJSONObject("convs") ?: JSONObject()
             amigos = (0 until listaCache.length()).map { i ->
                 val a = listaCache.getJSONObject(i)
-                Amigo(a.getString("id"), a.optString("usuario"), a.optString("avatar_url"))
+                Amigo(a.getString("id"), a.optString("usuario"), a.textoO("avatar_url"))
             }
             val mapa = HashMap<String, Conv>()
             for (id in convsCache.keys())

@@ -92,7 +92,7 @@ fun PantallaGrupos(app: AplicacionVixxer, alNavegar: (String) -> Unit)
     fun grupoDeJson(g: JSONObject): Grupo = Grupo(
         id = g.optString("id"),
         nombre = g.optString("nombre"),
-        avatarUrl = g.optString("avatar_url"),
+        avatarUrl = g.textoO("avatar_url"),
         miembros = g.optInt("miembros"),
         preview = if (g.isNull("preview")) null else g.optString("preview"),
         hora = if (g.isNull("hora")) null else g.optString("hora"),
@@ -117,10 +117,10 @@ fun PantallaGrupos(app: AplicacionVixxer, alNavegar: (String) -> Unit)
                     val ultimo = g.optJSONObject("ultimo")
                     if (ultimo == null)
                     {
-                        salida.add(Grupo(g.getString("id"), g.optString("nombre"), g.optString("avatar_url"), g.optInt("miembros"), null, null, false))
+                        salida.add(Grupo(g.getString("id"), g.optString("nombre"), g.textoO("avatar_url"), g.optInt("miembros"), null, null, false))
                         continue
                     }
-                    val claro = Cripto.descifrarTexto(ultimo.getString("contenido_cifrado"), ultimo.getString("nonce"), ultimo.optString("llave_publica"), priv)
+                    val claro = Cripto.descifrarTexto(ultimo.getString("contenido_cifrado"), ultimo.getString("nonce"), ultimo.textoO("llave_publica"), priv)
                     val mio = ultimo.optString("remitente_id") == miId
                     val quien = if (mio) "Tú" else ultimo.optString("remitente")
                     val visto = vistos[g.getString("id")]
@@ -129,7 +129,7 @@ fun PantallaGrupos(app: AplicacionVixxer, alNavegar: (String) -> Unit)
                     salida.add(Grupo(
                         id = g.getString("id"),
                         nombre = g.optString("nombre"),
-                        avatarUrl = g.optString("avatar_url"),
+                        avatarUrl = g.textoO("avatar_url"),
                         miembros = g.optInt("miembros"),
                         preview = "$quien: $cuerpo",
                         hora = enviadoEn,
