@@ -44,7 +44,9 @@ import dev.vixxer.mensajero.ui.PantallaCambiarContrasena
 import dev.vixxer.mensajero.ui.PantallaCrearGrupo
 import dev.vixxer.mensajero.ui.PantallaSolicitudes
 import dev.vixxer.mensajero.ui.PantallaChat
+import dev.vixxer.mensajero.ui.PantallaChatGrupo
 import dev.vixxer.mensajero.ui.PantallaChats
+import dev.vixxer.mensajero.ui.PantallaInfoGrupo
 import dev.vixxer.mensajero.ui.PantallaGrupos
 import dev.vixxer.mensajero.ui.PantallaLogin
 import dev.vixxer.mensajero.ui.PantallaRecuperar
@@ -80,6 +82,8 @@ class ActividadPrincipal : ComponentActivity()
                 BackHandler(enabled = pantalla == "agregar" || pantalla == "solicitudes") { pantalla = "amigos" }
                 BackHandler(enabled = pantalla == "bloqueados" || pantalla == "cambiar-contrasena") { pantalla = "ajustes" }
                 BackHandler(enabled = pantalla == "grupo-crear") { pantalla = "grupos" }
+                BackHandler(enabled = pantalla.startsWith("grupo/")) { pantalla = "grupos" }
+                BackHandler(enabled = pantalla.startsWith("grupo-info/")) { pantalla = "grupo/${pantalla.removePrefix("grupo-info/")}" }
                 Box(modifier = Modifier.fillMaxSize()) {
                     when (pantalla)
                     {
@@ -126,7 +130,12 @@ class ActividadPrincipal : ComponentActivity()
                                 pantalla = "chats"
                             }
                         }
-                        else -> PantallaPendiente(pantalla)
+                        else -> when
+                        {
+                            pantalla.startsWith("grupo/") -> PantallaChatGrupo(app, pantalla.removePrefix("grupo/"), "") { pantalla = it }
+                            pantalla.startsWith("grupo-info/") -> PantallaInfoGrupo(app, pantalla.removePrefix("grupo-info/")) { pantalla = it }
+                            else -> PantallaPendiente(pantalla)
+                        }
                     }
                     if (esPestana)
                     {
