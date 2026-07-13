@@ -29,6 +29,7 @@ import dev.vixxer.mensajero.ui.Amigo
 import dev.vixxer.mensajero.ui.EstadoTema
 import dev.vixxer.mensajero.ui.FuenteOutfit
 import dev.vixxer.mensajero.ui.LocalTema
+import dev.vixxer.mensajero.ui.PantallaChat
 import dev.vixxer.mensajero.ui.PantallaChats
 import dev.vixxer.mensajero.ui.PantallaLogin
 import dev.vixxer.mensajero.ui.PantallaRecuperar
@@ -64,7 +65,18 @@ class ActividadPrincipal : ComponentActivity()
                             pantalla = "chat"
                         },
                     )
-                    "chat" -> PantallaPendiente(chatAbierto?.usuario ?: "chat")
+                    "chat" ->
+                    {
+                        val amigo = chatAbierto
+                        if (amigo != null)
+                        {
+                            PantallaChat(app, amigo) { pantalla = "chats" }
+                        }
+                        else
+                        {
+                            pantalla = "chats"
+                        }
+                    }
                     else -> PantallaPendiente(pantalla)
                 }
             }

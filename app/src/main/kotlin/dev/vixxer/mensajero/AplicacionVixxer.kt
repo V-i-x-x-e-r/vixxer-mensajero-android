@@ -13,6 +13,7 @@ import dev.vixxer.mensajero.nucleo.EstadosChat
 import dev.vixxer.mensajero.nucleo.Firma
 import dev.vixxer.mensajero.nucleo.Identidad
 import dev.vixxer.mensajero.nucleo.Llaves
+import dev.vixxer.mensajero.nucleo.Outbox
 
 class AplicacionVixxer : Application()
 {
@@ -36,6 +37,8 @@ class AplicacionVixxer : Application()
         private set
     lateinit var aliasLocal: Alias
         private set
+    lateinit var outbox: Outbox
+        private set
     var alExpirarSesion: () -> Unit = {}
 
     override fun onCreate()
@@ -56,5 +59,6 @@ class AplicacionVixxer : Application()
         cacheChats = CacheChats(estado)
         borradores = Borradores(estado)
         aliasLocal = Alias(estado)
+        outbox = Outbox(estado)
     }
 }
