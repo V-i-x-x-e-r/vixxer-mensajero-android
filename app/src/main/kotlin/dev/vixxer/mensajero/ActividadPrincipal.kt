@@ -29,11 +29,20 @@ import dev.vixxer.mensajero.ui.Amigo
 import dev.vixxer.mensajero.ui.EstadoTema
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.LaunchedEffect
+import dev.vixxer.mensajero.nucleo.ClavesSeguras
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import dev.vixxer.mensajero.ui.BarraPestanas
 import dev.vixxer.mensajero.ui.FuenteOutfit
 import dev.vixxer.mensajero.ui.LocalTema
+import dev.vixxer.mensajero.ui.PantallaAgregar
 import dev.vixxer.mensajero.ui.PantallaAjustes
 import dev.vixxer.mensajero.ui.PantallaAmigos
+import dev.vixxer.mensajero.ui.PantallaBloqueados
+import dev.vixxer.mensajero.ui.PantallaCambiarContrasena
+import dev.vixxer.mensajero.ui.PantallaCrearGrupo
+import dev.vixxer.mensajero.ui.PantallaSolicitudes
 import dev.vixxer.mensajero.ui.PantallaChat
 import dev.vixxer.mensajero.ui.PantallaChats
 import dev.vixxer.mensajero.ui.PantallaGrupos
@@ -51,18 +60,34 @@ class ActividadPrincipal : ComponentActivity()
         setContent {
             val oscuroSistema = isSystemInDarkTheme()
             val estadoTema = remember { EstadoTema(app.estado, oscuroSistema) }
-            var pantalla by remember { mutableStateOf("login") }
+            var pantalla by remember { mutableStateOf("arranque") }
             var chatAbierto by remember { mutableStateOf<Amigo?>(null) }
             app.alExpirarSesion = { runOnUiThread { pantalla = "login" } }
+
+            LaunchedEffect(Unit) {
+                val token = withContext(Dispatchers.IO) { app.boveda.leer(ClavesSeguras.TOKEN) }
+                if (pantalla == "arranque")
+                {
+                    pantalla = if (token != null) "chats" else "login"
+                }
+            }
 
             CompositionLocalProvider(LocalTema provides estadoTema) {
                 val esPestana = pantalla == "amigos" || pantalla == "chats" || pantalla == "grupos"
                 BackHandler(enabled = pantalla == "registro") { pantalla = "login" }
                 BackHandler(enabled = pantalla == "chat" || pantalla == "ajustes") { pantalla = "chats" }
                 BackHandler(enabled = esPestana && pantalla != "chats") { pantalla = "chats" }
+                BackHandler(enabled = pantalla == "agregar" || pantalla == "solicitudes") { pantalla = "amigos" }
+                BackHandler(enabled = pantalla == "bloqueados" || pantalla == "cambiar-contrasena") { pantalla = "ajustes" }
+                BackHandler(enabled = pantalla == "grupo-crear") { pantalla = "grupos" }
                 Box(modifier = Modifier.fillMaxSize()) {
                     when (pantalla)
                     {
+                        "arranque" -> Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(LocalTema.current.colores.fondo),
+                        )
                         "login" -> PantallaLogin(app) { pantalla = it }
                         "registro" -> PantallaRegistro(app) { pantalla = it }
                         "recuperar" -> PantallaRecuperar(app) { pantalla = it }
@@ -84,6 +109,11 @@ class ActividadPrincipal : ComponentActivity()
                         )
                         "grupos" -> PantallaGrupos(app) { pantalla = it }
                         "ajustes" -> PantallaAjustes(app) { pantalla = it }
+                        "agregar" -> PantallaAgregar(app) { pantalla = "amigos" }
+                        "solicitudes" -> PantallaSolicitudes(app) { pantalla = "amigos" }
+                        "bloqueados" -> PantallaBloqueados(app) { pantalla = "ajustes" }
+                        "cambiar-contrasena" -> PantallaCambiarContrasena(app) { pantalla = "ajustes" }
+                        "grupo-crear" -> PantallaCrearGrupo(app) { pantalla = "grupos" }
                         "chat" ->
                         {
                             val amigo = chatAbierto

@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -121,7 +123,9 @@ fun PantallaRegistro(app: AplicacionVixxer, alNavegar: (String) -> Unit)
             modifier = Modifier
                 .fillMaxSize()
                 .imePadding()
-                .padding(horizontal = 28.dp),
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 28.dp)
+                .padding(top = 90.dp, bottom = 40.dp),
             verticalArrangement = Arrangement.Center,
         )
         {

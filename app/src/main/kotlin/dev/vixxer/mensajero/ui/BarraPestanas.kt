@@ -39,11 +39,11 @@ fun BarraPestanas(actual: String, alCambiar: (String) -> Unit, modifier: Modifie
         {
             val activa = actual == clave
             val color by animateColorAsState(
-                targetValue = if (activa) Vidrio.activo else Vidrio.ocupado,
+                targetValue = if (activa) colorPestanaActiva() else colorPestanaInactiva(),
                 label = "colorPestana",
             )
             val fondo by animateColorAsState(
-                targetValue = if (activa) Vidrio.brillo else Color.Transparent,
+                targetValue = if (activa) colorBrilloPestana() else Color.Transparent,
                 label = "fondoPestana",
             )
             Text(

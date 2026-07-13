@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -71,14 +73,6 @@ fun PantallaLogin(app: AplicacionVixxer, alNavegar: (String) -> Unit)
             }
         }
         alNavegar(destino)
-    }
-
-    LaunchedEffect(Unit) {
-        val token = withContext(Dispatchers.IO) { app.boveda.leer(ClavesSeguras.TOKEN) }
-        if (token != null)
-        {
-            entrarTrasSesion()
-        }
     }
 
     fun entrar()
@@ -139,8 +133,9 @@ fun PantallaLogin(app: AplicacionVixxer, alNavegar: (String) -> Unit)
             modifier = Modifier
                 .fillMaxSize()
                 .imePadding()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 28.dp)
-                .padding(bottom = 104.dp),
+                .padding(top = 90.dp, bottom = 104.dp),
             verticalArrangement = Arrangement.Center,
         )
         {
