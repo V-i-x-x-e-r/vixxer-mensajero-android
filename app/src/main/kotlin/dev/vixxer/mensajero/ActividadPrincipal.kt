@@ -3,7 +3,9 @@ package dev.vixxer.mensajero
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -11,55 +13,64 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.vixxer.mensajero.nucleo.Cripto
+import dev.vixxer.mensajero.ui.EstadoTema
+import dev.vixxer.mensajero.ui.FuenteOutfit
+import dev.vixxer.mensajero.ui.LocalTema
+import dev.vixxer.mensajero.ui.PantallaLogin
 
 class ActividadPrincipal : ComponentActivity()
 {
     override fun onCreate(estado: Bundle?)
     {
         super.onCreate(estado)
-        val diagnostico = probarNucleo()
+        enableEdgeToEdge()
+        val app = application as AplicacionVixxer
         setContent {
-            Column(
-                modifier = Modifier.fillMaxSize().background(Color(0xFF0C1015)).padding(24.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Vixxer", color = Color.White, fontSize = 40.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(8.dp))
-                Text("Cliente nativo · F1", color = Color(0xFF8A93A6), fontSize = 16.sp)
-                Spacer(Modifier.height(32.dp))
-                Text(diagnostico, color = Color(0xFF7ED9A0), fontSize = 14.sp, textAlign = TextAlign.Center)
+            val oscuroSistema = isSystemInDarkTheme()
+            val estadoTema = remember { EstadoTema(app.estado, oscuroSistema) }
+            var pantalla by remember { mutableStateOf("login") }
+            app.alExpirarSesion = { runOnUiThread { pantalla = "login" } }
+
+            CompositionLocalProvider(LocalTema provides estadoTema) {
+                when (pantalla)
+                {
+                    "login" -> PantallaLogin(app) { pantalla = it }
+                    else -> PantallaPendiente(pantalla)
+                }
             }
         }
     }
+}
 
-    private fun probarNucleo(): String
+@Composable
+private fun PantallaPendiente(nombre: String)
+{
+    val colores = LocalTema.current.colores
+    Column(
+        modifier = Modifier.fillMaxSize().background(colores.fondo).padding(28.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    )
     {
-        return try
-        {
-            val clave = ByteArray(32) { (it + 1).toByte() }
-            val nonce = ByteArray(24) { (it + 50).toByte() }
-            val mensaje = "vixxer nativo".toByteArray()
-            val abierto = Cripto.abrir(Cripto.sellar(mensaje, nonce, clave), nonce, clave)
-            if (abierto != null && abierto.contentEquals(mensaje))
-            {
-                "libsodium OK: secretbox ida y vuelta en este dispositivo"
-            }
-            else
-            {
-                "libsodium FALLO: no abrio el sellado"
-            }
-        }
-        catch (e: Throwable)
-        {
-            "libsodium FALLO: ${e.message}"
-        }
+        Text(
+            nombre.replaceFirstChar { it.uppercase() },
+            fontSize = 24.sp,
+            fontFamily = FuenteOutfit,
+            fontWeight = FontWeight.SemiBold,
+            color = colores.texto,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text("En construcción · F2", fontSize = 14.sp, color = colores.muted)
     }
 }

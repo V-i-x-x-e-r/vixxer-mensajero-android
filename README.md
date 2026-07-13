@@ -17,7 +17,9 @@ clientes hablan el mismo protocolo E2EE.
   `SodiumAndroid` en `Cripto` al arrancar e implementa `Almacen` con
   EncryptedSharedPreferences (`BovedaSegura`, equivalente de
   expo-secure-store) y SharedPreferences (`AlmacenPreferencias`,
-  equivalente de AsyncStorage).
+  equivalente de AsyncStorage). La UI porta el tema del cliente RN
+  (paletas claro/oscuro/colorido, acentos y fuente Outfit) y la pantalla
+  de login con el logo de péndulo animado dibujado en Canvas.
 
 ## Compilar
 
