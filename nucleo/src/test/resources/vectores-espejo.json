@@ -1,0 +1,439 @@
+{
+ "efimero": {
+  "opciones": [
+   {
+    "valor": 0,
+    "etiqueta": "Desactivado"
+   },
+   {
+    "valor": 60,
+    "etiqueta": "1 minuto"
+   },
+   {
+    "valor": 3600,
+    "etiqueta": "1 hora"
+   },
+   {
+    "valor": 86400,
+    "etiqueta": "1 día"
+   }
+  ],
+  "envolver": [
+   {
+    "d": 60,
+    "t": "hola",
+    "salida": "{\"t\":\"tmp\",\"d\":60,\"m\":\"hola\"}"
+   },
+   {
+    "d": 3600,
+    "t": "hola",
+    "salida": "{\"t\":\"tmp\",\"d\":3600,\"m\":\"hola\"}"
+   },
+   {
+    "d": 86400,
+    "t": "hola",
+    "salida": "{\"t\":\"tmp\",\"d\":86400,\"m\":\"hola\"}"
+   },
+   {
+    "d": 60,
+    "t": "con ñ y acentos áéíóú",
+    "salida": "{\"t\":\"tmp\",\"d\":60,\"m\":\"con ñ y acentos áéíóú\"}"
+   },
+   {
+    "d": 3600,
+    "t": "con ñ y acentos áéíóú",
+    "salida": "{\"t\":\"tmp\",\"d\":3600,\"m\":\"con ñ y acentos áéíóú\"}"
+   },
+   {
+    "d": 86400,
+    "t": "con ñ y acentos áéíóú",
+    "salida": "{\"t\":\"tmp\",\"d\":86400,\"m\":\"con ñ y acentos áéíóú\"}"
+   },
+   {
+    "d": 60,
+    "t": "emoji 🎯🔥 y más",
+    "salida": "{\"t\":\"tmp\",\"d\":60,\"m\":\"emoji 🎯🔥 y más\"}"
+   },
+   {
+    "d": 3600,
+    "t": "emoji 🎯🔥 y más",
+    "salida": "{\"t\":\"tmp\",\"d\":3600,\"m\":\"emoji 🎯🔥 y más\"}"
+   },
+   {
+    "d": 86400,
+    "t": "emoji 🎯🔥 y más",
+    "salida": "{\"t\":\"tmp\",\"d\":86400,\"m\":\"emoji 🎯🔥 y más\"}"
+   },
+   {
+    "d": 60,
+    "t": "comillas \"dobles\" y \\ barra",
+    "salida": "{\"t\":\"tmp\",\"d\":60,\"m\":\"comillas \\\"dobles\\\" y \\\\ barra\"}"
+   },
+   {
+    "d": 3600,
+    "t": "comillas \"dobles\" y \\ barra",
+    "salida": "{\"t\":\"tmp\",\"d\":3600,\"m\":\"comillas \\\"dobles\\\" y \\\\ barra\"}"
+   },
+   {
+    "d": 86400,
+    "t": "comillas \"dobles\" y \\ barra",
+    "salida": "{\"t\":\"tmp\",\"d\":86400,\"m\":\"comillas \\\"dobles\\\" y \\\\ barra\"}"
+   },
+   {
+    "d": 60,
+    "t": "salto\nde línea\ty tab",
+    "salida": "{\"t\":\"tmp\",\"d\":60,\"m\":\"salto\\nde línea\\ty tab\"}"
+   },
+   {
+    "d": 3600,
+    "t": "salto\nde línea\ty tab",
+    "salida": "{\"t\":\"tmp\",\"d\":3600,\"m\":\"salto\\nde línea\\ty tab\"}"
+   },
+   {
+    "d": 86400,
+    "t": "salto\nde línea\ty tab",
+    "salida": "{\"t\":\"tmp\",\"d\":86400,\"m\":\"salto\\nde línea\\ty tab\"}"
+   },
+   {
+    "d": 60,
+    "t": "control \u0001\u001f fin",
+    "salida": "{\"t\":\"tmp\",\"d\":60,\"m\":\"control \\u0001\\u001f fin\"}"
+   },
+   {
+    "d": 3600,
+    "t": "control \u0001\u001f fin",
+    "salida": "{\"t\":\"tmp\",\"d\":3600,\"m\":\"control \\u0001\\u001f fin\"}"
+   },
+   {
+    "d": 86400,
+    "t": "control \u0001\u001f fin",
+    "salida": "{\"t\":\"tmp\",\"d\":86400,\"m\":\"control \\u0001\\u001f fin\"}"
+   },
+   {
+    "d": 60,
+    "t": "{parece json pero no}",
+    "salida": "{\"t\":\"tmp\",\"d\":60,\"m\":\"{parece json pero no}\"}"
+   },
+   {
+    "d": 3600,
+    "t": "{parece json pero no}",
+    "salida": "{\"t\":\"tmp\",\"d\":3600,\"m\":\"{parece json pero no}\"}"
+   },
+   {
+    "d": 86400,
+    "t": "{parece json pero no}",
+    "salida": "{\"t\":\"tmp\",\"d\":86400,\"m\":\"{parece json pero no}\"}"
+   }
+  ],
+  "envolverAviso": [
+   {
+    "d": 0,
+    "salida": "{\"t\":\"tmpaviso\",\"d\":0}"
+   },
+   {
+    "d": 60,
+    "salida": "{\"t\":\"tmpaviso\",\"d\":60}"
+   },
+   {
+    "d": 3600,
+    "salida": "{\"t\":\"tmpaviso\",\"d\":3600}"
+   },
+   {
+    "d": 86400,
+    "salida": "{\"t\":\"tmpaviso\",\"d\":86400}"
+   },
+   {
+    "d": 12345,
+    "salida": "{\"t\":\"tmpaviso\",\"d\":12345}"
+   }
+  ],
+  "textoAviso": [
+   {
+    "d": 0,
+    "salida": "Mensajes temporales desactivados"
+   },
+   {
+    "d": 60,
+    "salida": "Mensajes temporales activados · 1 minuto"
+   },
+   {
+    "d": 3600,
+    "salida": "Mensajes temporales activados · 1 hora"
+   },
+   {
+    "d": 86400,
+    "salida": "Mensajes temporales activados · 1 día"
+   },
+   {
+    "d": 12345,
+    "salida": "Mensajes temporales activados · 12345s"
+   }
+  ],
+  "etiquetaDuracion": [
+   {
+    "d": 0,
+    "salida": "Desactivado"
+   },
+   {
+    "d": 60,
+    "salida": "1 minuto"
+   },
+   {
+    "d": 3600,
+    "salida": "1 hora"
+   },
+   {
+    "d": 86400,
+    "salida": "1 día"
+   },
+   {
+    "d": 12345,
+    "salida": "12345s"
+   }
+  ],
+  "leerEfimero": [
+   {
+    "entrada": "{\"t\":\"tmp\",\"d\":60,\"m\":\"hola\"}",
+    "salida": {
+     "t": "tmp",
+     "d": 60,
+     "m": "hola"
+    }
+   },
+   {
+    "entrada": "{\"t\":\"tmpaviso\",\"d\":60}",
+    "salida": null
+   },
+   {
+    "entrada": "texto plano",
+    "salida": null
+   },
+   {
+    "entrada": "{json roto",
+    "salida": null
+   },
+   {
+    "entrada": "{\"t\":\"otro\"}",
+    "salida": null
+   },
+   {
+    "entrada": "",
+    "salida": null
+   },
+   {
+    "entrada": null,
+    "salida": null
+   }
+  ],
+  "leerAviso": [
+   {
+    "entrada": "{\"t\":\"tmpaviso\",\"d\":3600}",
+    "salida": {
+     "t": "tmpaviso",
+     "d": 3600
+    }
+   },
+   {
+    "entrada": "{\"t\":\"tmp\",\"d\":60,\"m\":\"hola\"}",
+    "salida": null
+   },
+   {
+    "entrada": "plano",
+    "salida": null
+   },
+   {
+    "entrada": null,
+    "salida": null
+   }
+  ],
+  "expiraEn": [
+   {
+    "texto": "{\"t\":\"tmp\",\"d\":60,\"m\":\"hola\"}",
+    "enviado_en": "2026-07-12T18:30:00.000Z",
+    "salida": 1783881060000
+   },
+   {
+    "texto": "{\"t\":\"tmp\",\"d\":86400,\"m\":\"x\"}",
+    "enviado_en": "2026-01-01T00:00:00.000Z",
+    "salida": 1767312000000
+   },
+   {
+    "texto": "plano",
+    "enviado_en": "2026-07-12T18:30:00.000Z",
+    "salida": null
+   },
+   {
+    "texto": "{\"t\":\"tmp\",\"d\":60,\"m\":\"hola\"}",
+    "enviado_en": null,
+    "salida": null
+   }
+  ]
+ },
+ "resumen": [
+  {
+   "entrada": null,
+   "salida": "Mensaje"
+  },
+  {
+   "entrada": "",
+   "salida": "Mensaje"
+  },
+  {
+   "entrada": "hola normal",
+   "salida": "hola normal"
+  },
+  {
+   "entrada": "{json roto",
+   "salida": "{json roto"
+  },
+  {
+   "entrada": "{\"t\":\"img\"}",
+   "salida": "Foto"
+  },
+  {
+   "entrada": "{\"t\":\"img\",\"cap\":\"mi foto\"}",
+   "salida": "Foto · mi foto"
+  },
+  {
+   "entrada": "{\"t\":\"video\"}",
+   "salida": "Video"
+  },
+  {
+   "entrada": "{\"t\":\"video\",\"cap\":\"clip ñ\"}",
+   "salida": "Video · clip ñ"
+  },
+  {
+   "entrada": "{\"t\":\"audio\"}",
+   "salida": "Nota de voz"
+  },
+  {
+   "entrada": "{\"t\":\"sticker\"}",
+   "salida": "Sticker"
+  },
+  {
+   "entrada": "{\"t\":\"file\"}",
+   "salida": "Documento"
+  },
+  {
+   "entrada": "{\"t\":\"file\",\"nombre\":\"doc.pdf\"}",
+   "salida": "doc.pdf"
+  },
+  {
+   "entrada": "{\"t\":\"tmp\",\"d\":60,\"m\":\"secreto 🎯\"}",
+   "salida": "secreto 🎯"
+  },
+  {
+   "entrada": "{\"t\":\"tmpaviso\",\"d\":3600}",
+   "salida": "Mensajes temporales"
+  },
+  {
+   "entrada": "{\"t\":\"desconocido\"}",
+   "salida": "{\"t\":\"desconocido\"}"
+  },
+  {
+   "entrada": "{parece json pero no}",
+   "salida": "{parece json pero no}"
+  }
+ ],
+ "enlaces": {
+  "extraerUrl": [
+   {
+    "entrada": "mira https://vixxer.dev/algo?q=1 esto",
+    "salida": "https://vixxer.dev/algo?q=1"
+   },
+   {
+    "entrada": "http://ejemplo.com/pagina.",
+    "salida": "http://ejemplo.com/pagina"
+   },
+   {
+    "entrada": "https://x.com/a),",
+    "salida": "https://x.com/a"
+   },
+   {
+    "entrada": "HTTPS://MAYUS.COM/RUTA",
+    "salida": "HTTPS://MAYUS.COM/RUTA"
+   },
+   {
+    "entrada": "sin enlace",
+    "salida": null
+   },
+   {
+    "entrada": "{\"t\":\"img\"}",
+    "salida": null
+   },
+   {
+    "entrada": "",
+    "salida": null
+   },
+   {
+    "entrada": "varios https://uno.com y https://dos.com",
+    "salida": "https://uno.com"
+   },
+   {
+    "entrada": "termina https://a.b/c?d=e&f=g!?",
+    "salida": "https://a.b/c?d=e&f=g"
+   }
+  ],
+  "dominioDe": [
+   {
+    "entrada": "https://www.vixxer.dev/ruta/x",
+    "salida": "vixxer.dev"
+   },
+   {
+    "entrada": "http://sub.dominio.com:8080/a",
+    "salida": "sub.dominio.com:8080"
+   },
+   {
+    "entrada": "https://simple.com",
+    "salida": "simple.com"
+   },
+   {
+    "entrada": "no-es-url",
+    "salida": "no-es-url"
+   }
+  ]
+ },
+ "fechas": {
+  "hora": [
+   {
+    "entrada": "2026-07-12T18:30:00.000Z",
+    "salida": "12:30"
+   },
+   {
+    "entrada": "2026-07-12T06:05:09.000Z",
+    "salida": "00:05"
+   },
+   {
+    "entrada": "2026-01-01T00:00:00.000Z",
+    "salida": "18:00"
+   },
+   {
+    "entrada": "2026-07-12T23:59:00.000Z",
+    "salida": "17:59"
+   }
+  ],
+  "mismoDia": [
+   {
+    "a": "2026-07-12T18:30:00.000Z",
+    "b": "2026-07-12T20:00:00.000Z",
+    "salida": true
+   },
+   {
+    "a": "2026-07-12T02:30:00.000Z",
+    "b": "2026-07-12T20:00:00.000Z",
+    "salida": false
+   },
+   {
+    "a": "2026-07-11T23:30:00.000Z",
+    "b": "2026-07-12T01:00:00.000Z",
+    "salida": true
+   },
+   {
+    "a": "2026-07-10T18:30:00.000Z",
+    "b": "2026-07-12T18:30:00.000Z",
+    "salida": false
+   }
+  ],
+  "zonaGeneracion": "America/Mexico_City"
+ }
+}
