@@ -2,6 +2,7 @@ package dev.vixxer.mensajero
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
@@ -28,6 +29,8 @@ import dev.vixxer.mensajero.ui.EstadoTema
 import dev.vixxer.mensajero.ui.FuenteOutfit
 import dev.vixxer.mensajero.ui.LocalTema
 import dev.vixxer.mensajero.ui.PantallaLogin
+import dev.vixxer.mensajero.ui.PantallaRecuperar
+import dev.vixxer.mensajero.ui.PantallaRegistro
 
 class ActividadPrincipal : ComponentActivity()
 {
@@ -43,9 +46,12 @@ class ActividadPrincipal : ComponentActivity()
             app.alExpirarSesion = { runOnUiThread { pantalla = "login" } }
 
             CompositionLocalProvider(LocalTema provides estadoTema) {
+                BackHandler(enabled = pantalla == "registro") { pantalla = "login" }
                 when (pantalla)
                 {
                     "login" -> PantallaLogin(app) { pantalla = it }
+                    "registro" -> PantallaRegistro(app) { pantalla = it }
+                    "recuperar" -> PantallaRecuperar(app) { pantalla = it }
                     else -> PantallaPendiente(pantalla)
                 }
             }

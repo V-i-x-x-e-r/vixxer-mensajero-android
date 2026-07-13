@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -51,8 +52,9 @@ fun Boton(
         modifier = Modifier
             .fillMaxWidth()
             .scale(escala)
+            .graphicsLayer { alpha = if (inactivo) 0.6f else 1f }
             .then(if (glass) Modifier.shadow(6.dp, forma) else Modifier)
-            .background(colores.botonFondo.copy(alpha = if (inactivo) 0.6f else 1f), forma)
+            .background(colores.botonFondo, forma)
             .then(if (glass) Modifier.border(1.dp, colores.bordeFoco, forma) else Modifier)
             .clickable(enabled = !inactivo, interactionSource = interaccion, indication = null) { alPulsar() }
             .padding(vertical = if (glass) 12.dp else 11.dp),

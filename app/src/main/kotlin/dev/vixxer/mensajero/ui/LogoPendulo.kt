@@ -99,24 +99,41 @@ private fun DrawScope.vCincelada(cx: Float, cy: Float, r: Float)
     }
 }
 
-private fun DrawScope.bola(x: Float, y: Float, r: Float, central: Boolean = false)
+private fun DrawScope.bola(x: Float, y: Float, r: Float, central: Boolean = false, mini: Boolean = false)
 {
     val fx = if (central) 0.38f else 0.36f
     val fy = if (central) 0.26f else 0.28f
-    val fr = if (central) 0.76f else 0.74f
-    val paradas = if (central)
+    val fr = when
     {
-        arrayOf(
+        mini && central -> 0.82f
+        mini -> 0.80f
+        central -> 0.76f
+        else -> 0.74f
+    }
+    val paradas = when
+    {
+        mini && central -> arrayOf(
+            0f to Color(0xFFF7FAFD),
+            0.22f to Color(0xFFC2CAD5),
+            0.50f to Color(0xFF7B8594),
+            0.80f to Color(0xFF39414D),
+            1f to Color(0xFF11161C),
+        )
+        mini -> arrayOf(
+            0f to Color(0xFFF2F6FA),
+            0.20f to Color(0xFFB8C1CC),
+            0.48f to Color(0xFF6F7A88),
+            0.78f to Color(0xFF333B46),
+            1f to Color(0xFF12161C),
+        )
+        central -> arrayOf(
             0f to Color(0xFFF2F6FB),
             0.15f to Color(0xFFA6AEB9),
             0.40f to Color(0xFF474E59),
             0.68f to Color(0xFF1E232A),
             1f to Color(0xFF07090C),
         )
-    }
-    else
-    {
-        arrayOf(
+        else -> arrayOf(
             0f to Color(0xFFEAF0F8),
             0.14f to Color(0xFF9BA3AE),
             0.38f to Color(0xFF525A66),
@@ -131,11 +148,13 @@ private fun DrawScope.bola(x: Float, y: Float, r: Float, central: Boolean = fals
         center = Offset(x, y),
     )
     val s = r / 24f
+    val rx = if (mini) 9f * s else 8f * s
+    val ry = if (mini) 5.5f * s else 5f * s
     drawOval(
         Color.White,
-        topLeft = Offset(x - 16f * s, y - 15f * s),
-        size = Size(16f * s, 10f * s),
-        alpha = if (central) 0.3f else 0.26f,
+        topLeft = Offset(x - 8f * s - rx, y - 10f * s - ry),
+        size = Size(2f * rx, 2f * ry),
+        alpha = if (mini) 0.45f else if (central) 0.3f else 0.26f,
     )
     if (central)
     {
@@ -161,6 +180,22 @@ private fun brochaMarco(zona: Rect): Brush
         start = Offset(zona.left, zona.top),
         end = Offset(zona.left + 0.3f * zona.width, zona.top + zona.height),
     )
+}
+
+@Composable
+fun LogoPenduloFila(alto: Dp)
+{
+    val ancho = alto * (244f / 56f)
+    Canvas(modifier = Modifier.width(ancho).height(alto)) {
+        val e = size.width / 244f
+        withTransform({ scale(e, e, pivot = Offset.Zero) }) {
+            bola(24f, 28f, 21f, mini = true)
+            bola(70f, 28f, 21f, mini = true)
+            bola(174f, 28f, 21f, mini = true)
+            bola(220f, 28f, 21f, mini = true)
+            bola(122f, 28f, 27f, central = true, mini = true)
+        }
+    }
 }
 
 @Composable
@@ -284,15 +319,15 @@ fun LogoPendulo(alto: Dp, colorTexto: Color, colorBarra: Color = Color(0xFF9AA2A
                 hilos(LOGIN_CX[2], colorBarra)
                 hilos(LOGIN_CX[3], colorBarra)
                 bola(LOGIN_CX[1], LOGIN_BY, 19f)
-                withTransform({ rotate(giro.value, pivot = Offset(LOGIN_CX[2], LOGIN_BY)) }) {
+                withTransform({ rotate(-giro.value, pivot = Offset(LOGIN_CX[2], LOGIN_BY)) }) {
                     bola(LOGIN_CX[2], LOGIN_BY, 20f, central = true)
                 }
                 bola(LOGIN_CX[3], LOGIN_BY, 19f)
-                withTransform({ rotate(izq.value, pivot = Offset(LOGIN_CX[0], PIVOTE)) }) {
+                withTransform({ rotate(-izq.value, pivot = Offset(LOGIN_CX[0], PIVOTE)) }) {
                     hilos(LOGIN_CX[0], colorBarra)
                     bola(LOGIN_CX[0], LOGIN_BY, 19f)
                 }
-                withTransform({ rotate(der.value, pivot = Offset(LOGIN_CX[4], PIVOTE)) }) {
+                withTransform({ rotate(-der.value, pivot = Offset(LOGIN_CX[4], PIVOTE)) }) {
                     hilos(LOGIN_CX[4], colorBarra)
                     bola(LOGIN_CX[4], LOGIN_BY, 19f)
                 }
