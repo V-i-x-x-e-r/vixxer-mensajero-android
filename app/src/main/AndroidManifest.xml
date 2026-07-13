@@ -3,6 +3,7 @@
     <application
         android:name=".AplicacionVixxer"
         android:label="Vixxer Nativo"
+        android:icon="@mipmap/ic_lanzador"
         android:theme="@android:style/Theme.Material.NoActionBar">
         <activity
             android:name=".ActividadPrincipal"

@@ -36,6 +36,7 @@ fun Campo(
     placeholder: String,
     esContrasena: Boolean = false,
     sinMayusculas: Boolean = false,
+    enMayusculas: Boolean = false,
 )
 {
     val tema = LocalTema.current
@@ -55,7 +56,12 @@ fun Campo(
             cursorBrush = SolidColor(colores.texto),
             visualTransformation = if (oculto) PasswordVisualTransformation() else VisualTransformation.None,
             keyboardOptions = KeyboardOptions(
-                capitalization = if (sinMayusculas) KeyboardCapitalization.None else KeyboardCapitalization.Sentences,
+                capitalization = when
+                {
+                    enMayusculas -> KeyboardCapitalization.Characters
+                    sinMayusculas -> KeyboardCapitalization.None
+                    else -> KeyboardCapitalization.Sentences
+                },
                 keyboardType = if (esContrasena) KeyboardType.Password else KeyboardType.Text,
                 autoCorrectEnabled = !sinMayusculas && !esContrasena,
             ),

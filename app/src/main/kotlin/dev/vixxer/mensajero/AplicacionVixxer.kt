@@ -7,6 +7,7 @@ import dev.vixxer.mensajero.nucleo.ClavesSeguras
 import dev.vixxer.mensajero.nucleo.ClienteApi
 import dev.vixxer.mensajero.nucleo.Cripto
 import dev.vixxer.mensajero.nucleo.Firma
+import dev.vixxer.mensajero.nucleo.Identidad
 
 class AplicacionVixxer : Application()
 {
@@ -17,6 +18,8 @@ class AplicacionVixxer : Application()
     lateinit var api: ClienteApi
         private set
     lateinit var firma: Firma
+        private set
+    lateinit var identidad: Identidad
         private set
     var alExpirarSesion: () -> Unit = {}
 
@@ -32,5 +35,6 @@ class AplicacionVixxer : Application()
             alExpirarSesion = { alExpirarSesion() },
         )
         firma = Firma(boveda, api)
+        identidad = Identidad(boveda)
     }
 }
