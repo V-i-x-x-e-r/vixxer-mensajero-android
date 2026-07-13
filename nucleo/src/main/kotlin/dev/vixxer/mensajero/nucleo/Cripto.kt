@@ -1,5 +1,6 @@
 package dev.vixxer.mensajero.nucleo
 
+import com.goterl.lazysodium.Sodium
 import com.goterl.lazysodium.SodiumJava
 import java.util.Base64
 
@@ -10,7 +11,24 @@ object Cripto
     const val TAMANO_MAC = 16
     const val TAMANO_FIRMA = 64
 
-    private val sodio = SodiumJava()
+    private var sodioInterno: Sodium? = null
+
+    var sodio: Sodium
+        get()
+        {
+            val actual = sodioInterno
+            if (actual != null)
+            {
+                return actual
+            }
+            val nuevo = SodiumJava()
+            sodioInterno = nuevo
+            return nuevo
+        }
+        set(valor)
+        {
+            sodioInterno = valor
+        }
 
     fun aBase64(bytes: ByteArray): String
     {

@@ -12,6 +12,23 @@ clientes hablan el mismo protocolo E2EE.
   alias, ocultos, fijados, grupos vistos). JVM puro: se prueba sin emulador.
   El estado local usa la interfaz `Almacen` con las mismas claves que
   AsyncStorage, para que la migración de datos de F6 lea directo.
+- `app`: la aplicación Android (Jetpack Compose, applicationId
+  `dev.vixxer.mensajero.nativo` mientras convive con la beta RN). Inyecta
+  `SodiumAndroid` en `Cripto` al arrancar e implementa `Almacen` con
+  EncryptedSharedPreferences (`BovedaSegura`, equivalente de
+  expo-secure-store) y SharedPreferences (`AlmacenPreferencias`,
+  equivalente de AsyncStorage).
+
+## Compilar
+
+```
+./gradlew :nucleo:test
+./gradlew :app:assembleDebug
+```
+
+Requiere `ANDROID_HOME` con `platforms;android-36` y
+`build-tools;35.0.0`. El APK debug queda en
+`app/build/outputs/apk/debug/app-debug.apk`.
 
 ## Interoperabilidad
 

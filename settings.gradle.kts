@@ -15,3 +15,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "vixxer-mensajero-android"
 include(":nucleo")
+include(":app")
