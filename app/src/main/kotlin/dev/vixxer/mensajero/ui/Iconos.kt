@@ -83,3 +83,104 @@ fun Luna(color: Color, tamano: Dp = 20.dp)
         )
     }
 }
+
+@Composable
+fun Engrane(color: Color, tamano: Dp = 22.dp)
+{
+    Icono24(tamano) {
+        drawCircle(color, radius = 3f, center = Offset(12f, 12f), style = Stroke(width = 2f))
+        trazo("M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z", color)
+    }
+}
+
+@Composable
+fun Pin(color: Color, tamano: Dp = 20.dp)
+{
+    Icono24(tamano) {
+        trazo("M12 17v5", color)
+        trazo("M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z", color)
+    }
+}
+
+@Composable
+fun Silencio(color: Color, tamano: Dp = 20.dp)
+{
+    Icono24(tamano) {
+        trazo("M13.73 21a2 2 0 0 1-3.46 0", color)
+        trazo("M18.63 13A17.89 17.89 0 0 1 18 8", color)
+        trazo("M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14", color)
+        trazo("M18 8a6 6 0 0 0-9.33-5", color)
+        drawLine(color, Offset(1f, 1f), Offset(23f, 23f), strokeWidth = 2f, cap = StrokeCap.Round)
+    }
+}
+
+@Composable
+fun Bote(color: Color, tamano: Dp = 20.dp)
+{
+    Icono24(tamano) {
+        trazo("M3 6h18", color)
+        trazo("M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2", color)
+        trazo("M10 11v6", color)
+        trazo("M14 11v6", color)
+    }
+}
+
+@Composable
+fun Archivar(color: Color, tamano: Dp = 20.dp)
+{
+    Icono24(tamano) {
+        drawRoundRect(
+            color,
+            topLeft = Offset(2f, 3f),
+            size = androidx.compose.ui.geometry.Size(20f, 5f),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(1f),
+            style = Stroke(width = 2f),
+        )
+        trazo("M4 8v11a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V8", color)
+        trazo("M10 12h4", color)
+    }
+}
+
+@Composable
+fun Estrella(color: Color, relleno: Color? = null, tamano: Dp = 14.dp)
+{
+    Icono24(tamano) {
+        val camino = PathParser().parsePathString("M12 3l2.7 5.6 6.1.9-4.4 4.3 1.05 6.1L12 17.9l-5.45 2.9L7.6 13.8 3.2 9.5l6.1-.9z").toPath()
+        if (relleno != null)
+        {
+            drawPath(camino, relleno)
+        }
+        drawPath(camino, color, style = Stroke(width = 2f, cap = StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
+    }
+}
+
+@Composable
+fun Lupa(color: Color, tamano: Dp = 20.dp)
+{
+    Icono24(tamano) {
+        drawCircle(color, radius = 7f, center = Offset(11f, 11f), style = Stroke(width = 2f))
+        drawLine(color, Offset(21f, 21f), Offset(16.7f, 16.7f), strokeWidth = 2f, cap = StrokeCap.Round)
+    }
+}
+
+@Composable
+fun Visto(color: Color, dos: Boolean = false, tamano: Dp = 14.dp)
+{
+    if (dos)
+    {
+        Canvas(modifier = Modifier.size(tamano + tamano * (5f / 14f), tamano)) {
+            val e = size.height / 16f
+            withTransform({ scale(e, e, pivot = Offset.Zero) }) {
+                trazo("M1 8.5l3.5 3.5L12 3", color)
+                trazo("M8.5 12l0.8 0.8L20 3", color)
+            }
+        }
+        return
+    }
+    Canvas(modifier = Modifier.size(tamano)) {
+        val e = size.width / 16f
+        withTransform({ scale(e, e, pivot = Offset.Zero) }) {
+            trazo("M2 8.5l4 4 8-9", color)
+        }
+    }
+}

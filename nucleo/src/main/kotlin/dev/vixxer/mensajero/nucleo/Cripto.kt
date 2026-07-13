@@ -65,6 +65,14 @@ object Cripto
         return if (ok) mensaje else null
     }
 
+    fun descifrarTexto(cifradoB64: String, nonceB64: String, publicaB64: String, secretaB64: String): String?
+    {
+        val abierto = runCatching {
+            descifrar(deBase64(cifradoB64), deBase64(nonceB64), deBase64(publicaB64), deBase64(secretaB64))
+        }.getOrNull() ?: return null
+        return String(abierto, Charsets.UTF_8)
+    }
+
     fun sellar(bytes: ByteArray, nonce: ByteArray, clave: ByteArray): ByteArray
     {
         val caja = ByteArray(bytes.size + TAMANO_MAC)

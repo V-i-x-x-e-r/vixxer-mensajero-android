@@ -131,8 +131,12 @@ class AlmacenTest
         cache.borrarChat("u2")
         assertNull(cache.leerChat("u2"))
         assertNull(cache.leerLista())
-        cache.guardarLista(org.json.JSONArray().put(JSONObject().put("id", "c1")))
-        assertEquals(1, cache.leerLista()!!.length())
+        val lista = JSONObject()
+            .put("amigos", org.json.JSONArray().put(JSONObject().put("id", "c1")))
+            .put("convs", JSONObject().put("c1", JSONObject().put("preview", "hola")))
+        cache.guardarLista(lista)
+        assertEquals(1, cache.leerLista()!!.getJSONArray("amigos").length())
+        assertEquals("hola", cache.leerLista()!!.getJSONObject("convs").getJSONObject("c1").getString("preview"))
     }
 
     @Test
