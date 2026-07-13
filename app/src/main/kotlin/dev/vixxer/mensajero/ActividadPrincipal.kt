@@ -25,9 +25,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.vixxer.mensajero.ui.Amigo
 import dev.vixxer.mensajero.ui.EstadoTema
 import dev.vixxer.mensajero.ui.FuenteOutfit
 import dev.vixxer.mensajero.ui.LocalTema
+import dev.vixxer.mensajero.ui.PantallaChats
 import dev.vixxer.mensajero.ui.PantallaLogin
 import dev.vixxer.mensajero.ui.PantallaRecuperar
 import dev.vixxer.mensajero.ui.PantallaRegistro
@@ -43,15 +45,26 @@ class ActividadPrincipal : ComponentActivity()
             val oscuroSistema = isSystemInDarkTheme()
             val estadoTema = remember { EstadoTema(app.estado, oscuroSistema) }
             var pantalla by remember { mutableStateOf("login") }
+            var chatAbierto by remember { mutableStateOf<Amigo?>(null) }
             app.alExpirarSesion = { runOnUiThread { pantalla = "login" } }
 
             CompositionLocalProvider(LocalTema provides estadoTema) {
                 BackHandler(enabled = pantalla == "registro") { pantalla = "login" }
+                BackHandler(enabled = pantalla == "chat" || pantalla == "ajustes") { pantalla = "chats" }
                 when (pantalla)
                 {
                     "login" -> PantallaLogin(app) { pantalla = it }
                     "registro" -> PantallaRegistro(app) { pantalla = it }
                     "recuperar" -> PantallaRecuperar(app) { pantalla = it }
+                    "chats" -> PantallaChats(
+                        app,
+                        alNavegar = { pantalla = it },
+                        alAbrirChat = { amigo ->
+                            chatAbierto = amigo
+                            pantalla = "chat"
+                        },
+                    )
+                    "chat" -> PantallaPendiente(chatAbierto?.usuario ?: "chat")
                     else -> PantallaPendiente(pantalla)
                 }
             }

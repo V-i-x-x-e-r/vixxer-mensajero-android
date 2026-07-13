@@ -1,6 +1,7 @@
 package dev.vixxer.mensajero.nucleo
 
 import org.json.JSONArray
+import org.json.JSONObject
 
 class CacheChats(private val almacen: Almacen)
 {
@@ -32,18 +33,34 @@ class CacheChats(private val almacen: Almacen)
         almacen.borrar(claveChat(otroId))
     }
 
-    fun leerLista(): JSONArray? = arregloDe(almacen.leer("vixxer_lista_chats"))
+    fun leerLista(): JSONObject? = objetoJson(almacen.leer("vixxer_lista_chats"))
 
-    fun guardarLista(datos: JSONArray)
+    fun guardarLista(datos: JSONObject)
     {
         almacen.escribir("vixxer_lista_chats", datos.toString())
     }
 
-    fun leerGrupos(): JSONArray? = arregloDe(almacen.leer("vixxer_lista_grupos"))
+    fun leerGrupos(): JSONObject? = objetoJson(almacen.leer("vixxer_lista_grupos"))
 
-    fun guardarGrupos(datos: JSONArray)
+    fun guardarGrupos(datos: JSONObject)
     {
         almacen.escribir("vixxer_lista_grupos", datos.toString())
+    }
+
+    private fun objetoJson(crudo: String?): JSONObject?
+    {
+        if (crudo == null)
+        {
+            return null
+        }
+        return try
+        {
+            JSONObject(crudo)
+        }
+        catch (e: Exception)
+        {
+            null
+        }
     }
 
     private fun arregloDe(crudo: String?): JSONArray?
