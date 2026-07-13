@@ -3,6 +3,7 @@ package dev.vixxer.mensajero.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
@@ -27,20 +28,59 @@ object Vidrio
     val anchoBorde = 0.7.dp
 }
 
+@Composable
 fun Modifier.panelVidrio(radio: Dp = Vidrio.radioPanel, fuerte: Boolean = false): Modifier
 {
+    val tema = LocalTema.current
     val forma = RoundedCornerShape(radio)
+    if (tema.oscuro)
+    {
+        return this
+            .background(if (fuerte) Vidrio.fondoFuerte else Vidrio.fondoPanel, forma)
+            .border(Vidrio.anchoBorde, Vidrio.borde, forma)
+    }
+    val colores = tema.colores
     return this
-        .shadow(if (fuerte) 18.dp else 14.dp, forma, ambientColor = Vidrio.sombra, spotColor = Vidrio.sombra)
-        .background(if (fuerte) Vidrio.fondoFuerte else Vidrio.fondoPanel, forma)
-        .border(Vidrio.anchoBorde, Vidrio.borde, forma)
+        .shadow(if (fuerte) 10.dp else 6.dp, forma, ambientColor = Vidrio.sombra, spotColor = Vidrio.sombra)
+        .background(colores.surface, forma)
+        .border(Vidrio.anchoBorde, colores.borde, forma)
 }
 
+@Composable
 fun Modifier.pildoraVidrio(): Modifier
 {
+    val tema = LocalTema.current
     val forma = RoundedCornerShape(Vidrio.radioPildora)
+    if (tema.oscuro)
+    {
+        return this
+            .background(Vidrio.fondoOsd, forma)
+            .border(Vidrio.anchoBorde, Vidrio.borde, forma)
+    }
+    val colores = tema.colores
     return this
-        .shadow(14.dp, forma, ambientColor = Vidrio.sombra, spotColor = Vidrio.sombra)
-        .background(Vidrio.fondoPanel, forma)
-        .border(Vidrio.anchoBorde, Vidrio.borde, forma)
+        .shadow(10.dp, forma, ambientColor = Vidrio.sombra, spotColor = Vidrio.sombra)
+        .background(colores.surface, forma)
+        .border(Vidrio.anchoBorde, colores.borde, forma)
+}
+
+@Composable
+fun colorPestanaActiva(): Color
+{
+    val tema = LocalTema.current
+    return if (tema.oscuro) Vidrio.activo else tema.colores.texto
+}
+
+@Composable
+fun colorPestanaInactiva(): Color
+{
+    val tema = LocalTema.current
+    return if (tema.oscuro) Vidrio.ocupado else tema.colores.muted
+}
+
+@Composable
+fun colorBrilloPestana(): Color
+{
+    val tema = LocalTema.current
+    return if (tema.oscuro) Vidrio.brillo else tema.colores.borde
 }
