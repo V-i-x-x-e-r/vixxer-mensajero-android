@@ -3,11 +3,13 @@ package dev.vixxer.mensajero.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,7 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -35,8 +37,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -49,11 +55,13 @@ import dev.vixxer.mensajero.nucleo.ConexionSocket
 import dev.vixxer.mensajero.nucleo.Cripto
 import dev.vixxer.mensajero.nucleo.Efimero
 import dev.vixxer.mensajero.nucleo.Fechas
+import dev.vixxer.mensajero.nucleo.Fijados
+import dev.vixxer.mensajero.nucleo.Ocultos
 import dev.vixxer.mensajero.nucleo.Resumen
 import dev.vixxer.mensajero.nucleo.TemporizadorEfimero
 import io.socket.client.Ack
-import io.socket.emitter.Emitter
 import io.socket.client.Socket
+import io.socket.emitter.Emitter
 import java.time.Instant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -74,6 +82,7 @@ data class Mensaje(
     val editado: Boolean = false,
     val borrado: Boolean = false,
     val respuestaTexto: String? = null,
+    val reacciones: Map<String, String> = emptyMap(),
 )
 
 private fun mensajeDeJson(m: JSONObject): Mensaje = Mensaje(
@@ -138,12 +147,19 @@ private fun textoVisible(texto: String?): String
     return texto
 }
 
+private fun reaccionesDe(data: JSONObject): Map<String, String>
+{
+    val obj = data.optJSONObject("reacciones") ?: return emptyMap()
+    return obj.keys().asSequence().associateWith { obj.optString(it) }
+}
+
 @Composable
 fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
 {
     val tema = LocalTema.current
     val colores = tema.colores
     val alcance = rememberCoroutineScope()
+    val portapapeles = LocalClipboardManager.current
     val otroId = amigo.id
     var mensajes by remember { mutableStateOf(listOf<Mensaje>()) }
     var texto by remember { mutableStateOf("") }
@@ -154,11 +170,39 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
     var hayMas by remember { mutableStateOf(true) }
     var masCargando by remember { mutableStateOf(false) }
     var miId by remember { mutableStateOf("") }
+    var sel by remember { mutableStateOf<AccionesDe<Mensaje>?>(null) }
+    var respondiendo by remember { mutableStateOf<Mensaje?>(null) }
+    var editando by remember { mutableStateOf<Mensaje?>(null) }
+    var reenviando by remember { mutableStateOf<Mensaje?>(null) }
+    var seleccionando by remember { mutableStateOf(false) }
+    var seleccionados by remember { mutableStateOf(listOf<String>()) }
+    var buscando by remember { mutableStateOf(false) }
+    var consulta by remember { mutableStateOf("") }
+    var fijados by remember { mutableStateOf(listOf<Fijados.Fijado>()) }
+    var indiceFijado by remember { mutableStateOf(0) }
+    var ocultos by remember { mutableStateOf(setOf<String>()) }
+    var pickerTemp by remember { mutableStateOf(false) }
+    var nuevosAbajo by remember { mutableStateOf(0) }
     val listaEstado = rememberLazyListState()
     val escribiendoJob = remember { arrayOf<Job?>(null) }
     val apagarEscribiendo = remember { arrayOf<Job?>(null) }
     val purgados = remember { HashSet<String>() }
     val claveBorrador = "chat-$otroId"
+
+    val visibles = remember(mensajes, ocultos, buscando, consulta) {
+        val sinOcultos = if (ocultos.isEmpty()) mensajes else mensajes.filter { !ocultos.contains(it.id) }
+        if (buscando && consulta.trim().isNotEmpty())
+        {
+            sinOcultos.filter { m ->
+                val t = m.texto ?: return@filter false
+                !t.startsWith("{") && t.lowercase().contains(consulta.trim().lowercase())
+            }
+        }
+        else
+        {
+            sinOcultos
+        }
+    }
 
     fun guardarCache(lista: List<Mensaje>)
     {
@@ -195,9 +239,8 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
     {
         val priv = app.boveda.leer(ClavesSeguras.CLAVE_PRIVADA) ?: ""
         var pub = app.llaves.llavePublicaDe(otroId)
-        val salida = ArrayList<Mensaje>()
-        var falto = false
         val textos = arrayOfNulls<String>(filas.length())
+        var falto = false
         for (i in 0 until filas.length())
         {
             val f = filas.getJSONObject(i)
@@ -215,6 +258,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
         {
             pub = app.llaves.llavePublicaDe(otroId, forzar = true)
         }
+        val salida = ArrayList<Mensaje>()
         for (i in 0 until filas.length())
         {
             val f = filas.getJSONObject(i)
@@ -230,6 +274,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
                 leido = !f.isNull("leido_en"),
                 editado = f.optBoolean("editado"),
                 borrado = borrado,
+                reacciones = reaccionesDe(f),
             ))
         }
         return salida
@@ -288,18 +333,10 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
         {
             val descifrados = withContext(Dispatchers.IO) {
                 val filas = app.api.historial(otroId) as JSONArray
-                val lote = descifrarLote(filas)
-                Pair(filas.length(), lote)
+                Pair(filas.length(), descifrarLote(filas))
             }
             val extras = mensajes.filter { m -> m.id.startsWith("local-") && descifrados.second.none { it.id == m.id } }
-            val lista = if (extras.isNotEmpty())
-            {
-                (descifrados.second + extras).sortedBy { it.enviadoEn }
-            }
-            else
-            {
-                descifrados.second
-            }
+            val lista = if (extras.isNotEmpty()) (descifrados.second + extras).sortedBy { it.enviadoEn } else descifrados.second
             mensajes = lista
             withContext(Dispatchers.IO) { guardarCache(lista) }
             hayMas = descifrados.first >= 50
@@ -322,17 +359,9 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
         }
     }
 
-    fun enviar()
+    fun mandar(plano: String)
     {
-        val limpio = texto.trim()
-        if (limpio.isEmpty())
-        {
-            return
-        }
-        escribiendoJob[0]?.cancel()
-        ConexionSocket.obtener()?.emit("usuario:escribiendo", JSONObject().put("para", otroId).put("activo", false))
-        texto = ""
-        val plano = if (temporizador > 0) Efimero.envolver(limpio, temporizador) else limpio
+        val resp = respondiendo
         alcance.launch {
             val item = withContext(Dispatchers.IO) {
                 val priv = app.boveda.leer(ClavesSeguras.CLAVE_PRIVADA) ?: return@withContext null
@@ -342,8 +371,9 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
                     .put("localId", "local-${System.currentTimeMillis()}")
                     .put("contenidoCifrado", contenidoCifrado)
                     .put("nonce", nonce)
-                    .put("respuestaA", JSONObject.NULL)
+                    .put("respuestaA", resp?.id ?: JSONObject.NULL)
                     .put("texto", plano)
+                    .put("respuestaTexto", resp?.texto?.let { Resumen.resumenMensaje(it) } ?: JSONObject.NULL)
                     .put("enviado_en", Instant.now().toString())
                 app.outbox.agregar(otroId, nuevo)
                 nuevo
@@ -354,10 +384,46 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
                 texto = plano,
                 enviadoEn = item.getString("enviado_en"),
                 estado = "enviando",
+                respuestaTexto = if (item.isNull("respuestaTexto")) null else item.optString("respuestaTexto"),
             )
+            respondiendo = null
             listaEstado.animateScrollToItem(maxOf(0, mensajes.size - 1))
             intentarEnviar(item)
         }
+    }
+
+    fun enviar()
+    {
+        val limpio = texto.trim()
+        if (limpio.isEmpty())
+        {
+            return
+        }
+        val objetivo = editando
+        if (objetivo != null)
+        {
+            alcance.launch {
+                val socket = ConexionSocket.obtener() ?: return@launch
+                withContext(Dispatchers.IO) {
+                    val priv = app.boveda.leer(ClavesSeguras.CLAVE_PRIVADA) ?: return@withContext
+                    val pub = app.llaves.llavePublicaDe(otroId)
+                    val (contenidoCifrado, nonce) = Cripto.cifrarTexto(limpio, pub, priv)
+                    socket.emit("mensaje:editar", JSONObject()
+                        .put("id", objetivo.id)
+                        .put("destinatarioId", otroId)
+                        .put("contenidoCifrado", contenidoCifrado)
+                        .put("nonce", nonce))
+                }
+                mensajes = mensajes.map { if (it.id == objetivo.id) it.copy(texto = limpio, editado = true) else it }
+                editando = null
+                texto = ""
+            }
+            return
+        }
+        escribiendoJob[0]?.cancel()
+        ConexionSocket.obtener()?.emit("usuario:escribiendo", JSONObject().put("para", otroId).put("activo", false))
+        texto = ""
+        mandar(if (temporizador > 0) Efimero.envolver(limpio, temporizador) else limpio)
     }
 
     fun reintentar(mensaje: Mensaje)
@@ -369,6 +435,103 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
         }
     }
 
+    fun reaccionar(mensaje: Mensaje, emoji: String)
+    {
+        sel = null
+        ConexionSocket.obtener()?.emit("mensaje:reaccionar", JSONObject().put("id", mensaje.id).put("emoji", emoji))
+        mensajes = mensajes.map { m ->
+            if (m.id != mensaje.id)
+            {
+                m
+            }
+            else
+            {
+                val r = m.reacciones.toMutableMap()
+                if (r[miId] == emoji)
+                {
+                    r.remove(miId)
+                }
+                else
+                {
+                    r[miId] = emoji
+                }
+                m.copy(reacciones = r)
+            }
+        }
+    }
+
+    fun copiar(mensaje: Mensaje)
+    {
+        sel = null
+        val texto = mensaje.texto ?: return
+        val efimero = Efimero.leerEfimero(texto)
+        portapapeles.setText(AnnotatedString(efimero?.m ?: texto))
+    }
+
+    fun borrar(mensaje: Mensaje)
+    {
+        sel = null
+        ConexionSocket.obtener()?.emit("mensaje:borrar", JSONObject().put("id", mensaje.id))
+        mensajes = mensajes.map { if (it.id == mensaje.id) it.copy(texto = null, borrado = true) else it }
+        if (fijados.any { it.id == mensaje.id })
+        {
+            fijados = Fijados(app.estado).quitar(otroId, mensaje.id)
+        }
+    }
+
+    fun borrarLocal(mensaje: Mensaje)
+    {
+        sel = null
+        alcance.launch {
+            ocultos = withContext(Dispatchers.IO) { Ocultos(app.estado).ocultar(otroId, mensaje.id) }
+        }
+    }
+
+    fun fijar(mensaje: Mensaje)
+    {
+        sel = null
+        fijados = Fijados(app.estado).alternar(otroId, Fijados.Fijado(mensaje.id, mensaje.texto, mensaje.remitenteId))
+    }
+
+    fun hacerReenvio(destino: Amigo)
+    {
+        val objetivo = reenviando ?: return
+        reenviando = null
+        val plano = objetivo.texto ?: return
+        alcance.launch {
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    val priv = app.boveda.leer(ClavesSeguras.CLAVE_PRIVADA) ?: return@runCatching
+                    val pub = app.llaves.llavePublicaDe(destino.id)
+                    val (contenidoCifrado, nonce) = Cripto.cifrarTexto(plano, pub, priv)
+                    ConexionSocket.obtener()?.emit("mensaje:enviar", JSONObject()
+                        .put("destinatarioId", destino.id)
+                        .put("contenidoCifrado", contenidoCifrado)
+                        .put("nonce", nonce)
+                        .put("respuestaA", JSONObject.NULL))
+                }
+            }
+        }
+    }
+
+    fun irAFijado()
+    {
+        if (fijados.isEmpty())
+        {
+            return
+        }
+        val actual = fijados[indiceFijado % fijados.size]
+        val idx = visibles.indexOfFirst { it.id == actual.id }
+        if (idx >= 0)
+        {
+            alcance.launch { listaEstado.animateScrollToItem(idx) }
+        }
+        if (fijados.size > 1)
+        {
+            indiceFijado = (indiceFijado + 1) % fijados.size
+        }
+    }
+
     LaunchedEffect(otroId) {
         val datos = withContext(Dispatchers.IO) {
             val mi = app.boveda.leer(ClavesSeguras.MI_ID) ?: ""
@@ -377,11 +540,15 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
             val aliasGuardado = app.aliasLocal.de(otroId)
             val temp = TemporizadorEfimero(app.estado).leer(otroId)
             val pendientes = app.outbox.leer(otroId)
-            Triple(Triple(mi, cache, borrador), Pair(aliasGuardado, temp), pendientes)
+            val fij = Fijados(app.estado).leer(otroId)
+            val ocul = Ocultos(app.estado).leer(otroId)
+            Triple(Triple(mi, cache, borrador), Triple(aliasGuardado, temp, pendientes), Pair(fij, ocul))
         }
         miId = datos.first.first
         aliasNombre = datos.second.first
         temporizador = datos.second.second
+        fijados = datos.third.first
+        ocultos = datos.third.second
         if (datos.first.third.isNotEmpty())
         {
             texto = datos.first.third
@@ -391,7 +558,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
         {
             mensajes = (0 until cache.length()).map { mensajeDeJson(cache.getJSONObject(it)) }
         }
-        val pendientes = datos.third
+        val pendientes = datos.second.third
         if (pendientes.isNotEmpty())
         {
             val existentes = mensajes.map { it.id }.toSet()
@@ -402,6 +569,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
                     texto = it.optString("texto"),
                     enviadoEn = it.optString("enviado_en"),
                     estado = "enviando",
+                    respuestaTexto = if (it.isNull("respuestaTexto")) null else it.optString("respuestaTexto"),
                 )
             }
             pendientes.forEach { intentarEnviar(it) }
@@ -463,7 +631,16 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
                     {
                         mensajes = mensajes + nuevo
                         marcarLeidos(listOf(nuevo))
-                        listaEstado.animateScrollToItem(maxOf(0, mensajes.size - 1))
+                        val info = listaEstado.layoutInfo
+                        val lejos = info.visibleItemsInfo.lastOrNull()?.index ?: 0 < mensajes.size - 4
+                        if (lejos)
+                        {
+                            nuevosAbajo += 1
+                        }
+                        else
+                        {
+                            listaEstado.animateScrollToItem(maxOf(0, mensajes.size - 1))
+                        }
                     }
                 }
             }
@@ -523,6 +700,15 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
                 }
             }
         }
+        val alReaccion = Emitter.Listener { args ->
+            val data = args.getOrNull(0) as? JSONObject
+            if (data != null)
+            {
+                mensajes = mensajes.map {
+                    if (it.id == data.optString("id")) it.copy(reacciones = reaccionesDe(data)) else it
+                }
+            }
+        }
         val alConectar = Emitter.Listener { vaciarOutbox() }
         socket?.on("mensaje:recibido", alRecibir)
         socket?.on("usuario:escribiendo", alEscribir)
@@ -530,6 +716,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
         socket?.on("mensaje:leido", alEstado)
         socket?.on("mensaje:editado", alEditado)
         socket?.on("mensaje:borrado", alBorrado)
+        socket?.on("mensaje:reaccion", alReaccion)
         socket?.on(Socket.EVENT_CONNECT, alConectar)
         onDispose {
             socket?.off("mensaje:recibido", alRecibir)
@@ -538,24 +725,32 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
             socket?.off("mensaje:leido", alEstado)
             socket?.off("mensaje:editado", alEditado)
             socket?.off("mensaje:borrado", alBorrado)
+            socket?.off("mensaje:reaccion", alReaccion)
             socket?.off(Socket.EVENT_CONNECT, alConectar)
         }
     }
 
     LaunchedEffect(texto) {
-        delay(250)
-        withContext(Dispatchers.IO) {
-            app.borradores.guardar(claveBorrador, JSONObject().put("texto", texto).put("audio", JSONObject.NULL))
+        if (editando == null)
+        {
+            delay(250)
+            withContext(Dispatchers.IO) {
+                app.borradores.guardar(claveBorrador, JSONObject().put("texto", texto).put("audio", JSONObject.NULL))
+            }
         }
     }
 
     LaunchedEffect(listaEstado) {
         snapshotFlow { listaEstado.firstVisibleItemIndex }.collect { indice ->
-            if (indice <= 1 && hayMas && !masCargando && mensajes.isNotEmpty())
+            val ultimo = listaEstado.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            if (ultimo >= mensajes.size - 2)
+            {
+                nuevosAbajo = 0
+            }
+            if (indice <= 1 && hayMas && !masCargando && mensajes.isNotEmpty() && !buscando)
             {
                 masCargando = true
-                try
-                {
+                runCatching {
                     val primero = mensajes.first().enviadoEn
                     val lote = withContext(Dispatchers.IO) {
                         val filas = app.api.historial(otroId, primero) as JSONArray
@@ -574,13 +769,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
                         }
                     }
                 }
-                catch (e: Exception)
-                {
-                }
-                finally
-                {
-                    masCargando = false
-                }
+                masCargando = false
             }
         }
     }
@@ -593,111 +782,472 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
         presencia?.isNull("ultima_conexion") == false -> "últ. vez ${Fechas.hora(presencia?.optString("ultima_conexion"))}"
         else -> null
     }
+    val fijadoActual = if (fijados.isEmpty()) null else fijados[indiceFijado % fijados.size]
 
-    Column(modifier = Modifier.fillMaxSize().background(colores.fondo).statusBarsPadding().imePadding()) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        )
+    Box(modifier = Modifier.fillMaxSize().background(colores.fondo)) {
+        Column(modifier = Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
+            if (buscando)
+            {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                )
+                {
+                    Text(
+                        "‹",
+                        fontSize = 26.sp,
+                        color = colores.texto,
+                        modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                            buscando = false
+                            consulta = ""
+                        },
+                    )
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(colores.surface, RoundedCornerShape(20.dp))
+                            .border(Vidrio.anchoBorde, colores.borde, RoundedCornerShape(20.dp))
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                    )
+                    {
+                        if (consulta.isEmpty())
+                        {
+                            Text("Buscar en el chat", fontSize = 14.sp, color = colores.placeholder)
+                        }
+                        BasicTextField(
+                            value = consulta,
+                            onValueChange = { consulta = it },
+                            singleLine = true,
+                            textStyle = TextStyle(fontSize = 14.sp, color = colores.texto),
+                            cursorBrush = SolidColor(colores.texto),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+            }
+            else
+            {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                )
+                {
+                    Text(
+                        "‹",
+                        fontSize = 26.sp,
+                        color = colores.texto,
+                        modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alVolver() },
+                    )
+                    Avatar(nombre = nombre, uri = amigo.avatarUrl.ifEmpty { null }, tamano = 32.dp)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(nombre, fontSize = 16.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.SemiBold, color = colores.texto)
+                        if (sub != null)
+                        {
+                            Text(sub, fontSize = 12.sp, color = colores.muted)
+                        }
+                    }
+                    Box(modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { buscando = true }) {
+                        Lupa(color = colores.texto, tamano = 20.dp)
+                    }
+                    Box(modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { pickerTemp = true }) {
+                        Kebab(color = if (temporizador > 0) colores.botonFondo else colores.texto)
+                    }
+                }
+            }
+
+            if (fijadoActual != null && !buscando)
+            {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp)
+                        .panelVidrio(radio = 12.dp)
+                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { irAFijado() }
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                )
+                {
+                    Pin(color = colores.muted, tamano = 16.dp)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Mensaje fijado${if (fijados.size > 1) " · ${(indiceFijado % fijados.size) + 1}/${fijados.size}" else ""}",
+                            fontSize = 11.sp,
+                            fontFamily = FuenteOutfit,
+                            fontWeight = FontWeight.Medium,
+                            color = colores.muted,
+                        )
+                        Text(
+                            textoVisible(fijadoActual.texto),
+                            fontSize = 13.sp,
+                            color = colores.texto,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+
+            LazyColumn(
+                state = listaEstado,
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            )
+            {
+                itemsIndexed(visibles, key = { _, m -> m.id }) { _, m ->
+                    val mio = m.remitenteId == miId
+                    var limites by remember { mutableStateOf(Rect.Zero) }
+                    Box(modifier = Modifier.onGloballyPositioned { limites = it.boundsInRoot() }) {
+                        Burbuja(
+                            m = m,
+                            mio = mio,
+                            colores = colores,
+                            miId = miId,
+                            seleccionando = seleccionando,
+                            seleccionado = seleccionados.contains(m.id),
+                            alReintentar = { reintentar(m) },
+                            alPulsar = {
+                                if (seleccionando)
+                                {
+                                    seleccionados = if (seleccionados.contains(m.id)) seleccionados - m.id else seleccionados + m.id
+                                }
+                            },
+                            alMantener = {
+                                if (!seleccionando && !m.borrado)
+                                {
+                                    sel = AccionesDe(m, limites)
+                                }
+                            },
+                        )
+                    }
+                }
+                item {
+                    Box(modifier = Modifier.padding(bottom = 2.dp))
+                }
+            }
+
+            if (seleccionando)
+            {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                )
+                {
+                    Text(
+                        "✕",
+                        fontSize = 18.sp,
+                        color = colores.texto,
+                        modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                            seleccionando = false
+                            seleccionados = emptyList()
+                        },
+                    )
+                    Text(
+                        "${seleccionados.size}",
+                        fontSize = 16.sp,
+                        fontFamily = FuenteOutfit,
+                        fontWeight = FontWeight.SemiBold,
+                        color = colores.texto,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Box(modifier = Modifier.clickable(enabled = seleccionados.isNotEmpty(), indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                        alcance.launch {
+                            withContext(Dispatchers.IO) {
+                                val almacen = Ocultos(app.estado)
+                                var set = ocultos
+                                for (id in seleccionados)
+                                {
+                                    set = almacen.ocultar(otroId, id)
+                                }
+                                ocultos = set
+                            }
+                            seleccionando = false
+                            seleccionados = emptyList()
+                        }
+                    }) {
+                        Bote(color = colores.error, tamano = 22.dp)
+                    }
+                }
+            }
+            else if (!buscando)
+            {
+                Column {
+                    val resp = respondiendo
+                    if (resp != null)
+                    {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp)
+                                .panelVidrio(radio = 12.dp)
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        )
+                        {
+                            Text(
+                                "Respondiendo: ${Resumen.resumenMensaje(resp.texto)}",
+                                fontSize = 13.sp,
+                                color = colores.muted,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Text(
+                                "✕",
+                                fontSize = 16.sp,
+                                color = colores.muted,
+                                modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { respondiendo = null },
+                            )
+                        }
+                    }
+                    if (editando != null)
+                    {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp)
+                                .panelVidrio(radio = 12.dp)
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        )
+                        {
+                            Text("Editando mensaje", fontSize = 13.sp, color = colores.muted)
+                            Text(
+                                "✕",
+                                fontSize = 16.sp,
+                                color = colores.muted,
+                                modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                                    editando = null
+                                    texto = ""
+                                },
+                            )
+                        }
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.Bottom,
+                    )
+                    {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .background(colores.surface, RoundedCornerShape(22.dp))
+                                .border(Vidrio.anchoBorde, colores.borde, RoundedCornerShape(22.dp))
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                        )
+                        {
+                            if (texto.isEmpty())
+                            {
+                                Text("Mensaje", fontSize = 15.sp, color = colores.placeholder)
+                            }
+                            BasicTextField(
+                                value = texto,
+                                onValueChange = { escribir(it) },
+                                textStyle = TextStyle(fontSize = 15.sp, color = colores.texto),
+                                cursorBrush = SolidColor(colores.texto),
+                                maxLines = 5,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(colores.botonFondo, CircleShape)
+                                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { enviar() },
+                            contentAlignment = Alignment.Center,
+                        )
+                        {
+                            Text("➤", fontSize = 18.sp, color = colores.botonTexto)
+                        }
+                    }
+                }
+            }
+        }
+
+        if (nuevosAbajo > 0)
         {
             Text(
-                "‹",
-                fontSize = 26.sp,
-                color = colores.texto,
-                modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alVolver() },
+                "↓ $nuevosAbajo",
+                fontSize = 13.sp,
+                fontFamily = FuenteOutfit,
+                fontWeight = FontWeight.SemiBold,
+                color = colores.botonTexto,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 16.dp, bottom = 100.dp)
+                    .background(colores.botonFondo, RoundedCornerShape(20.dp))
+                    .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                        nuevosAbajo = 0
+                        alcance.launch { listaEstado.animateScrollToItem(maxOf(0, visibles.size - 1)) }
+                    }
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
             )
-            Avatar(nombre = nombre, uri = amigo.avatarUrl.ifEmpty { null }, tamano = 32.dp)
-            Column {
-                Text(nombre, fontSize = 16.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.SemiBold, color = colores.texto)
-                if (sub != null)
-                {
-                    Text(sub, fontSize = 12.sp, color = colores.muted)
-                }
-            }
         }
 
-        LazyColumn(
-            state = listaEstado,
-            modifier = Modifier.weight(1f).fillMaxWidth(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+        AccionesMensaje(
+            sel = sel,
+            esMio = sel?.mensaje?.remitenteId == miId,
+            fijado = sel?.mensaje?.let { m -> fijados.any { it.id == m.id } } ?: false,
+            alReaccionar = { m, e -> reaccionar(m, e) },
+            alResponder = { m ->
+                sel = null
+                respondiendo = m
+                editando = null
+            },
+            alReenviar = { m ->
+                sel = null
+                reenviando = m
+            },
+            alSeleccionar = { m ->
+                sel = null
+                seleccionando = true
+                seleccionados = listOf(m.id)
+            },
+            alCopiar = { copiar(it) },
+            alEditar = { m ->
+                sel = null
+                editando = m
+                respondiendo = null
+                texto = Efimero.leerEfimero(m.texto)?.m ?: (m.texto ?: "")
+            },
+            alFijar = { fijar(it) },
+            alBorrar = { borrar(it) },
+            alBorrarLocal = { borrarLocal(it) },
+            alCerrar = { sel = null },
         )
-        {
-            items(mensajes, key = { it.id }) { m ->
-                Burbuja(m, m.remitenteId == miId, colores, alReintentar = { reintentar(m) })
-            }
-        }
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.Bottom,
+        SelectorContacto(
+            app = app,
+            visible = reenviando != null,
+            titulo = "Reenviar a",
+            alElegir = { hacerReenvio(it) },
+            alCerrar = { reenviando = null },
         )
+
+        if (pickerTemp)
         {
             Box(
                 modifier = Modifier
-                    .weight(1f)
-                    .background(colores.surface, RoundedCornerShape(22.dp))
-                    .border(1.dp, colores.borde, RoundedCornerShape(22.dp))
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .fillMaxSize()
+                    .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.35f))
+                    .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { pickerTemp = false },
+                contentAlignment = Alignment.BottomCenter,
             )
             {
-                if (texto.isEmpty())
-                {
-                    Text("Mensaje", fontSize = 15.sp, color = colores.placeholder)
-                }
-                BasicTextField(
-                    value = texto,
-                    onValueChange = { escribir(it) },
-                    textStyle = TextStyle(fontSize = 15.sp, color = colores.texto),
-                    cursorBrush = SolidColor(colores.texto),
-                    maxLines = 5,
-                    modifier = Modifier.fillMaxWidth(),
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .panelVidrio(radio = 20.dp, fuerte = true)
+                        .navigationBarsPadding()
+                        .padding(top = 8.dp, bottom = 28.dp),
                 )
-            }
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .background(colores.botonFondo, CircleShape)
-                    .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { enviar() },
-                contentAlignment = Alignment.Center,
-            )
-            {
-                Text("➤", fontSize = 18.sp, color = colores.botonTexto)
+                {
+                    Text(
+                        "MENSAJES TEMPORALES",
+                        fontSize = 12.sp,
+                        fontFamily = FuenteOutfit,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 1.sp,
+                        color = colores.muted,
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                    )
+                    for (opcion in Efimero.OPCIONES)
+                    {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                                    pickerTemp = false
+                                    if (opcion.valor != temporizador)
+                                    {
+                                        temporizador = opcion.valor
+                                        alcance.launch(Dispatchers.IO) {
+                                            TemporizadorEfimero(app.estado).guardar(otroId, opcion.valor)
+                                        }
+                                        mandar(Efimero.envolverAviso(opcion.valor))
+                                    }
+                                }
+                                .padding(vertical = 14.dp, horizontal = 24.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        )
+                        {
+                            Text(opcion.etiqueta, fontSize = 16.sp, color = colores.texto)
+                            if (temporizador == opcion.valor)
+                            {
+                                Check(color = colores.botonFondo, tamano = 18.dp)
+                            }
+                        }
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun Burbuja(m: Mensaje, mio: Boolean, colores: Paleta, alReintentar: () -> Unit)
+private fun Burbuja(
+    m: Mensaje,
+    mio: Boolean,
+    colores: Paleta,
+    miId: String,
+    seleccionando: Boolean,
+    seleccionado: Boolean,
+    alReintentar: () -> Unit,
+    alPulsar: () -> Unit,
+    alMantener: () -> Unit,
+)
 {
+    val aviso = Efimero.leerAviso(m.texto)
+    if (aviso != null)
+    {
+        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Text(
+                Efimero.textoAviso(aviso.d),
+                fontSize = 12.sp,
+                color = colores.muted,
+                modifier = Modifier
+                    .background(colores.surface, RoundedCornerShape(12.dp))
+                    .padding(horizontal = 12.dp, vertical = 5.dp),
+            )
+        }
+        return
+    }
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val anchoMax = maxWidth * 0.8f
         Column(
             modifier = Modifier
-                .widthIn(max = anchoMax)
                 .align(if (mio) Alignment.CenterEnd else Alignment.CenterStart)
-                .background(
-                    if (mio) colores.botonFondo else colores.surface,
-                    RoundedCornerShape(16.dp),
-                )
-                .then(if (mio) Modifier else Modifier.border(1.dp, colores.borde, RoundedCornerShape(16.dp)))
-                .padding(horizontal = 14.dp, vertical = 9.dp),
+                .background(if (seleccionado) colores.borde else androidx.compose.ui.graphics.Color.Transparent, RoundedCornerShape(12.dp)),
         )
         {
-            if (m.respuestaTexto != null)
+            Column(
+                modifier = Modifier
+                    .widthIn(max = anchoMax)
+                    .background(if (mio) colores.botonFondo else colores.surface, RoundedCornerShape(16.dp))
+                    .then(if (mio) Modifier else Modifier.border(Vidrio.anchoBorde, colores.borde, RoundedCornerShape(16.dp)))
+                    .combinedClickable(
+                        indication = null,
+                        interactionSource = remember { MutableInteractionSource() },
+                        onClick = { alPulsar() },
+                        onLongClick = { alMantener() },
+                    )
+                    .padding(horizontal = 14.dp, vertical = 9.dp),
+            )
             {
-                Row(
-                    modifier = Modifier
-                        .padding(bottom = 6.dp)
-                        .border(0.dp, Color.Transparent)
-                        .padding(start = 8.dp),
-                )
+                if (m.respuestaTexto != null)
                 {
                     Text(
                         m.respuestaTexto,
@@ -705,63 +1255,85 @@ private fun Burbuja(m: Mensaje, mio: Boolean, colores: Paleta, alReintentar: () 
                         color = if (mio) colores.botonTexto.copy(alpha = 0.8f) else colores.muted,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(start = 8.dp, bottom = 6.dp),
                     )
                 }
-            }
-            if (m.borrado)
-            {
-                Text(
-                    "Este mensaje fue eliminado",
-                    fontSize = 15.sp,
-                    fontStyle = FontStyle.Italic,
-                    color = (if (mio) colores.botonTexto else colores.muted).copy(alpha = 0.8f),
-                )
-            }
-            else
-            {
-                Text(
-                    textoVisible(m.texto),
-                    fontSize = 15.sp,
-                    color = if (mio) colores.botonTexto else colores.texto,
-                )
-            }
-            Row(
-                modifier = Modifier.align(Alignment.End).padding(top = 3.dp),
-                horizontalArrangement = Arrangement.spacedBy(5.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            )
-            {
-                if (m.editado)
+                if (m.borrado)
                 {
                     Text(
-                        "editado",
-                        fontSize = 10.sp,
+                        "Este mensaje fue eliminado",
+                        fontSize = 15.sp,
                         fontStyle = FontStyle.Italic,
-                        color = (if (mio) colores.botonTexto else colores.texto).copy(alpha = 0.7f),
+                        color = (if (mio) colores.botonTexto else colores.muted).copy(alpha = 0.8f),
                     )
                 }
-                Text(
-                    Fechas.hora(m.enviadoEn),
-                    fontSize = 10.sp,
-                    color = (if (mio) colores.botonTexto else colores.texto).copy(alpha = 0.7f),
-                )
-                if (mio)
+                else
                 {
-                    when (m.estado)
+                    Text(
+                        textoVisible(m.texto),
+                        fontSize = 15.sp,
+                        color = if (mio) colores.botonTexto else colores.texto,
+                    )
+                }
+                Row(
+                    modifier = Modifier.align(Alignment.End).padding(top = 3.dp),
+                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                )
+                {
+                    if (m.editado)
                     {
-                        "enviando" -> Text("…", fontSize = 10.sp, color = colores.botonTexto.copy(alpha = 0.7f))
-                        "fallido" -> Text(
-                            "Reintentar",
+                        Text(
+                            "editado",
                             fontSize = 10.sp,
-                            fontFamily = FuenteOutfit,
-                            fontWeight = FontWeight.Medium,
-                            color = colores.error,
-                            modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alReintentar() },
+                            fontStyle = FontStyle.Italic,
+                            color = (if (mio) colores.botonTexto else colores.texto).copy(alpha = 0.7f),
                         )
-                        else -> Visto(
-                            color = if (m.leido) colores.botonTexto else colores.botonTexto.copy(alpha = 0.5f),
-                            dos = m.entregado || m.leido,
-                            tamano = 13.dp,
+                    }
+                    Text(
+                        Fechas.hora(m.enviadoEn),
+                        fontSize = 10.sp,
+                        color = (if (mio) colores.botonTexto else colores.texto).copy(alpha = 0.7f),
+                    )
+                    if (mio)
+                    {
+                        when (m.estado)
+                        {
+                            "enviando" -> Text("…", fontSize = 10.sp, color = colores.botonTexto.copy(alpha = 0.7f))
+                            "fallido" -> Text(
+                                "Reintentar",
+                                fontSize = 10.sp,
+                                fontFamily = FuenteOutfit,
+                                fontWeight = FontWeight.Medium,
+                                color = colores.error,
+                                modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alReintentar() },
+                            )
+                            else -> Visto(
+                                color = if (m.leido) colores.botonTexto else colores.botonTexto.copy(alpha = 0.5f),
+                                dos = m.entregado || m.leido,
+                                tamano = 13.dp,
+                            )
+                        }
+                    }
+                }
+            }
+            if (m.reacciones.isNotEmpty())
+            {
+                val grupos = m.reacciones.values.groupingBy { it }.eachCount()
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.align(if (mio) Alignment.End else Alignment.Start).padding(top = 3.dp),
+                )
+                {
+                    for ((emoji, n) in grupos)
+                    {
+                        Text(
+                            if (n > 1) "$emoji $n" else emoji,
+                            fontSize = 12.sp,
+                            modifier = Modifier
+                                .background(colores.surface, RoundedCornerShape(12.dp))
+                                .border(Vidrio.anchoBorde, colores.borde, RoundedCornerShape(12.dp))
+                                .padding(horizontal = 7.dp, vertical = 2.dp),
                         )
                     }
                 }
