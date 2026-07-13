@@ -644,6 +644,9 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
                             Box(modifier = Modifier.fillMaxWidth().padding(start = 66.dp).height(1.dp).background(colores.borde))
                         }
                     }
+                    item {
+                        Box(modifier = Modifier.height(90.dp))
+                    }
                 }
             }
         }
