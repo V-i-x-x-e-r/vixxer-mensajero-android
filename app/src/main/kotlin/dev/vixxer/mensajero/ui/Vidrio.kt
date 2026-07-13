@@ -6,6 +6,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -28,6 +29,9 @@ object Vidrio
     val anchoBorde = 0.7.dp
 }
 
+private val RELIEVE_OSCURO = Brush.verticalGradient(listOf(Color(0xFF272727), Color(0xFF1B1B1B)))
+private val RELIEVE_OSCURO_FUERTE = Brush.verticalGradient(listOf(Color(0xFF2C2C2C), Color(0xFF1E1E1E)))
+
 @Composable
 fun Modifier.panelVidrio(radio: Dp = Vidrio.radioPanel, fuerte: Boolean = false): Modifier
 {
@@ -36,7 +40,8 @@ fun Modifier.panelVidrio(radio: Dp = Vidrio.radioPanel, fuerte: Boolean = false)
     if (tema.oscuro)
     {
         return this
-            .background(if (fuerte) Vidrio.fondoFuerte else Vidrio.fondoPanel, forma)
+            .shadow(if (fuerte) 14.dp else 10.dp, forma, ambientColor = Vidrio.sombra, spotColor = Vidrio.sombra)
+            .background(if (fuerte) RELIEVE_OSCURO_FUERTE else RELIEVE_OSCURO, forma)
             .border(Vidrio.anchoBorde, Vidrio.borde, forma)
     }
     val colores = tema.colores
@@ -54,7 +59,8 @@ fun Modifier.pildoraVidrio(): Modifier
     if (tema.oscuro)
     {
         return this
-            .background(Vidrio.fondoOsd, forma)
+            .shadow(12.dp, forma, ambientColor = Vidrio.sombra, spotColor = Vidrio.sombra)
+            .background(RELIEVE_OSCURO_FUERTE, forma)
             .border(Vidrio.anchoBorde, Vidrio.borde, forma)
     }
     val colores = tema.colores
