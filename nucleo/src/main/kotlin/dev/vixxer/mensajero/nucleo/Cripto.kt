@@ -65,6 +65,14 @@ object Cripto
         return if (ok) mensaje else null
     }
 
+    fun cifrarTexto(plano: String, publicaDestinoB64: String, secretaPropiaB64: String): Pair<String, String>
+    {
+        val nonce = ByteArray(TAMANO_NONCE)
+        java.security.SecureRandom().nextBytes(nonce)
+        val caja = cifrar(plano.toByteArray(Charsets.UTF_8), nonce, deBase64(publicaDestinoB64), deBase64(secretaPropiaB64))
+        return Pair(aBase64(caja), aBase64(nonce))
+    }
+
     fun descifrarTexto(cifradoB64: String, nonceB64: String, publicaB64: String, secretaB64: String): String?
     {
         val abierto = runCatching {
