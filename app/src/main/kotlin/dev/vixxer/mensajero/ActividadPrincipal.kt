@@ -27,10 +27,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.vixxer.mensajero.ui.Amigo
 import dev.vixxer.mensajero.ui.EstadoTema
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import dev.vixxer.mensajero.ui.BarraPestanas
 import dev.vixxer.mensajero.ui.FuenteOutfit
 import dev.vixxer.mensajero.ui.LocalTema
+import dev.vixxer.mensajero.ui.PantallaAjustes
+import dev.vixxer.mensajero.ui.PantallaAmigos
 import dev.vixxer.mensajero.ui.PantallaChat
 import dev.vixxer.mensajero.ui.PantallaChats
+import dev.vixxer.mensajero.ui.PantallaGrupos
 import dev.vixxer.mensajero.ui.PantallaLogin
 import dev.vixxer.mensajero.ui.PantallaRecuperar
 import dev.vixxer.mensajero.ui.PantallaRegistro
@@ -50,34 +56,56 @@ class ActividadPrincipal : ComponentActivity()
             app.alExpirarSesion = { runOnUiThread { pantalla = "login" } }
 
             CompositionLocalProvider(LocalTema provides estadoTema) {
+                val esPestana = pantalla == "amigos" || pantalla == "chats" || pantalla == "grupos"
                 BackHandler(enabled = pantalla == "registro") { pantalla = "login" }
                 BackHandler(enabled = pantalla == "chat" || pantalla == "ajustes") { pantalla = "chats" }
-                when (pantalla)
-                {
-                    "login" -> PantallaLogin(app) { pantalla = it }
-                    "registro" -> PantallaRegistro(app) { pantalla = it }
-                    "recuperar" -> PantallaRecuperar(app) { pantalla = it }
-                    "chats" -> PantallaChats(
-                        app,
-                        alNavegar = { pantalla = it },
-                        alAbrirChat = { amigo ->
-                            chatAbierto = amigo
-                            pantalla = "chat"
-                        },
-                    )
-                    "chat" ->
+                BackHandler(enabled = esPestana && pantalla != "chats") { pantalla = "chats" }
+                Box(modifier = Modifier.fillMaxSize()) {
+                    when (pantalla)
                     {
-                        val amigo = chatAbierto
-                        if (amigo != null)
+                        "login" -> PantallaLogin(app) { pantalla = it }
+                        "registro" -> PantallaRegistro(app) { pantalla = it }
+                        "recuperar" -> PantallaRecuperar(app) { pantalla = it }
+                        "amigos" -> PantallaAmigos(
+                            app,
+                            alNavegar = { pantalla = it },
+                            alAbrirChat = { amigo ->
+                                chatAbierto = amigo
+                                pantalla = "chat"
+                            },
+                        )
+                        "chats" -> PantallaChats(
+                            app,
+                            alNavegar = { pantalla = it },
+                            alAbrirChat = { amigo ->
+                                chatAbierto = amigo
+                                pantalla = "chat"
+                            },
+                        )
+                        "grupos" -> PantallaGrupos(app) { pantalla = it }
+                        "ajustes" -> PantallaAjustes(app) { pantalla = it }
+                        "chat" ->
                         {
-                            PantallaChat(app, amigo) { pantalla = "chats" }
+                            val amigo = chatAbierto
+                            if (amigo != null)
+                            {
+                                PantallaChat(app, amigo) { pantalla = "chats" }
+                            }
+                            else
+                            {
+                                pantalla = "chats"
+                            }
                         }
-                        else
-                        {
-                            pantalla = "chats"
-                        }
+                        else -> PantallaPendiente(pantalla)
                     }
-                    else -> PantallaPendiente(pantalla)
+                    if (esPestana)
+                    {
+                        BarraPestanas(
+                            actual = pantalla,
+                            alCambiar = { pantalla = it },
+                            modifier = Modifier.align(Alignment.BottomCenter),
+                        )
+                    }
                 }
             }
         }

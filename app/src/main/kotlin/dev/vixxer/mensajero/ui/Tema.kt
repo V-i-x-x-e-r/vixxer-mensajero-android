@@ -40,16 +40,16 @@ val CLARO = Paleta(
 )
 
 val OSCURO = Paleta(
-    fondo = Color(0xFF0D0F13),
-    surface = Color(0xFF171A20),
-    texto = Color(0xFFEDEFF3),
-    muted = Color(0xFF7C8492),
-    borde = Color(0xFF242A33),
-    bordeFoco = Color(0xFFEDEFF3),
-    botonFondo = Color(0xFFFFFFFF),
-    botonTexto = Color(0xFF0D0F13),
-    enlace = Color(0xFFEDEFF3),
-    placeholder = Color(0xFF5E6673),
+    fondo = Color(0xFF121212),
+    surface = Color(0xFF202020),
+    texto = Color(0xFFD6D6D6),
+    muted = Color(0xFFBDBDBD),
+    borde = Color(0x22FFFFFF),
+    bordeFoco = Color(0xE8F8F8F8),
+    botonFondo = Color(0xFFD8D8D8),
+    botonTexto = Color(0xFF111111),
+    enlace = Color(0xFFD8D8D8),
+    placeholder = Color(0x35FFFFFF),
     error = Color(0xFFF87171),
 )
 
