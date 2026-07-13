@@ -164,6 +164,76 @@ fun Lupa(color: Color, tamano: Dp = 20.dp)
 }
 
 @Composable
+fun Responder(color: Color, tamano: Dp = 18.dp)
+{
+    Icono24(tamano) {
+        trazo("M9 14L4 9l5-5", color)
+        trazo("M4 9h11a5 5 0 0 1 5 5v5", color)
+    }
+}
+
+@Composable
+fun Reenviar(color: Color, tamano: Dp = 18.dp)
+{
+    Icono24(tamano) {
+        trazo("M15 14l5-5-5-5", color)
+        trazo("M20 9H9a5 5 0 0 0-5 5v5", color)
+    }
+}
+
+@Composable
+fun Copiar(color: Color, tamano: Dp = 18.dp)
+{
+    Icono24(tamano) {
+        drawRoundRect(
+            color,
+            topLeft = Offset(9f, 9f),
+            size = androidx.compose.ui.geometry.Size(13f, 13f),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(2f),
+            style = Stroke(width = 2f),
+        )
+        trazo("M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1", color)
+    }
+}
+
+@Composable
+fun Lapiz(color: Color, tamano: Dp = 18.dp)
+{
+    Icono24(tamano) {
+        trazo("M12 20h9", color)
+        trazo("M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z", color)
+    }
+}
+
+@Composable
+fun Check(color: Color, tamano: Dp = 18.dp)
+{
+    Icono24(tamano) {
+        trazo("M20 6L9 17l-5-5", color)
+    }
+}
+
+@Composable
+fun Reloj(color: Color, tamano: Dp = 18.dp)
+{
+    Icono24(tamano) {
+        drawCircle(color, radius = 10f, center = Offset(12f, 12f), style = Stroke(width = 2f))
+        trazo("M12 7v5l3 2", color)
+    }
+}
+
+@Composable
+fun Kebab(color: Color, tamano: Dp = 20.dp)
+{
+    Icono24(tamano) {
+        for (y in listOf(6f, 12f, 18f))
+        {
+            drawCircle(color, radius = 2.1f, center = Offset(12f, y))
+        }
+    }
+}
+
+@Composable
 fun Visto(color: Color, dos: Boolean = false, tamano: Dp = 14.dp)
 {
     if (dos)
