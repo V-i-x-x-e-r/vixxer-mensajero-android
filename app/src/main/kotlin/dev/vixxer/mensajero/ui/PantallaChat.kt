@@ -192,6 +192,10 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
     var visor by remember { mutableStateOf<File?>(null) }
     var subiendo by remember { mutableStateOf(false) }
     var adjuntando by remember { mutableStateOf(false) }
+    var visorVideo by remember { mutableStateOf<MediaMensaje?>(null) }
+    var grabando by remember { mutableStateOf(false) }
+    var segundosGrabando by remember { mutableStateOf(0) }
+    val grabadora = remember { arrayOf<Grabadora?>(null) }
     var previo by remember { mutableStateOf<Pair<android.net.Uri, ImagenLista>?>(null) }
     var caption by remember { mutableStateOf("") }
     val contexto = LocalContext.current
@@ -201,6 +205,8 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
     val purgados = remember { HashSet<String>() }
     val selectorFotoRef = remember { arrayOf<(() -> Unit)?>(null) }
     val selectorDocumentoRef = remember { arrayOf<(() -> Unit)?>(null) }
+    val selectorVideoRef = remember { arrayOf<(() -> Unit)?>(null) }
+    val permisoMicRef = remember { arrayOf<(() -> Unit)?>(null) }
     val claveBorrador = "chat-$otroId"
 
     val visibles = remember(mensajes, ocultos, buscando, consulta) {
@@ -469,6 +475,98 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
             {
                 mandar(plano)
             }
+        }
+    }
+
+    fun enviarVideo(uri: android.net.Uri)
+    {
+        subiendo = true
+        alcance.launch {
+            val plano = withContext(Dispatchers.IO) {
+                val bytes = runCatching {
+                    contexto.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                }.getOrNull() ?: return@withContext null
+                if (bytes.size > 50 * 1024 * 1024)
+                {
+                    return@withContext null
+                }
+                val (prev, medidas, dur) = miniaturaVideo(contexto, uri)
+                val cifrado = Medios.cifrarArchivo(bytes)
+                val respuesta = runCatching { app.api.subirMediaConProgreso(cifrado.datos) as JSONObject }.getOrNull()
+                    ?: return@withContext null
+                val path = respuesta.getString("path")
+                CacheMedia.guardar(contexto, path, bytes)
+                val obj = JSONObject()
+                    .put("t", "video")
+                    .put("path", path)
+                    .put("mime", contexto.contentResolver.getType(uri) ?: "video/mp4")
+                    .put("k", cifrado.clave)
+                    .put("n", cifrado.nonce)
+                    .put("w", medidas.first)
+                    .put("h", medidas.second)
+                    .put("dur", dur)
+                if (prev != null)
+                {
+                    obj.put("prev", prev)
+                }
+                obj.toString()
+            }
+            subiendo = false
+            if (plano != null)
+            {
+                mandar(plano)
+            }
+        }
+    }
+
+    fun enviarAudio(archivo: java.io.File, dur: Int, ondas: List<Float>)
+    {
+        subiendo = true
+        alcance.launch {
+            val plano = withContext(Dispatchers.IO) {
+                val bytes = runCatching { archivo.readBytes() }.getOrNull() ?: return@withContext null
+                val cifrado = Medios.cifrarArchivo(bytes)
+                val respuesta = runCatching { app.api.subirMediaConProgreso(cifrado.datos) as JSONObject }.getOrNull()
+                    ?: return@withContext null
+                val path = respuesta.getString("path")
+                CacheMedia.guardar(contexto, path, bytes)
+                val wf = org.json.JSONArray()
+                for (v in ondas)
+                {
+                    wf.put(v.toDouble())
+                }
+                JSONObject()
+                    .put("t", "audio")
+                    .put("path", path)
+                    .put("mime", "audio/mp4")
+                    .put("k", cifrado.clave)
+                    .put("n", cifrado.nonce)
+                    .put("dur", maxOf(1, dur))
+                    .put("wf", wf)
+                    .toString()
+            }
+            subiendo = false
+            runCatching { archivo.delete() }
+            if (plano != null)
+            {
+                mandar(plano)
+            }
+        }
+    }
+
+    fun terminarGrabacion(enviar: Boolean)
+    {
+        val activa = grabadora[0] ?: return
+        grabadora[0] = null
+        grabando = false
+        val archivo = activa.terminar()
+        if (enviar && archivo != null && segundosGrabando >= 1)
+        {
+            enviarAudio(archivo, segundosGrabando, activa.ondas())
+        }
+        else
+        {
+            runCatching { archivo?.delete() }
         }
     }
 
@@ -809,6 +907,17 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
         }
     }
 
+    LaunchedEffect(grabando) {
+        var pulsos = 0
+        while (grabando)
+        {
+            delay(150)
+            grabadora[0]?.muestrear()
+            pulsos += 1
+            segundosGrabando = pulsos * 150 / 1000
+        }
+    }
+
     LaunchedEffect(texto) {
         if (editando == null)
         {
@@ -986,6 +1095,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
                             colores = colores,
                             app = app,
                             alAbrirImagen = { visor = it },
+                            alAbrirVideo = { visorVideo = it },
                             miId = miId,
                             seleccionando = seleccionando,
                             seleccionado = seleccionados.contains(m.id),
@@ -1132,8 +1242,28 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
                             enviarDocumento(uri)
                         }
                     }
+                    val selectorVideo = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+                        if (uri != null)
+                        {
+                            enviarVideo(uri)
+                        }
+                    }
+                    val permisoMic = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { dado ->
+                        if (dado)
+                        {
+                            val nueva = Grabadora(contexto)
+                            if (nueva.iniciar())
+                            {
+                                grabadora[0] = nueva
+                                segundosGrabando = 0
+                                grabando = true
+                            }
+                        }
+                    }
                     selectorFotoRef[0] = { selectorFoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
                     selectorDocumentoRef[0] = { selectorDocumento.launch("*/*") }
+                    selectorVideoRef[0] = { selectorVideo.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)) }
+                    permisoMicRef[0] = { permisoMic.launch(android.Manifest.permission.RECORD_AUDIO) }
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1180,15 +1310,34 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
                                 modifier = Modifier.fillMaxWidth(),
                             )
                         }
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .background(colores.botonFondo, CircleShape)
-                                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { enviar() },
-                            contentAlignment = Alignment.Center,
-                        )
+                        if (texto.isBlank() && editando == null)
                         {
-                            Text("➤", fontSize = 18.sp, color = colores.botonTexto)
+                            Box(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .background(colores.surface, CircleShape)
+                                    .border(Vidrio.anchoBorde, colores.borde, CircleShape)
+                                    .clickable(enabled = !subiendo, indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                                        permisoMicRef[0]?.invoke()
+                                    },
+                                contentAlignment = Alignment.Center,
+                            )
+                            {
+                                Microfono(color = colores.texto, tamano = 20.dp)
+                            }
+                        }
+                        else
+                        {
+                            Box(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .background(colores.botonFondo, CircleShape)
+                                    .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { enviar() },
+                                contentAlignment = Alignment.Center,
+                            )
+                            {
+                                Text("➤", fontSize = 18.sp, color = colores.botonTexto)
+                            }
                         }
                     }
                 }
@@ -1287,6 +1436,18 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
                             .padding(vertical = 14.dp, horizontal = 24.dp),
                     )
                     Text(
+                        "Video",
+                        fontSize = 16.sp,
+                        color = colores.texto,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                                adjuntando = false
+                                selectorVideoRef[0]?.invoke()
+                            }
+                            .padding(vertical = 14.dp, horizontal = 24.dp),
+                    )
+                    Text(
                         "Documento",
                         fontSize = 16.sp,
                         color = colores.texto,
@@ -1373,6 +1534,54 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
             }
         }
 
+        if (grabando)
+        {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(12.dp)
+                    .panelVidrio(radio = 22.dp, fuerte = true)
+                    .padding(horizontal = 18.dp, vertical = 14.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            )
+            {
+                Box(modifier = Modifier.size(10.dp).background(colores.error, CircleShape))
+                Text(
+                    "%d:%02d".format(segundosGrabando / 60, segundosGrabando % 60),
+                    fontSize = 15.sp,
+                    fontFamily = FuenteOutfit,
+                    fontWeight = FontWeight.Medium,
+                    color = colores.texto,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    "Cancelar",
+                    fontSize = 14.sp,
+                    color = colores.muted,
+                    modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                        terminarGrabacion(false)
+                    },
+                )
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(colores.botonFondo, CircleShape)
+                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                            terminarGrabacion(true)
+                        },
+                    contentAlignment = Alignment.Center,
+                )
+                {
+                    Text("➤", fontSize = 16.sp, color = colores.botonTexto)
+                }
+            }
+        }
+
+        VisorVideo(app = app, media = visorVideo, alCerrar = { visorVideo = null })
+
         VisorImagen(archivo = visor, alCerrar = { visor = null })
 
         SelectorContacto(
@@ -1450,6 +1659,7 @@ private fun Burbuja(
     colores: Paleta,
     app: AplicacionVixxer,
     alAbrirImagen: (File) -> Unit,
+    alAbrirVideo: (MediaMensaje) -> Unit,
     miId: String,
     seleccionando: Boolean,
     seleccionado: Boolean,
@@ -1532,6 +1742,23 @@ private fun Burbuja(
                 else if (media != null && media.t == "file")
                 {
                     AdjuntoArchivo(app = app, media = media, mio = mio, colores = colores)
+                }
+                else if (media != null && media.t == "video")
+                {
+                    AdjuntoVideo(media = media, colores = colores, alReproducir = { alAbrirVideo(media) })
+                    if (media.cap != null)
+                    {
+                        Text(
+                            media.cap,
+                            fontSize = 14.sp,
+                            color = if (mio) colores.botonTexto else colores.texto,
+                            modifier = Modifier.padding(top = 6.dp),
+                        )
+                    }
+                }
+                else if (media != null && media.t == "audio")
+                {
+                    AdjuntoAudio(app = app, media = media, mio = mio, colores = colores)
                 }
                 else if (media != null)
                 {

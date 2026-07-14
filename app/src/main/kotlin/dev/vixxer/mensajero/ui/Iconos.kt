@@ -196,6 +196,35 @@ fun IconoGrupos(color: Color, tamano: Dp = 16.dp)
 }
 
 @Composable
+fun Microfono(color: Color, tamano: Dp = 20.dp)
+{
+    Icono24(tamano) {
+        trazo("M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z", color)
+        trazo("M19 10v2a7 7 0 0 1-14 0v-2", color)
+        drawLine(color, Offset(12f, 19f), Offset(12f, 23f), strokeWidth = 2f, cap = StrokeCap.Round)
+        drawLine(color, Offset(8f, 23f), Offset(16f, 23f), strokeWidth = 2f, cap = StrokeCap.Round)
+    }
+}
+
+@Composable
+fun Reproducir(color: Color, tamano: Dp = 20.dp)
+{
+    Icono24(tamano) {
+        val camino = PathParser().parsePathString("M8 5v14l11-7z").toPath()
+        drawPath(camino, color)
+    }
+}
+
+@Composable
+fun Pausa(color: Color, tamano: Dp = 20.dp)
+{
+    Icono24(tamano) {
+        drawRoundRect(color, topLeft = Offset(7f, 5f), size = androidx.compose.ui.geometry.Size(3.6f, 14f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(1.4f))
+        drawRoundRect(color, topLeft = Offset(13.4f, 5f), size = androidx.compose.ui.geometry.Size(3.6f, 14f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(1.4f))
+    }
+}
+
+@Composable
 fun Documento(color: Color, tamano: Dp = 22.dp)
 {
     Icono24(tamano) {
