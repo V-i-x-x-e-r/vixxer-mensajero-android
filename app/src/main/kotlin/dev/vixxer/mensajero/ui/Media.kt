@@ -934,3 +934,147 @@ class Grabadora(private val contexto: Context)
         return crudos.map { (it / tope).coerceIn(0.08f, 1f) }
     }
 }
+
+
+@Composable
+fun VistaPrevio(previo: PrevioEnvio, modifier: Modifier = Modifier)
+{
+    val contexto = androidx.compose.ui.platform.LocalContext.current
+    var reproduciendo by remember(previo.uri) { mutableStateOf(false) }
+
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        if (previo.esVideo && reproduciendo)
+        {
+            val jugador = remember(previo.uri) {
+                androidx.media3.exoplayer.ExoPlayer.Builder(contexto).build().apply {
+                    setMediaItem(androidx.media3.common.MediaItem.fromUri(previo.uri))
+                    prepare()
+                    playWhenReady = true
+                }
+            }
+            androidx.compose.runtime.DisposableEffect(previo.uri) {
+                onDispose { jugador.release() }
+            }
+            androidx.compose.ui.viewinterop.AndroidView(
+                factory = { c ->
+                    androidx.media3.ui.PlayerView(c).apply {
+                        player = jugador
+                        useController = false
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                        if (jugador.isPlaying) jugador.pause() else jugador.play()
+                    },
+            )
+        }
+        else
+        {
+            AsyncImage(
+                model = if (previo.esVideo) previo.miniatura else previo.uri,
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize(),
+            )
+            if (previo.esVideo)
+            {
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .background(Color.White.copy(alpha = 0.14f), androidx.compose.foundation.shape.CircleShape)
+                        .border(0.5.dp, Color.White.copy(alpha = 0.3f), androidx.compose.foundation.shape.CircleShape)
+                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { reproduciendo = true },
+                    contentAlignment = Alignment.Center,
+                )
+                {
+                    Reproducir(color = Color.White, tamano = 26.dp)
+                }
+            }
+        }
+    }
+}
+
+private val previewsEnlace = HashMap<String, dev.vixxer.mensajero.nucleo.Enlaces.Preview?>()
+
+@Composable
+fun TarjetaEnlace(url: String, mio: Boolean, colores: Paleta)
+{
+    var datos by remember(url) { mutableStateOf(previewsEnlace[url]) }
+    var buscado by remember(url) { mutableStateOf(previewsEnlace.containsKey(url)) }
+
+    LaunchedEffect(url) {
+        if (!buscado)
+        {
+            val preview = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching {
+                    val conexion = URL(url).openConnection()
+                    conexion.connectTimeout = 5000
+                    conexion.readTimeout = 5000
+                    val html = conexion.getInputStream().use { flujo ->
+                        val bufer = ByteArray(65536)
+                        var pos = 0
+                        while (pos < bufer.size)
+                        {
+                            val leidos = flujo.read(bufer, pos, bufer.size - pos)
+                            if (leidos < 0)
+                            {
+                                break
+                            }
+                            pos += leidos
+                        }
+                        String(bufer, 0, pos, Charsets.UTF_8)
+                    }
+                    dev.vixxer.mensajero.nucleo.Enlaces.previewDeHtml(url, html)
+                }.getOrNull()
+            }
+            previewsEnlace[url] = preview
+            datos = preview
+            buscado = true
+        }
+    }
+
+    val preview = datos ?: return
+    val colorTexto = if (mio) colores.botonTexto else colores.texto
+    Column(
+        modifier = Modifier
+            .padding(top = 6.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(colorTexto.copy(alpha = 0.08f)),
+    )
+    {
+        if (preview.imagen != null)
+        {
+            AsyncImage(
+                model = preview.imagen,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxWidth().heightIn(max = 130.dp),
+            )
+        }
+        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+            Text(
+                preview.titulo,
+                fontSize = 13.sp,
+                color = colorTexto,
+                maxLines = 2,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            )
+            if (preview.desc != null)
+            {
+                Text(
+                    preview.desc!!,
+                    fontSize = 11.sp,
+                    color = colorTexto.copy(alpha = 0.75f),
+                    maxLines = 2,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                )
+            }
+            Text(
+                dev.vixxer.mensajero.nucleo.Enlaces.dominioDe(url),
+                fontSize = 10.sp,
+                color = colorTexto.copy(alpha = 0.6f),
+            )
+        }
+    }
+}
