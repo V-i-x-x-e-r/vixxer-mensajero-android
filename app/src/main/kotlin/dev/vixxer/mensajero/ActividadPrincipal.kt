@@ -55,6 +55,7 @@ import dev.vixxer.mensajero.ui.PantallaChats
 import dev.vixxer.mensajero.ui.PantallaInfoGrupo
 import dev.vixxer.mensajero.ui.PantallaGrupos
 import dev.vixxer.mensajero.ui.PantallaLogin
+import dev.vixxer.mensajero.ui.PantallaPerfil
 import dev.vixxer.mensajero.ui.PantallaRecuperar
 import dev.vixxer.mensajero.ui.PantallaRegistro
 
@@ -84,6 +85,7 @@ class ActividadPrincipal : ComponentActivity()
                 val esPestana = pantalla == "amigos" || pantalla == "chats" || pantalla == "grupos"
                 BackHandler(enabled = pantalla == "registro") { pantalla = "login" }
                 BackHandler(enabled = pantalla == "chat" || pantalla == "ajustes") { pantalla = "chats" }
+                BackHandler(enabled = pantalla == "perfil") { pantalla = "chat" }
                 BackHandler(enabled = esPestana && pantalla != "chats") { pantalla = "chats" }
                 BackHandler(enabled = pantalla == "agregar" || pantalla == "solicitudes") { pantalla = "amigos" }
                 BackHandler(enabled = pantalla == "bloqueados" || pantalla == "cambiar-contrasena") { pantalla = "ajustes" }
@@ -132,12 +134,20 @@ class ActividadPrincipal : ComponentActivity()
                         "bloqueados" -> PantallaBloqueados(app) { pantalla = "ajustes" }
                         "cambiar-contrasena" -> PantallaCambiarContrasena(app) { pantalla = "ajustes" }
                         "grupo-crear" -> PantallaCrearGrupo(app) { pantalla = "grupos" }
+                        "perfil" ->
+                        {
+                            val amigo = chatAbierto
+                            if (amigo != null)
+                            {
+                                PantallaPerfil(app, amigo) { pantalla = it }
+                            }
+                        }
                         "chat" ->
                         {
                             val amigo = chatAbierto
                             if (amigo != null)
                             {
-                                PantallaChat(app, amigo) { pantalla = "chats" }
+                                PantallaChat(app, amigo, alNavegar = { pantalla = it }) { pantalla = "chats" }
                             }
                             else
                             {
