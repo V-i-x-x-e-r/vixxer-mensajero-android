@@ -989,6 +989,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
             modifier = Modifier
                 .fillMaxSize()
                 .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.94f))
+                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {}
                 .statusBarsPadding()
                 .navigationBarsPadding()
                 .imePadding(),
@@ -1002,27 +1003,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                     modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { previo = null },
                 )
             }
-            Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                coil.compose.AsyncImage(
-                    model = if (previoActual.esVideo) previoActual.miniatura else previoActual.uri,
-                    contentDescription = null,
-                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
-                    modifier = Modifier.fillMaxSize(),
-                )
-                if (previoActual.esVideo)
-                {
-                    Box(
-                        modifier = Modifier
-                            .size(64.dp)
-                            .background(androidx.compose.ui.graphics.Color.White.copy(alpha = 0.14f), CircleShape)
-                            .border(0.5.dp, androidx.compose.ui.graphics.Color.White.copy(alpha = 0.3f), CircleShape),
-                        contentAlignment = Alignment.Center,
-                    )
-                    {
-                        Reproducir(color = androidx.compose.ui.graphics.Color.White, tamano = 26.dp)
-                    }
-                }
-            }
+            VistaPrevio(previo = previoActual, modifier = Modifier.weight(1f).fillMaxWidth())
             Row(
                 modifier = Modifier.fillMaxWidth().padding(12.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1285,6 +1266,11 @@ private fun BurbujaGrupo(
                         fontSize = 15.sp,
                         color = if (mio) colores.botonTexto else colores.texto,
                     )
+                    val urlEnlace = dev.vixxer.mensajero.nucleo.Enlaces.extraerUrl(m.texto)
+                    if (urlEnlace != null)
+                    {
+                        TarjetaEnlace(url = urlEnlace, mio = mio, colores = colores)
+                    }
                 }
                 Row(
                     modifier = Modifier.align(Alignment.End).padding(top = 3.dp),

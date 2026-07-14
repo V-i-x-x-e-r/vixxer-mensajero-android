@@ -38,6 +38,7 @@ fun Modifier.panelVidrio(radio: Dp = Vidrio.radioPanel, fuerte: Boolean = false)
     {
         return this
             .background(if (fuerte) Vidrio.fondoFuerte else Vidrio.fondoPanel, forma)
+            .background(brilloVidrio(), forma)
             .border(Vidrio.anchoBorde, Vidrio.borde, forma)
     }
     val colores = tema.colores
@@ -56,6 +57,7 @@ fun Modifier.pildoraVidrio(): Modifier
     {
         return this
             .background(Vidrio.fondoOsd, forma)
+            .background(brilloVidrio(), forma)
             .border(Vidrio.anchoBorde, Vidrio.borde, forma)
     }
     val colores = tema.colores
@@ -74,13 +76,27 @@ fun Modifier.vidrioFlotante(radio: Dp = 22.dp): Modifier
     {
         return this
             .background(Vidrio.fondoFuerte, forma)
+            .background(brilloVidrio(), forma)
             .border(Vidrio.anchoBorde, Vidrio.borde, forma)
     }
     val colores = tema.colores
     return this
         .background(colores.surface.copy(alpha = 0.8f), forma)
+        .background(brilloVidrioClaro(), forma)
         .border(Vidrio.anchoBorde, colores.borde, forma)
 }
+
+private fun brilloVidrio(): Brush =
+    Brush.verticalGradient(
+        0f to Color.White.copy(alpha = 0.07f),
+        0.28f to Color.Transparent,
+    )
+
+private fun brilloVidrioClaro(): Brush =
+    Brush.verticalGradient(
+        0f to Color.White.copy(alpha = 0.55f),
+        0.32f to Color.Transparent,
+    )
 
 @Composable
 fun colorPestanaActiva(): Color
