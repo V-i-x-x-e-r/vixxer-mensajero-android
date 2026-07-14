@@ -161,6 +161,8 @@ object CacheMedia
 
 data class ImagenLista(val bytes: ByteArray, val ancho: Int, val alto: Int)
 
+data class PrevioEnvio(val uri: Uri, val imagen: ImagenLista?, val miniatura: String?, val esVideo: Boolean)
+
 fun comprimirImagen(contexto: Context, uri: Uri): ImagenLista?
 {
     return runCatching {
@@ -739,6 +741,7 @@ fun AdjuntoAudio(app: AplicacionVixxer, media: MediaMensaje, mio: Boolean, color
     val contexto = androidx.compose.ui.platform.LocalContext.current
     var reproduciendo by remember(media.path) { mutableStateOf(false) }
     var cargando by remember(media.path) { mutableStateOf(false) }
+    var progreso by remember(media.path) { mutableStateOf(0f) }
     val reproductor = remember(media.path) { arrayOf<android.media.MediaPlayer?>(null) }
     val colorTexto = if (mio) colores.botonTexto else colores.texto
 
@@ -783,12 +786,25 @@ fun AdjuntoAudio(app: AplicacionVixxer, media: MediaMensaje, mio: Boolean, color
                 mp.prepare()
                 mp.setOnCompletionListener {
                     reproduciendo = false
+                    progreso = 1f
                     it.seekTo(0)
                 }
                 reproductor[0] = mp
                 mp.start()
                 reproduciendo = true
             }
+        }
+    }
+
+    LaunchedEffect(reproduciendo) {
+        while (reproduciendo)
+        {
+            val mp = reproductor[0]
+            if (mp != null && mp.duration > 0)
+            {
+                progreso = (mp.currentPosition.toFloat() / mp.duration).coerceIn(0f, 1f)
+            }
+            kotlinx.coroutines.delay(90)
         }
     }
 
@@ -820,8 +836,9 @@ fun AdjuntoAudio(app: AplicacionVixxer, media: MediaMensaje, mio: Boolean, color
             for (i in 0 until n)
             {
                 val alto = (barras[i].coerceIn(0.08f, 1f)) * size.height
+                val pasado = (i + 1).toFloat() / n <= progreso
                 drawRoundRect(
-                    color = colorTexto.copy(alpha = 0.85f),
+                    color = colorTexto.copy(alpha = if (pasado) 1f else 0.38f),
                     topLeft = androidx.compose.ui.geometry.Offset(i * paso + paso * 0.2f, (size.height - alto) / 2f),
                     size = androidx.compose.ui.geometry.Size(paso * 0.6f, alto),
                     cornerRadius = androidx.compose.ui.geometry.CornerRadius(2f),

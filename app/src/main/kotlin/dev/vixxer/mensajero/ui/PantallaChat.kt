@@ -198,7 +198,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
     var segundosGrabando by remember { mutableStateOf(0) }
     var grabacionPausada by remember { mutableStateOf(false) }
     val grabadora = remember { arrayOf<Grabadora?>(null) }
-    var previo by remember { mutableStateOf<Pair<android.net.Uri, ImagenLista>?>(null) }
+    var previo by remember { mutableStateOf<PrevioEnvio?>(null) }
     var caption by remember { mutableStateOf("") }
     val contexto = LocalContext.current
     val envioMedia = remember { EnvioMedia(app, contexto) }
@@ -462,11 +462,11 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
         }
     }
 
-    fun enviarVideo(uri: android.net.Uri)
+    fun enviarVideo(uri: android.net.Uri, cap: String? = null)
     {
         subiendo = true
         alcance.launch {
-            val plano = withContext(Dispatchers.IO) { envioMedia.prepararVideo(uri) }
+            val plano = withContext(Dispatchers.IO) { envioMedia.prepararVideo(uri, cap) }
             subiendo = false
             if (plano != null)
             {
@@ -1182,7 +1182,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
                                 if (imagen != null)
                                 {
                                     caption = ""
-                                    previo = Pair(uri, imagen)
+                                    previo = PrevioEnvio(uri, imagen, null, esVideo = false)
                                 }
                             }
                         }
@@ -1196,7 +1196,11 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
                     val selectorVideo = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
                         if (uri != null)
                         {
-                            enviarVideo(uri)
+                            alcance.launch {
+                                val (miniatura, _, _) = withContext(Dispatchers.IO) { miniaturaVideo(contexto, uri) }
+                                caption = ""
+                                previo = PrevioEnvio(uri, null, miniatura, esVideo = true)
+                            }
                         }
                     }
                     val permisoMic = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { dado ->
@@ -1412,12 +1416,27 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
                         modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { previo = null },
                     )
                 }
-                coil.compose.AsyncImage(
-                    model = previoActual.first,
-                    contentDescription = null,
-                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                )
+                Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    coil.compose.AsyncImage(
+                        model = if (previoActual.esVideo) previoActual.miniatura else previoActual.uri,
+                        contentDescription = null,
+                        contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                    if (previoActual.esVideo)
+                    {
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .background(androidx.compose.ui.graphics.Color.White.copy(alpha = 0.14f), CircleShape)
+                                .border(0.5.dp, androidx.compose.ui.graphics.Color.White.copy(alpha = 0.3f), CircleShape),
+                            contentAlignment = Alignment.Center,
+                        )
+                        {
+                            Reproducir(color = androidx.compose.ui.graphics.Color.White, tamano = 26.dp)
+                        }
+                    }
+                }
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(12.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1450,9 +1469,16 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
                             .size(44.dp)
                             .background(colores.botonFondo, CircleShape)
                             .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
-                                val listo = previoActual.second
+                                val listo = previoActual
                                 previo = null
-                                enviarImagen(listo, caption)
+                                if (listo.esVideo)
+                                {
+                                    enviarVideo(listo.uri, caption)
+                                }
+                                else if (listo.imagen != null)
+                                {
+                                    enviarImagen(listo.imagen, caption)
+                                }
                             },
                         contentAlignment = Alignment.Center,
                     )
