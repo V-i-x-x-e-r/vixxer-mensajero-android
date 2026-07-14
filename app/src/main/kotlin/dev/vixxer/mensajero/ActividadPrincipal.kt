@@ -27,6 +27,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.vixxer.mensajero.ui.Amigo
 import dev.vixxer.mensajero.ui.EstadoTema
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.LaunchedEffect
@@ -85,7 +91,15 @@ class ActividadPrincipal : ComponentActivity()
                 BackHandler(enabled = pantalla.startsWith("grupo/")) { pantalla = "grupos" }
                 BackHandler(enabled = pantalla.startsWith("grupo-info/")) { pantalla = "grupo/${pantalla.removePrefix("grupo-info/")}" }
                 Box(modifier = Modifier.fillMaxSize()) {
-                    when (pantalla)
+                    AnimatedContent(
+                        targetState = pantalla,
+                        transitionSpec = {
+                            (fadeIn(tween(180)) + slideInVertically(tween(180)) { alto -> alto / 24 })
+                                .togetherWith(fadeOut(tween(120)))
+                        },
+                        label = "pantallas",
+                    ) { destino ->
+                    when (destino)
                     {
                         "arranque" -> Box(
                             modifier = Modifier
@@ -132,10 +146,11 @@ class ActividadPrincipal : ComponentActivity()
                         }
                         else -> when
                         {
-                            pantalla.startsWith("grupo/") -> PantallaChatGrupo(app, pantalla.removePrefix("grupo/"), "") { pantalla = it }
-                            pantalla.startsWith("grupo-info/") -> PantallaInfoGrupo(app, pantalla.removePrefix("grupo-info/")) { pantalla = it }
-                            else -> PantallaPendiente(pantalla)
+                            destino.startsWith("grupo/") -> PantallaChatGrupo(app, destino.removePrefix("grupo/"), "") { pantalla = it }
+                            destino.startsWith("grupo-info/") -> PantallaInfoGrupo(app, destino.removePrefix("grupo-info/")) { pantalla = it }
+                            else -> PantallaPendiente(destino)
                         }
+                    }
                     }
                     if (esPestana)
                     {

@@ -617,6 +617,13 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
     {
         sel = null
         ConexionSocket.obtener()?.emit("mensaje:reaccionar", JSONObject().put("id", mensaje.id).put("emoji", emoji))
+        if (mensajes.takeLast(3).any { it.id == mensaje.id })
+        {
+            alcance.launch {
+                delay(80)
+                listaEstado.animateScrollToItem(maxOf(0, mensajes.size - 1))
+            }
+        }
         mensajes = mensajes.map { m ->
             if (m.id != mensaje.id)
             {
