@@ -46,17 +46,29 @@ fun BarraPestanas(actual: String, alCambiar: (String) -> Unit, modifier: Modifie
                 targetValue = if (activa) colorBrilloPestana() else Color.Transparent,
                 label = "fondoPestana",
             )
-            Text(
-                etiqueta,
-                fontSize = 13.sp,
-                fontFamily = FuenteOutfit,
-                fontWeight = if (activa) FontWeight.SemiBold else FontWeight.Medium,
-                color = color,
+            Row(
                 modifier = Modifier
                     .background(fondo, RoundedCornerShape(Vidrio.radioPildora))
                     .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alCambiar(clave) }
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
             )
+            {
+                when (clave)
+                {
+                    "amigos" -> IconoAmigos(color)
+                    "chats" -> IconoChat(color)
+                    else -> IconoGrupos(color)
+                }
+                Text(
+                    etiqueta,
+                    fontSize = 13.sp,
+                    fontFamily = FuenteOutfit,
+                    fontWeight = if (activa) FontWeight.SemiBold else FontWeight.Medium,
+                    color = color,
+                )
+            }
         }
     }
 }

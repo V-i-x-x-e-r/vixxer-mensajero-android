@@ -49,6 +49,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import java.io.File
 import dev.vixxer.mensajero.AplicacionVixxer
 import dev.vixxer.mensajero.nucleo.ClavesSeguras
 import dev.vixxer.mensajero.nucleo.ConexionSocket
@@ -56,6 +61,7 @@ import dev.vixxer.mensajero.nucleo.Cripto
 import dev.vixxer.mensajero.nucleo.Efimero
 import dev.vixxer.mensajero.nucleo.Fechas
 import dev.vixxer.mensajero.nucleo.Fijados
+import dev.vixxer.mensajero.nucleo.Medios
 import dev.vixxer.mensajero.nucleo.Ocultos
 import dev.vixxer.mensajero.nucleo.Resumen
 import dev.vixxer.mensajero.nucleo.TemporizadorEfimero
@@ -183,6 +189,9 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
     var ocultos by remember { mutableStateOf(setOf<String>()) }
     var pickerTemp by remember { mutableStateOf(false) }
     var nuevosAbajo by remember { mutableStateOf(0) }
+    var visor by remember { mutableStateOf<File?>(null) }
+    var subiendo by remember { mutableStateOf(false) }
+    val contexto = LocalContext.current
     val listaEstado = rememberLazyListState()
     val escribiendoJob = remember { arrayOf<Job?>(null) }
     val apagarEscribiendo = remember { arrayOf<Job?>(null) }
@@ -424,6 +433,35 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
         ConexionSocket.obtener()?.emit("usuario:escribiendo", JSONObject().put("para", otroId).put("activo", false))
         texto = ""
         mandar(if (temporizador > 0) Efimero.envolver(limpio, temporizador) else limpio)
+    }
+
+    fun enviarImagen(uri: android.net.Uri)
+    {
+        subiendo = true
+        alcance.launch {
+            val plano = withContext(Dispatchers.IO) {
+                val imagen = comprimirImagen(contexto, uri) ?: return@withContext null
+                val cifrado = Medios.cifrarArchivo(imagen.bytes)
+                val respuesta = runCatching { app.api.subirMediaConProgreso(cifrado.datos) as JSONObject }.getOrNull()
+                    ?: return@withContext null
+                val path = respuesta.getString("path")
+                CacheMedia.guardar(contexto, path, imagen.bytes)
+                JSONObject()
+                    .put("t", "img")
+                    .put("path", path)
+                    .put("mime", "image/jpeg")
+                    .put("k", cifrado.clave)
+                    .put("n", cifrado.nonce)
+                    .put("w", imagen.ancho)
+                    .put("h", imagen.alto)
+                    .toString()
+            }
+            subiendo = false
+            if (plano != null)
+            {
+                mandar(plano)
+            }
+        }
     }
 
     fun reintentar(mensaje: Mensaje)
@@ -905,6 +943,8 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
                             m = m,
                             mio = mio,
                             colores = colores,
+                            app = app,
+                            alAbrirImagen = { visor = it },
                             miId = miId,
                             seleccionando = seleccionando,
                             seleccionado = seleccionados.contains(m.id),
@@ -1032,6 +1072,12 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
                             )
                         }
                     }
+                    val selectorFoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+                        if (uri != null)
+                        {
+                            enviarImagen(uri)
+                        }
+                    }
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1041,6 +1087,24 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
                         verticalAlignment = Alignment.Bottom,
                     )
                     {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clickable(enabled = !subiendo, indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                                    selectorFoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                },
+                            contentAlignment = Alignment.Center,
+                        )
+                        {
+                            if (subiendo)
+                            {
+                                androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.size(18.dp), color = colores.muted, strokeWidth = 2.dp)
+                            }
+                            else
+                            {
+                                Clip(color = colores.muted)
+                            }
+                        }
                         Box(
                             modifier = Modifier
                                 .weight(1f)
@@ -1129,6 +1193,8 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
             alCerrar = { sel = null },
         )
 
+        VisorImagen(archivo = visor, alCerrar = { visor = null })
+
         SelectorContacto(
             app = app,
             visible = reenviando != null,
@@ -1202,6 +1268,8 @@ private fun Burbuja(
     m: Mensaje,
     mio: Boolean,
     colores: Paleta,
+    app: AplicacionVixxer,
+    alAbrirImagen: (File) -> Unit,
     miId: String,
     seleccionando: Boolean,
     seleccionado: Boolean,
@@ -1258,6 +1326,7 @@ private fun Burbuja(
                         modifier = Modifier.padding(start = 8.dp, bottom = 6.dp),
                     )
                 }
+                val media = if (m.borrado) null else leerMedia(m.texto)
                 if (m.borrado)
                 {
                     Text(
@@ -1265,6 +1334,28 @@ private fun Burbuja(
                         fontSize = 15.sp,
                         fontStyle = FontStyle.Italic,
                         color = (if (mio) colores.botonTexto else colores.muted).copy(alpha = 0.8f),
+                    )
+                }
+                else if (media != null && (media.t == "img" || media.t == "sticker"))
+                {
+                    AdjuntoImagen(app = app, media = media, colores = colores, alAbrir = alAbrirImagen)
+                    if (media.cap != null)
+                    {
+                        Text(
+                            media.cap,
+                            fontSize = 14.sp,
+                            color = if (mio) colores.botonTexto else colores.texto,
+                            modifier = Modifier.padding(top = 6.dp),
+                        )
+                    }
+                }
+                else if (media != null)
+                {
+                    Text(
+                        Resumen.resumenMensaje(m.texto),
+                        fontSize = 15.sp,
+                        fontStyle = FontStyle.Italic,
+                        color = (if (mio) colores.botonTexto else colores.texto).copy(alpha = 0.85f),
                     )
                 }
                 else
