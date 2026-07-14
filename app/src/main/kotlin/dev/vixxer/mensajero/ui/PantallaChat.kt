@@ -195,6 +195,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
     var visorVideo by remember { mutableStateOf<MediaMensaje?>(null) }
     var grabando by remember { mutableStateOf(false) }
     var segundosGrabando by remember { mutableStateOf(0) }
+    var grabacionPausada by remember { mutableStateOf(false) }
     val grabadora = remember { arrayOf<Grabadora?>(null) }
     var previo by remember { mutableStateOf<Pair<android.net.Uri, ImagenLista>?>(null) }
     var caption by remember { mutableStateOf("") }
@@ -913,8 +914,11 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
         {
             delay(150)
             grabadora[0]?.muestrear()
-            pulsos += 1
-            segundosGrabando = pulsos * 150 / 1000
+            if (grabadora[0]?.pausada != true)
+            {
+                pulsos += 1
+                segundosGrabando = pulsos * 150 / 1000
+            }
         }
     }
 
@@ -958,6 +962,31 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
                     }
                 }
                 masCargando = false
+            }
+        }
+    }
+
+    androidx.activity.compose.BackHandler(
+        enabled = sel != null || adjuntando || previo != null || grabando || buscando || seleccionando || pickerTemp || reenviando != null,
+    )
+    {
+        when
+        {
+            sel != null -> sel = null
+            adjuntando -> adjuntando = false
+            previo != null -> previo = null
+            grabando -> terminarGrabacion(false)
+            pickerTemp -> pickerTemp = false
+            reenviando != null -> reenviando = null
+            seleccionando ->
+            {
+                seleccionando = false
+                seleccionados = emptyList()
+            }
+            buscando ->
+            {
+                buscando = false
+                consulta = ""
             }
         }
     }
@@ -1256,6 +1285,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
                             {
                                 grabadora[0] = nueva
                                 segundosGrabando = 0
+                                grabacionPausada = false
                                 grabando = true
                             }
                         }
@@ -1401,64 +1431,41 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.35f))
+                    .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.25f))
                     .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { adjuntando = false },
-                contentAlignment = Alignment.BottomCenter,
+                contentAlignment = Alignment.BottomStart,
             )
             {
-                Column(
+                Row(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .panelVidrio(radio = 20.dp, fuerte = true)
                         .navigationBarsPadding()
-                        .padding(top = 8.dp, bottom = 28.dp),
+                        .padding(start = 12.dp, bottom = 68.dp)
+                        .panelVidrio(radio = 22.dp, fuerte = true)
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(18.dp),
                 )
                 {
-                    Text(
-                        "ADJUNTAR",
-                        fontSize = 12.sp,
-                        fontFamily = FuenteOutfit,
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = 1.sp,
-                        color = colores.muted,
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
-                    )
-                    Text(
-                        "Foto",
-                        fontSize = 16.sp,
-                        color = colores.texto,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
-                                adjuntando = false
-                                selectorFotoRef[0]?.invoke()
+                    for ((etiqueta, icono, accion) in listOf(
+                        Triple("Imagen", 0) { adjuntando = false; selectorFotoRef[0]?.invoke() },
+                        Triple("Video", 1) { adjuntando = false; selectorVideoRef[0]?.invoke() },
+                        Triple("Archivo", 2) { adjuntando = false; selectorDocumentoRef[0]?.invoke() },
+                    ))
+                    {
+                        Column(
+                            modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { accion() },
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        )
+                        {
+                            when (icono)
+                            {
+                                0 -> IconoImagen(color = colores.texto, tamano = 22.dp)
+                                1 -> IconoVideo(color = colores.texto, tamano = 22.dp)
+                                else -> Documento(color = colores.texto, tamano = 22.dp)
                             }
-                            .padding(vertical = 14.dp, horizontal = 24.dp),
-                    )
-                    Text(
-                        "Video",
-                        fontSize = 16.sp,
-                        color = colores.texto,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
-                                adjuntando = false
-                                selectorVideoRef[0]?.invoke()
-                            }
-                            .padding(vertical = 14.dp, horizontal = 24.dp),
-                    )
-                    Text(
-                        "Documento",
-                        fontSize = 16.sp,
-                        color = colores.texto,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
-                                adjuntando = false
-                                selectorDocumentoRef[0]?.invoke()
-                            }
-                            .padding(vertical = 14.dp, horizontal = 24.dp),
-                    )
+                            Text(etiqueta, fontSize = 11.sp, color = colores.muted)
+                        }
+                    }
                 }
             }
         }
@@ -1557,6 +1564,31 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
                     color = colores.texto,
                     modifier = Modifier.weight(1f),
                 )
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .background(colores.surface, CircleShape)
+                        .border(Vidrio.anchoBorde, colores.borde, CircleShape)
+                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                            val activa = grabadora[0]
+                            if (activa != null)
+                            {
+                                if (activa.pausada) activa.continuar() else activa.pausar()
+                                grabacionPausada = activa.pausada
+                            }
+                        },
+                    contentAlignment = Alignment.Center,
+                )
+                {
+                    if (grabacionPausada)
+                    {
+                        Reproducir(color = colores.texto, tamano = 16.dp)
+                    }
+                    else
+                    {
+                        Pausa(color = colores.texto, tamano = 16.dp)
+                    }
+                }
                 Text(
                     "Cancelar",
                     fontSize = 14.sp,
@@ -1691,6 +1723,8 @@ private fun Burbuja(
                 .background(if (seleccionado) colores.borde else androidx.compose.ui.graphics.Color.Transparent, RoundedCornerShape(12.dp)),
         )
         {
+            val mediaBurbuja = if (m.borrado) null else leerMedia(m.texto)
+            val mediaVisual = mediaBurbuja != null && mediaBurbuja.t in listOf("img", "video", "sticker")
             Column(
                 modifier = Modifier
                     .widthIn(max = anchoMax)
@@ -1702,7 +1736,10 @@ private fun Burbuja(
                         onClick = { alPulsar() },
                         onLongClick = { alMantener() },
                     )
-                    .padding(horizontal = 14.dp, vertical = 9.dp),
+                    .padding(
+                        horizontal = if (mediaVisual && m.respuestaTexto == null) 3.dp else 14.dp,
+                        vertical = if (mediaVisual && m.respuestaTexto == null) 3.dp else 9.dp,
+                    ),
             )
             {
                 if (m.respuestaTexto != null)
@@ -1728,7 +1765,7 @@ private fun Burbuja(
                 }
                 else if (media != null && (media.t == "img" || media.t == "sticker"))
                 {
-                    AdjuntoImagen(app = app, media = media, colores = colores, alAbrir = alAbrirImagen)
+                    AdjuntoImagen(app = app, media = media, colores = colores, alAbrir = alAbrirImagen, alMantener = alMantener)
                     if (media.cap != null)
                     {
                         Text(
@@ -1745,7 +1782,7 @@ private fun Burbuja(
                 }
                 else if (media != null && media.t == "video")
                 {
-                    AdjuntoVideo(media = media, colores = colores, alReproducir = { alAbrirVideo(media) })
+                    AdjuntoVideo(media = media, colores = colores, alReproducir = { alAbrirVideo(media) }, alMantener = alMantener)
                     if (media.cap != null)
                     {
                         Text(

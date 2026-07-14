@@ -6,6 +6,8 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
@@ -30,6 +32,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -177,7 +180,7 @@ fun comprimirImagen(contexto: Context, uri: Uri): ImagenLista?
 }
 
 @Composable
-fun AdjuntoImagen(app: AplicacionVixxer, media: MediaMensaje, colores: Paleta, alAbrir: (File) -> Unit)
+fun AdjuntoImagen(app: AplicacionVixxer, media: MediaMensaje, colores: Paleta, alAbrir: (File) -> Unit, alMantener: () -> Unit = {})
 {
     val contexto = androidx.compose.ui.platform.LocalContext.current
     var archivo by remember(media.path) { mutableStateOf<File?>(null) }
@@ -200,10 +203,10 @@ fun AdjuntoImagen(app: AplicacionVixxer, media: MediaMensaje, colores: Paleta, a
     val proporcion = if (media.w > 0 && media.h > 0) media.w.toFloat() / media.h.toFloat() else 1f
     Box(
         modifier = Modifier
-            .widthIn(max = 260.dp)
+            .widthIn(min = 200.dp, max = 260.dp)
             .heightIn(max = 340.dp)
             .aspectRatio(proporcion.coerceIn(0.5f, 2.2f))
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(16.dp))
             .background(colores.surface),
         contentAlignment = Alignment.Center,
     )
@@ -217,7 +220,12 @@ fun AdjuntoImagen(app: AplicacionVixxer, media: MediaMensaje, colores: Paleta, a
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxSize()
-                    .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alAbrir(listo) },
+                    .combinedClickable(
+                        indication = null,
+                        interactionSource = remember { MutableInteractionSource() },
+                        onClick = { alAbrir(listo) },
+                        onLongClick = { alMantener() },
+                    ),
             )
             fallo -> Text("No se pudo cargar", fontSize = 12.sp, color = colores.muted)
             else -> CircularProgressIndicator(modifier = Modifier.size(22.dp), color = colores.muted, strokeWidth = 2.dp)
@@ -235,17 +243,22 @@ fun VisorImagen(archivo: File?, alCerrar: () -> Unit)
     var escala by remember { mutableStateOf(1f) }
     var despX by remember { mutableStateOf(0f) }
     var despY by remember { mutableStateOf(0f) }
+    var medida by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
     val transformar = rememberTransformableState { zoom, arrastre, _ ->
         escala = (escala * zoom).coerceIn(1f, 5f)
-        despX += arrastre.x
-        despY += arrastre.y
+        val topeX = (escala - 1f) * medida.width / 2f
+        val topeY = (escala - 1f) * medida.height / 2f
+        despX = (despX + arrastre.x * escala).coerceIn(-topeX, topeX)
+        despY = (despY + arrastre.y * escala).coerceIn(-topeY, topeY)
     }
+    androidx.activity.compose.BackHandler { alCerrar() }
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.96f))
             .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alCerrar() }
-            .transformable(transformar),
+            .transformable(transformar)
+            .onSizeChanged { medida = it },
         contentAlignment = Alignment.Center,
     )
     {
@@ -419,7 +432,7 @@ private fun duracionLegible(segundos: Int): String
 }
 
 @Composable
-fun AdjuntoVideo(media: MediaMensaje, colores: Paleta, alReproducir: () -> Unit)
+fun AdjuntoVideo(media: MediaMensaje, colores: Paleta, alReproducir: () -> Unit, alMantener: () -> Unit = {})
 {
     val proporcion = if (media.w > 0 && media.h > 0) media.w.toFloat() / media.h.toFloat() else 16f / 9f
     Box(
@@ -427,9 +440,14 @@ fun AdjuntoVideo(media: MediaMensaje, colores: Paleta, alReproducir: () -> Unit)
             .widthIn(max = 260.dp)
             .heightIn(max = 340.dp)
             .aspectRatio(proporcion.coerceIn(0.5f, 2.2f))
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(16.dp))
             .background(Color.Black)
-            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alReproducir() },
+            .combinedClickable(
+                indication = null,
+                interactionSource = remember { MutableInteractionSource() },
+                onClick = { alReproducir() },
+                onLongClick = { alMantener() },
+            ),
         contentAlignment = Alignment.Center,
     )
     {
@@ -478,6 +496,8 @@ fun VisorVideo(app: AplicacionVixxer, media: MediaMensaje?, alCerrar: () -> Unit
     var archivo by remember(media.path) { mutableStateOf<File?>(null) }
     var fallo by remember(media.path) { mutableStateOf(false) }
 
+    androidx.activity.compose.BackHandler { alCerrar() }
+
     LaunchedEffect(media.path) {
         val listo = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             CacheMedia.obtener(contexto, app, media)
@@ -520,6 +540,11 @@ fun VisorVideo(app: AplicacionVixxer, media: MediaMensaje?, alCerrar: () -> Unit
                             player = reproductor
                             setShowNextButton(false)
                             setShowPreviousButton(false)
+                            setShowFastForwardButton(false)
+                            setShowRewindButton(false)
+                            setShowSubtitleButton(false)
+                            setShowShuffleButton(false)
+                            findViewById<android.view.View>(androidx.media3.ui.R.id.exo_settings)?.visibility = android.view.View.GONE
                         }
                     },
                     modifier = Modifier.fillMaxSize(),
@@ -646,7 +671,25 @@ class Grabadora(private val contexto: Context)
 {
     private var grabador: android.media.MediaRecorder? = null
     private var archivo: File? = null
+    var pausada = false
+        private set
     val muestras = ArrayList<Int>()
+
+    fun pausar()
+    {
+        runCatching {
+            grabador?.pause()
+            pausada = true
+        }
+    }
+
+    fun continuar()
+    {
+        runCatching {
+            grabador?.resume()
+            pausada = false
+        }
+    }
 
     fun iniciar(): Boolean
     {
@@ -670,6 +713,10 @@ class Grabadora(private val contexto: Context)
 
     fun muestrear()
     {
+        if (pausada)
+        {
+            return
+        }
         val amplitud = runCatching { grabador?.maxAmplitude ?: 0 }.getOrDefault(0)
         muestras.add(amplitud)
     }
