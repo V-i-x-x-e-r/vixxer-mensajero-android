@@ -164,6 +164,46 @@ fun Lupa(color: Color, tamano: Dp = 20.dp)
 }
 
 @Composable
+fun IconoAmigos(color: Color, tamano: Dp = 16.dp)
+{
+    Icono24(tamano) {
+        trazo("M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2", color)
+        drawCircle(color, radius = 4f, center = Offset(9f, 7f), style = Stroke(width = 2f))
+        trazo("M23 21v-2a4 4 0 0 0-3-3.87", color)
+        trazo("M16 3.13a4 4 0 0 1 0 7.75", color)
+    }
+}
+
+@Composable
+fun IconoChat(color: Color, tamano: Dp = 16.dp)
+{
+    Icono24(tamano) {
+        trazo("M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z", color)
+    }
+}
+
+@Composable
+fun IconoGrupos(color: Color, tamano: Dp = 16.dp)
+{
+    Icono24(tamano) {
+        drawCircle(color, radius = 2.6f, center = Offset(12f, 6.5f), style = Stroke(width = 2f))
+        drawCircle(color, radius = 2.2f, center = Offset(5f, 9.5f), style = Stroke(width = 2f))
+        drawCircle(color, radius = 2.2f, center = Offset(19f, 9.5f), style = Stroke(width = 2f))
+        trazo("M8 20v-1.5a4 4 0 0 1 8 0V20", color)
+        trazo("M2 20v-1a3.4 3.4 0 0 1 4.2-3.3", color)
+        trazo("M22 20v-1a3.4 3.4 0 0 0-4.2-3.3", color)
+    }
+}
+
+@Composable
+fun Clip(color: Color, tamano: Dp = 20.dp)
+{
+    Icono24(tamano) {
+        trazo("M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48", color)
+    }
+}
+
+@Composable
 fun Responder(color: Color, tamano: Dp = 18.dp)
 {
     Icono24(tamano) {
