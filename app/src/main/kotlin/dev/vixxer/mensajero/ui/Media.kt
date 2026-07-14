@@ -203,7 +203,7 @@ fun AdjuntoImagen(app: AplicacionVixxer, media: MediaMensaje, colores: Paleta, a
     val proporcion = if (media.w > 0 && media.h > 0) media.w.toFloat() / media.h.toFloat() else 1f
     Box(
         modifier = Modifier
-            .widthIn(min = 200.dp, max = 260.dp)
+            .widthIn(max = 260.dp)
             .heightIn(max = 340.dp)
             .aspectRatio(proporcion.coerceIn(0.5f, 2.2f))
             .clip(RoundedCornerShape(16.dp))

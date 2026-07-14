@@ -244,6 +244,13 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
         alcance.launch(Dispatchers.IO) {
             runCatching { app.api.reaccionarGrupo(grupoId, mensaje.id, emoji) }
         }
+        if (mensajes.takeLast(3).any { it.id == mensaje.id })
+        {
+            alcance.launch {
+                delay(80)
+                listaEstado.animateScrollToItem(maxOf(0, mensajes.size - 1))
+            }
+        }
         mensajes = mensajes.map { m ->
             if (m.id != mensaje.id)
             {
