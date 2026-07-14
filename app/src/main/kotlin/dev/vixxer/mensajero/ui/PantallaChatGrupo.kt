@@ -3,6 +3,7 @@ package dev.vixxer.mensajero.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -36,7 +37,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -47,7 +54,10 @@ import dev.vixxer.mensajero.nucleo.ClavesSeguras
 import dev.vixxer.mensajero.nucleo.ConexionSocket
 import dev.vixxer.mensajero.nucleo.Cripto
 import dev.vixxer.mensajero.nucleo.Fechas
+import dev.vixxer.mensajero.nucleo.Fijados
 import dev.vixxer.mensajero.nucleo.GrupoVisto
+import dev.vixxer.mensajero.nucleo.Ocultos
+import dev.vixxer.mensajero.nucleo.Resumen
 import io.socket.emitter.Emitter
 import java.time.Instant
 import kotlinx.coroutines.Dispatchers
@@ -68,6 +78,7 @@ data class MensajeGrupo(
     val editado: Boolean = false,
     val estado: String? = null,
     val reacciones: Map<String, String> = emptyMap(),
+    val respuestaA: String? = null,
 )
 
 @Composable
@@ -83,6 +94,14 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
     var hayMas by remember { mutableStateOf(true) }
     var masCargando by remember { mutableStateOf(false) }
     var miId by remember { mutableStateOf("") }
+    var sel by remember { mutableStateOf<AccionesDe<MensajeGrupo>?>(null) }
+    var respondiendo by remember { mutableStateOf<MensajeGrupo?>(null) }
+    var editando by remember { mutableStateOf<MensajeGrupo?>(null) }
+    var reenviando by remember { mutableStateOf<MensajeGrupo?>(null) }
+    var fijados by remember { mutableStateOf(listOf<Fijados.Fijado>()) }
+    var indiceFijado by remember { mutableStateOf(0) }
+    var ocultos by remember { mutableStateOf(setOf<String>()) }
+    val portapapeles = LocalClipboardManager.current
     val pubs = remember { HashMap<String, String>() }
     val nombres = remember { HashMap<String, String>() }
     val marcados = remember { HashSet<String>() }
@@ -128,6 +147,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
             borrado = borrado,
             editado = f.optBoolean("editado"),
             reacciones = reacciones,
+            respuestaA = if (f.isNull("respuesta_a")) null else f.optString("respuesta_a"),
         )
     }
 
@@ -169,7 +189,25 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
         }
         tecleandoJob[0]?.cancel()
         ConexionSocket.obtener()?.emit("grupo:escribiendo", JSONObject().put("grupo", grupoId).put("activo", false))
+        val objetivo = editando
+        if (objetivo != null)
+        {
+            alcance.launch {
+                withContext(Dispatchers.IO) {
+                    runCatching {
+                        val priv = app.boveda.leer(ClavesSeguras.CLAVE_PRIVADA) ?: return@runCatching
+                        app.api.editarMensajeGrupo(grupoId, objetivo.id, cifrarParaTodos(limpio, priv))
+                    }
+                }
+                mensajes = mensajes.map { if (it.id == objetivo.id) it.copy(texto = limpio, editado = true) else it }
+                editando = null
+                texto = ""
+            }
+            return
+        }
         texto = ""
+        val resp = respondiendo
+        respondiendo = null
         val clienteId = "local-${System.currentTimeMillis()}"
         mensajes = mensajes + MensajeGrupo(
             id = clienteId,
@@ -178,13 +216,14 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
             texto = limpio,
             enviadoEn = Instant.now().toString(),
             estado = "enviando",
+            respuestaA = resp?.id,
         )
         alcance.launch {
             listaEstado.animateScrollToItem(maxOf(0, mensajes.size - 1))
             val resultado = withContext(Dispatchers.IO) {
                 runCatching {
                     val priv = app.boveda.leer(ClavesSeguras.CLAVE_PRIVADA) ?: return@runCatching null
-                    app.api.enviarGrupo(grupoId, clienteId, cifrarParaTodos(limpio, priv)) as? JSONObject
+                    app.api.enviarGrupo(grupoId, clienteId, cifrarParaTodos(limpio, priv), resp?.id) as? JSONObject
                 }.getOrNull()
             }
             mensajes = if (resultado != null && resultado.optBoolean("ok"))
@@ -196,6 +235,103 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                 mensajes.map { if (it.id == clienteId) it.copy(estado = "fallido") else it }
             }
             withContext(Dispatchers.IO) { guardarCache(mensajes) }
+        }
+    }
+
+    fun reaccionar(mensaje: MensajeGrupo, emoji: String)
+    {
+        sel = null
+        alcance.launch(Dispatchers.IO) {
+            runCatching { app.api.reaccionarGrupo(grupoId, mensaje.id, emoji) }
+        }
+        mensajes = mensajes.map { m ->
+            if (m.id != mensaje.id)
+            {
+                m
+            }
+            else
+            {
+                val r = m.reacciones.toMutableMap()
+                if (r[miId] == emoji)
+                {
+                    r.remove(miId)
+                }
+                else
+                {
+                    r[miId] = emoji
+                }
+                m.copy(reacciones = r)
+            }
+        }
+    }
+
+    fun borrar(mensaje: MensajeGrupo)
+    {
+        sel = null
+        alcance.launch(Dispatchers.IO) {
+            runCatching { app.api.borrarMensajeGrupo(grupoId, mensaje.id) }
+        }
+        mensajes = mensajes.map { if (it.id == mensaje.id) it.copy(texto = null, borrado = true) else it }
+        if (fijados.any { it.id == mensaje.id })
+        {
+            fijados = Fijados(app.estado).quitar(claveCache, mensaje.id)
+        }
+    }
+
+    fun copiar(mensaje: MensajeGrupo)
+    {
+        sel = null
+        mensaje.texto?.let { portapapeles.setText(AnnotatedString(it)) }
+    }
+
+    fun borrarLocal(mensaje: MensajeGrupo)
+    {
+        sel = null
+        alcance.launch {
+            ocultos = withContext(Dispatchers.IO) { Ocultos(app.estado).ocultar(claveCache, mensaje.id) }
+        }
+    }
+
+    fun fijar(mensaje: MensajeGrupo)
+    {
+        sel = null
+        fijados = Fijados(app.estado).alternar(claveCache, Fijados.Fijado(mensaje.id, mensaje.texto, mensaje.remitenteId))
+    }
+
+    fun hacerReenvio(destino: Amigo)
+    {
+        val objetivo = reenviando ?: return
+        reenviando = null
+        val plano = objetivo.texto ?: return
+        alcance.launch(Dispatchers.IO) {
+            runCatching {
+                val priv = app.boveda.leer(ClavesSeguras.CLAVE_PRIVADA) ?: return@runCatching
+                val pub = app.llaves.llavePublicaDe(destino.id)
+                val (contenidoCifrado, nonce) = Cripto.cifrarTexto(plano, pub, priv)
+                ConexionSocket.obtener()?.emit("mensaje:enviar", JSONObject()
+                    .put("destinatarioId", destino.id)
+                    .put("contenidoCifrado", contenidoCifrado)
+                    .put("nonce", nonce)
+                    .put("respuestaA", JSONObject.NULL))
+            }
+        }
+    }
+
+    fun irAFijado()
+    {
+        if (fijados.isEmpty())
+        {
+            return
+        }
+        val actual = fijados[indiceFijado % fijados.size]
+        val idx = mensajes.indexOfFirst { it.id == actual.id }
+        if (idx >= 0)
+        {
+            alcance.launch { listaEstado.animateScrollToItem(idx) }
+        }
+        if (fijados.size > 1)
+        {
+            indiceFijado = (indiceFijado + 1) % fijados.size
         }
     }
 
@@ -226,6 +362,10 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
         if (datos.third.second.isNotEmpty())
         {
             texto = datos.third.second
+        }
+        withContext(Dispatchers.IO) {
+            fijados = Fijados(app.estado).leer(claveCache)
+            ocultos = Ocultos(app.estado).leer(claveCache)
         }
         val cache = datos.third.first
         if (cache != null)
@@ -406,7 +546,8 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(colores.fondo).statusBarsPadding().imePadding()) {
+    Box(modifier = Modifier.fillMaxSize().background(colores.fondo)) {
+    Column(modifier = Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -433,6 +574,34 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
             }
         }
 
+        val fijadoActual = if (fijados.isEmpty()) null else fijados[indiceFijado % fijados.size]
+        if (fijadoActual != null)
+        {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp)
+                    .panelVidrio(radio = 12.dp)
+                    .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { irAFijado() }
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            )
+            {
+                Pin(color = colores.muted, tamano = 16.dp)
+                Text(
+                    Resumen.resumenMensaje(fijadoActual.texto),
+                    fontSize = 13.sp,
+                    color = colores.texto,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+
+        val visibles = if (ocultos.isEmpty()) mensajes else mensajes.filter { !ocultos.contains(it.id) }
+        val porId = remember(mensajes) { mensajes.associateBy { it.id } }
         LazyColumn(
             state = listaEstado,
             modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -440,8 +609,76 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
             verticalArrangement = Arrangement.spacedBy(6.dp),
         )
         {
-            items(mensajes, key = { it.id }) { m ->
-                BurbujaGrupo(m, m.remitenteId == miId, colores)
+            items(visibles, key = { it.id }) { m ->
+                var limites by remember { mutableStateOf(Rect.Zero) }
+                Box(modifier = Modifier.onGloballyPositioned { limites = it.boundsInRoot() }) {
+                    BurbujaGrupo(
+                        m = m,
+                        mio = m.remitenteId == miId,
+                        colores = colores,
+                        cita = m.respuestaA?.let { porId[it] }?.let { Resumen.resumenMensaje(it.texto) },
+                        alMantener = {
+                            if (!m.borrado)
+                            {
+                                sel = AccionesDe(m, limites)
+                            }
+                        },
+                    )
+                }
+            }
+        }
+
+        val resp = respondiendo
+        if (resp != null)
+        {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp)
+                    .panelVidrio(radio = 12.dp)
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            )
+            {
+                Text(
+                    "Respondiendo: ${Resumen.resumenMensaje(resp.texto)}",
+                    fontSize = 13.sp,
+                    color = colores.muted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    "✕",
+                    fontSize = 16.sp,
+                    color = colores.muted,
+                    modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { respondiendo = null },
+                )
+            }
+        }
+        if (editando != null)
+        {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp)
+                    .panelVidrio(radio = 12.dp)
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            )
+            {
+                Text("Editando mensaje", fontSize = 13.sp, color = colores.muted)
+                Text(
+                    "✕",
+                    fontSize = 16.sp,
+                    color = colores.muted,
+                    modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                        editando = null
+                        texto = ""
+                    },
+                )
             }
         }
 
@@ -487,10 +724,52 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
             }
         }
     }
+
+    AccionesMensaje(
+        sel = sel,
+        esMio = sel?.mensaje?.remitenteId == miId,
+        fijado = sel?.mensaje?.let { m -> fijados.any { it.id == m.id } } ?: false,
+        alReaccionar = { m, e -> reaccionar(m, e) },
+        alResponder = { m ->
+            sel = null
+            respondiendo = m
+            editando = null
+        },
+        alReenviar = { m ->
+            sel = null
+            reenviando = m
+        },
+        alCopiar = { copiar(it) },
+        alEditar = { m ->
+            sel = null
+            editando = m
+            respondiendo = null
+            texto = m.texto ?: ""
+        },
+        alFijar = { fijar(it) },
+        alBorrar = { borrar(it) },
+        alBorrarLocal = { borrarLocal(it) },
+        alCerrar = { sel = null },
+    )
+
+    SelectorContacto(
+        app = app,
+        visible = reenviando != null,
+        titulo = "Reenviar a",
+        alElegir = { hacerReenvio(it) },
+        alCerrar = { reenviando = null },
+    )
+    }
 }
 
 @Composable
-private fun BurbujaGrupo(m: MensajeGrupo, mio: Boolean, colores: Paleta)
+private fun BurbujaGrupo(
+    m: MensajeGrupo,
+    mio: Boolean,
+    colores: Paleta,
+    cita: String? = null,
+    alMantener: () -> Unit = {},
+)
 {
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val anchoMax = maxWidth * 0.8f
@@ -511,9 +790,26 @@ private fun BurbujaGrupo(m: MensajeGrupo, mio: Boolean, colores: Paleta)
                     .widthIn(max = anchoMax)
                     .background(if (mio) colores.botonFondo else colores.surface, RoundedCornerShape(16.dp))
                     .then(if (mio) Modifier else Modifier.border(Vidrio.anchoBorde, colores.borde, RoundedCornerShape(16.dp)))
+                    .combinedClickable(
+                        indication = null,
+                        interactionSource = remember { MutableInteractionSource() },
+                        onClick = {},
+                        onLongClick = { alMantener() },
+                    )
                     .padding(horizontal = 14.dp, vertical = 9.dp),
             )
             {
+                if (cita != null)
+                {
+                    Text(
+                        cita,
+                        fontSize = 13.sp,
+                        color = if (mio) colores.botonTexto.copy(alpha = 0.8f) else colores.muted,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(start = 8.dp, bottom = 6.dp),
+                    )
+                }
                 if (m.borrado)
                 {
                     Text(
