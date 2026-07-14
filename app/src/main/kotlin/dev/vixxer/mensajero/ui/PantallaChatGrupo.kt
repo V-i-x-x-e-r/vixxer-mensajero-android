@@ -108,7 +108,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
     val envioMedia = remember { EnvioMedia(app, contexto) }
     var subiendo by remember { mutableStateOf(false) }
     var adjuntando by remember { mutableStateOf(false) }
-    var previo by remember { mutableStateOf<Pair<android.net.Uri, ImagenLista>?>(null) }
+    var previo by remember { mutableStateOf<PrevioEnvio?>(null) }
     var caption by remember { mutableStateOf("") }
     var visor by remember { mutableStateOf<java.io.File?>(null) }
     var visorVideo by remember { mutableStateOf<MediaMensaje?>(null) }
@@ -244,11 +244,11 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
         }
     }
 
-    fun enviarVideoGrupo(uri: android.net.Uri)
+    fun enviarVideoGrupo(uri: android.net.Uri, cap: String? = null)
     {
         subiendo = true
         alcance.launch {
-            val plano = withContext(Dispatchers.IO) { envioMedia.prepararVideo(uri) }
+            val plano = withContext(Dispatchers.IO) { envioMedia.prepararVideo(uri, cap) }
             subiendo = false
             if (plano != null)
             {
@@ -822,7 +822,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                     if (imagen != null)
                     {
                         caption = ""
-                        previo = Pair(uri, imagen)
+                        previo = PrevioEnvio(uri, imagen, null, esVideo = false)
                     }
                 }
             }
@@ -830,7 +830,11 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
         val selectorVideo = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
             if (uri != null)
             {
-                enviarVideoGrupo(uri)
+                alcance.launch {
+                    val (miniatura, _, _) = withContext(Dispatchers.IO) { miniaturaVideo(contexto, uri) }
+                    caption = ""
+                    previo = PrevioEnvio(uri, null, miniatura, esVideo = true)
+                }
             }
         }
         val selectorDocumento = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -998,12 +1002,27 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                     modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { previo = null },
                 )
             }
-            coil.compose.AsyncImage(
-                model = previoActual.first,
-                contentDescription = null,
-                contentScale = androidx.compose.ui.layout.ContentScale.Fit,
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-            )
+            Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                coil.compose.AsyncImage(
+                    model = if (previoActual.esVideo) previoActual.miniatura else previoActual.uri,
+                    contentDescription = null,
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                if (previoActual.esVideo)
+                {
+                    Box(
+                        modifier = Modifier
+                            .size(64.dp)
+                            .background(androidx.compose.ui.graphics.Color.White.copy(alpha = 0.14f), CircleShape)
+                            .border(0.5.dp, androidx.compose.ui.graphics.Color.White.copy(alpha = 0.3f), CircleShape),
+                        contentAlignment = Alignment.Center,
+                    )
+                    {
+                        Reproducir(color = androidx.compose.ui.graphics.Color.White, tamano = 26.dp)
+                    }
+                }
+            }
             Row(
                 modifier = Modifier.fillMaxWidth().padding(12.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1036,9 +1055,16 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                         .size(44.dp)
                         .background(colores.botonFondo, CircleShape)
                         .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
-                            val listo = previoActual.second
+                            val listo = previoActual
                             previo = null
-                            enviarImagenGrupo(listo, caption)
+                            if (listo.esVideo)
+                            {
+                                enviarVideoGrupo(listo.uri, caption)
+                            }
+                            else if (listo.imagen != null)
+                            {
+                                enviarImagenGrupo(listo.imagen, caption)
+                            }
                         },
                     contentAlignment = Alignment.Center,
                 )

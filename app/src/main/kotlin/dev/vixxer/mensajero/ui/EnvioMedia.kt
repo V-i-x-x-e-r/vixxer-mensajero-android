@@ -38,7 +38,7 @@ class EnvioMedia(private val app: AplicacionVixxer, private val contexto: Contex
         return obj.toString()
     }
 
-    fun prepararVideo(uri: Uri): String?
+    fun prepararVideo(uri: Uri, cap: String? = null): String?
     {
         val bytes = runCatching {
             contexto.contentResolver.openInputStream(uri)?.use { it.readBytes() }
@@ -61,6 +61,10 @@ class EnvioMedia(private val app: AplicacionVixxer, private val contexto: Contex
         if (prev != null)
         {
             obj.put("prev", prev)
+        }
+        if (!cap.isNullOrBlank())
+        {
+            obj.put("cap", cap.trim())
         }
         return obj.toString()
     }
