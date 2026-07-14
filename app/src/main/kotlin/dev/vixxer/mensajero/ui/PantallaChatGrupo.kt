@@ -25,6 +25,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -102,6 +104,22 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
     var indiceFijado by remember { mutableStateOf(0) }
     var ocultos by remember { mutableStateOf(setOf<String>()) }
     val portapapeles = LocalClipboardManager.current
+    val contexto = androidx.compose.ui.platform.LocalContext.current
+    val envioMedia = remember { EnvioMedia(app, contexto) }
+    var subiendo by remember { mutableStateOf(false) }
+    var adjuntando by remember { mutableStateOf(false) }
+    var previo by remember { mutableStateOf<Pair<android.net.Uri, ImagenLista>?>(null) }
+    var caption by remember { mutableStateOf("") }
+    var visor by remember { mutableStateOf<java.io.File?>(null) }
+    var visorVideo by remember { mutableStateOf<MediaMensaje?>(null) }
+    var grabando by remember { mutableStateOf(false) }
+    var segundosGrabando by remember { mutableStateOf(0) }
+    var grabacionPausada by remember { mutableStateOf(false) }
+    val grabadora = remember { arrayOf<Grabadora?>(null) }
+    val selectorFotoRef = remember { arrayOf<(() -> Unit)?>(null) }
+    val selectorVideoRef = remember { arrayOf<(() -> Unit)?>(null) }
+    val selectorDocumentoRef = remember { arrayOf<(() -> Unit)?>(null) }
+    val permisoMicRef = remember { arrayOf<(() -> Unit)?>(null) }
     val vibrador = androidx.compose.ui.platform.LocalHapticFeedback.current
     val pubs = remember { HashMap<String, String>() }
     val nombres = remember { HashMap<String, String>() }
@@ -181,6 +199,107 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
         return copias
     }
 
+    fun mandarPlano(plano: String, respuestaA: String? = null)
+    {
+        val clienteId = "local-${System.currentTimeMillis()}"
+        mensajes = mensajes + MensajeGrupo(
+            id = clienteId,
+            remitenteId = miId,
+            autor = null,
+            texto = plano,
+            enviadoEn = Instant.now().toString(),
+            estado = "enviando",
+            respuestaA = respuestaA,
+        )
+        alcance.launch {
+            listaEstado.animateScrollToItem(maxOf(0, mensajes.size - 1))
+            val resultado = withContext(Dispatchers.IO) {
+                runCatching {
+                    val priv = app.boveda.leer(ClavesSeguras.CLAVE_PRIVADA) ?: return@runCatching null
+                    app.api.enviarGrupo(grupoId, clienteId, cifrarParaTodos(plano, priv), respuestaA) as? JSONObject
+                }.getOrNull()
+            }
+            mensajes = if (resultado != null && resultado.optBoolean("ok"))
+            {
+                mensajes.map { if (it.id == clienteId) it.copy(id = resultado.optString("id"), estado = "enviado") else it }
+            }
+            else
+            {
+                mensajes.map { if (it.id == clienteId) it.copy(estado = "fallido") else it }
+            }
+            withContext(Dispatchers.IO) { guardarCache(mensajes) }
+        }
+    }
+
+    fun enviarImagenGrupo(imagen: ImagenLista, cap: String?)
+    {
+        subiendo = true
+        alcance.launch {
+            val plano = withContext(Dispatchers.IO) { envioMedia.prepararImagen(imagen, cap) }
+            subiendo = false
+            if (plano != null)
+            {
+                mandarPlano(plano)
+            }
+        }
+    }
+
+    fun enviarVideoGrupo(uri: android.net.Uri)
+    {
+        subiendo = true
+        alcance.launch {
+            val plano = withContext(Dispatchers.IO) { envioMedia.prepararVideo(uri) }
+            subiendo = false
+            if (plano != null)
+            {
+                mandarPlano(plano)
+            }
+        }
+    }
+
+    fun enviarDocumentoGrupo(uri: android.net.Uri)
+    {
+        subiendo = true
+        alcance.launch {
+            val plano = withContext(Dispatchers.IO) { envioMedia.prepararDocumento(uri) }
+            subiendo = false
+            if (plano != null)
+            {
+                mandarPlano(plano)
+            }
+        }
+    }
+
+    fun enviarAudioGrupo(archivo: java.io.File, dur: Int, ondas: List<Float>)
+    {
+        subiendo = true
+        alcance.launch {
+            val plano = withContext(Dispatchers.IO) { envioMedia.prepararAudio(archivo, dur, ondas) }
+            subiendo = false
+            runCatching { archivo.delete() }
+            if (plano != null)
+            {
+                mandarPlano(plano)
+            }
+        }
+    }
+
+    fun terminarGrabacion(enviar: Boolean)
+    {
+        val activa = grabadora[0] ?: return
+        grabadora[0] = null
+        grabando = false
+        val archivo = activa.terminar()
+        if (enviar && archivo != null && segundosGrabando >= 1)
+        {
+            enviarAudioGrupo(archivo, segundosGrabando, activa.ondas())
+        }
+        else
+        {
+            runCatching { archivo?.delete() }
+        }
+    }
+
     fun enviar()
     {
         val limpio = texto.trim()
@@ -209,34 +328,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
         texto = ""
         val resp = respondiendo
         respondiendo = null
-        val clienteId = "local-${System.currentTimeMillis()}"
-        mensajes = mensajes + MensajeGrupo(
-            id = clienteId,
-            remitenteId = miId,
-            autor = null,
-            texto = limpio,
-            enviadoEn = Instant.now().toString(),
-            estado = "enviando",
-            respuestaA = resp?.id,
-        )
-        alcance.launch {
-            listaEstado.animateScrollToItem(maxOf(0, mensajes.size - 1))
-            val resultado = withContext(Dispatchers.IO) {
-                runCatching {
-                    val priv = app.boveda.leer(ClavesSeguras.CLAVE_PRIVADA) ?: return@runCatching null
-                    app.api.enviarGrupo(grupoId, clienteId, cifrarParaTodos(limpio, priv), resp?.id) as? JSONObject
-                }.getOrNull()
-            }
-            mensajes = if (resultado != null && resultado.optBoolean("ok"))
-            {
-                mensajes.map { if (it.id == clienteId) it.copy(id = resultado.optString("id"), estado = "enviado") else it }
-            }
-            else
-            {
-                mensajes.map { if (it.id == clienteId) it.copy(estado = "fallido") else it }
-            }
-            withContext(Dispatchers.IO) { guardarCache(mensajes) }
-        }
+        mandarPlano(limpio, resp?.id)
     }
 
     fun reaccionar(mensaje: MensajeGrupo, emoji: String)
@@ -422,6 +514,34 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
         if (mensajes.isNotEmpty())
         {
             listaEstado.scrollToItem(maxOf(0, mensajes.size - 1))
+        }
+    }
+
+    LaunchedEffect(grabando) {
+        var pulsos = 0
+        while (grabando)
+        {
+            delay(150)
+            grabadora[0]?.muestrear()
+            if (grabadora[0]?.pausada != true)
+            {
+                pulsos += 1
+                segundosGrabando = pulsos * 150 / 1000
+            }
+        }
+    }
+
+    androidx.activity.compose.BackHandler(
+        enabled = sel != null || adjuntando || previo != null || grabando || reenviando != null,
+    )
+    {
+        when
+        {
+            sel != null -> sel = null
+            adjuntando -> adjuntando = false
+            previo != null -> previo = null
+            grabando -> terminarGrabacion(false)
+            reenviando != null -> reenviando = null
         }
     }
 
@@ -624,6 +744,9 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                         m = m,
                         mio = m.remitenteId == miId,
                         colores = colores,
+                        app = app,
+                        alAbrirImagen = { visor = it },
+                        alAbrirVideo = { visorVideo = it },
                         cita = m.respuestaA?.let { porId[it] }?.let { Resumen.resumenMensaje(it.texto) },
                         alMantener = {
                             if (!m.borrado)
@@ -691,6 +814,48 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
             }
         }
 
+        val selectorFoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+            if (uri != null)
+            {
+                alcance.launch {
+                    val imagen = withContext(Dispatchers.IO) { comprimirImagen(contexto, uri) }
+                    if (imagen != null)
+                    {
+                        caption = ""
+                        previo = Pair(uri, imagen)
+                    }
+                }
+            }
+        }
+        val selectorVideo = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+            if (uri != null)
+            {
+                enviarVideoGrupo(uri)
+            }
+        }
+        val selectorDocumento = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            if (uri != null)
+            {
+                enviarDocumentoGrupo(uri)
+            }
+        }
+        val permisoMic = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { dado ->
+            if (dado)
+            {
+                val nueva = Grabadora(contexto)
+                if (nueva.iniciar())
+                {
+                    grabadora[0] = nueva
+                    segundosGrabando = 0
+                    grabacionPausada = false
+                    grabando = true
+                }
+            }
+        }
+        selectorFotoRef[0] = { selectorFoto.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+        selectorVideoRef[0] = { selectorVideo.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)) }
+        selectorDocumentoRef[0] = { selectorDocumento.launch("*/*") }
+        permisoMicRef[0] = { permisoMic.launch(android.Manifest.permission.RECORD_AUDIO) }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -700,6 +865,22 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
             verticalAlignment = Alignment.Bottom,
         )
         {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clickable(enabled = !subiendo, indication = null, interactionSource = remember { MutableInteractionSource() }) { adjuntando = true },
+                contentAlignment = Alignment.Center,
+            )
+            {
+                if (subiendo)
+                {
+                    androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.size(18.dp), color = colores.muted, strokeWidth = 2.dp)
+                }
+                else
+                {
+                    Clip(color = colores.muted)
+                }
+            }
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -721,18 +902,227 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .background(colores.botonFondo, CircleShape)
-                    .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { enviar() },
-                contentAlignment = Alignment.Center,
-            )
+            if (texto.isBlank() && editando == null)
             {
-                Text("➤", fontSize = 18.sp, color = colores.botonTexto)
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(colores.surface, CircleShape)
+                        .border(Vidrio.anchoBorde, colores.borde, CircleShape)
+                        .clickable(enabled = !subiendo, indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                            permisoMicRef[0]?.invoke()
+                        },
+                    contentAlignment = Alignment.Center,
+                )
+                {
+                    Microfono(color = colores.texto, tamano = 20.dp)
+                }
+            }
+            else
+            {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(colores.botonFondo, CircleShape)
+                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { enviar() },
+                    contentAlignment = Alignment.Center,
+                )
+                {
+                    Text("➤", fontSize = 18.sp, color = colores.botonTexto)
+                }
             }
         }
     }
+
+    if (adjuntando)
+    {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.25f))
+                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { adjuntando = false },
+            contentAlignment = Alignment.BottomStart,
+        )
+        {
+            Row(
+                modifier = Modifier
+                    .navigationBarsPadding()
+                    .padding(start = 12.dp, bottom = 68.dp)
+                    .panelVidrio(radio = 22.dp, fuerte = true)
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(18.dp),
+            )
+            {
+                for ((etiqueta, icono, accion) in listOf(
+                    Triple("Imagen", 0) { adjuntando = false; selectorFotoRef[0]?.invoke() },
+                    Triple("Video", 1) { adjuntando = false; selectorVideoRef[0]?.invoke() },
+                    Triple("Archivo", 2) { adjuntando = false; selectorDocumentoRef[0]?.invoke() },
+                ))
+                {
+                    Column(
+                        modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { accion() },
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    )
+                    {
+                        when (icono)
+                        {
+                            0 -> IconoImagen(color = colores.texto, tamano = 22.dp)
+                            1 -> IconoVideo(color = colores.texto, tamano = 22.dp)
+                            else -> Documento(color = colores.texto, tamano = 22.dp)
+                        }
+                        Text(etiqueta, fontSize = 11.sp, color = colores.muted)
+                    }
+                }
+            }
+        }
+    }
+
+    val previoActual = previo
+    if (previoActual != null)
+    {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.94f))
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .imePadding(),
+        )
+        {
+            Row(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                Text(
+                    "✕",
+                    fontSize = 22.sp,
+                    color = androidx.compose.ui.graphics.Color.White,
+                    modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { previo = null },
+                )
+            }
+            coil.compose.AsyncImage(
+                model = previoActual.first,
+                contentDescription = null,
+                contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.Bottom,
+            )
+            {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(colores.surface, RoundedCornerShape(22.dp))
+                        .border(Vidrio.anchoBorde, colores.borde, RoundedCornerShape(22.dp))
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                )
+                {
+                    if (caption.isEmpty())
+                    {
+                        Text("Añade un comentario…", fontSize = 15.sp, color = colores.placeholder)
+                    }
+                    BasicTextField(
+                        value = caption,
+                        onValueChange = { caption = it },
+                        textStyle = TextStyle(fontSize = 15.sp, color = colores.texto),
+                        cursorBrush = SolidColor(colores.texto),
+                        maxLines = 3,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(colores.botonFondo, CircleShape)
+                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                            val listo = previoActual.second
+                            previo = null
+                            enviarImagenGrupo(listo, caption)
+                        },
+                    contentAlignment = Alignment.Center,
+                )
+                {
+                    Text("➤", fontSize = 18.sp, color = colores.botonTexto)
+                }
+            }
+        }
+    }
+
+    if (grabando)
+    {
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(12.dp)
+                .panelVidrio(radio = 22.dp, fuerte = true)
+                .padding(horizontal = 18.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        )
+        {
+            Box(modifier = Modifier.size(10.dp).background(colores.error, CircleShape))
+            Text(
+                "%d:%02d".format(segundosGrabando / 60, segundosGrabando % 60),
+                fontSize = 15.sp,
+                fontFamily = FuenteOutfit,
+                fontWeight = FontWeight.Medium,
+                color = colores.texto,
+                modifier = Modifier.weight(1f),
+            )
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .background(colores.surface, CircleShape)
+                    .border(Vidrio.anchoBorde, colores.borde, CircleShape)
+                    .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                        val activa = grabadora[0]
+                        if (activa != null)
+                        {
+                            if (activa.pausada) activa.continuar() else activa.pausar()
+                            grabacionPausada = activa.pausada
+                        }
+                    },
+                contentAlignment = Alignment.Center,
+            )
+            {
+                if (grabacionPausada)
+                {
+                    Reproducir(color = colores.texto, tamano = 16.dp)
+                }
+                else
+                {
+                    Pausa(color = colores.texto, tamano = 16.dp)
+                }
+            }
+            Text(
+                "Cancelar",
+                fontSize = 14.sp,
+                color = colores.muted,
+                modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                    terminarGrabacion(false)
+                },
+            )
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(colores.botonFondo, CircleShape)
+                    .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                        terminarGrabacion(true)
+                    },
+                contentAlignment = Alignment.Center,
+            )
+            {
+                Text("➤", fontSize = 16.sp, color = colores.botonTexto)
+            }
+        }
+    }
+
+    VisorVideo(app = app, media = visorVideo, alCerrar = { visorVideo = null })
+
+    VisorImagen(archivo = visor, alCerrar = { visor = null })
 
     AccionesMensaje(
         sel = sel,
@@ -776,6 +1166,9 @@ private fun BurbujaGrupo(
     m: MensajeGrupo,
     mio: Boolean,
     colores: Paleta,
+    app: AplicacionVixxer,
+    alAbrirImagen: (java.io.File) -> Unit,
+    alAbrirVideo: (MediaMensaje) -> Unit,
     cita: String? = null,
     alMantener: () -> Unit = {},
 )
@@ -794,6 +1187,8 @@ private fun BurbujaGrupo(
                     modifier = Modifier.padding(start = 6.dp, bottom = 2.dp),
                 )
             }
+            val mediaBurbuja = if (m.borrado) null else leerMedia(m.texto)
+            val mediaVisual = mediaBurbuja != null && mediaBurbuja.t in listOf("img", "video", "sticker")
             Column(
                 modifier = Modifier
                     .widthIn(max = anchoMax)
@@ -805,7 +1200,10 @@ private fun BurbujaGrupo(
                         onClick = {},
                         onLongClick = { alMantener() },
                     )
-                    .padding(horizontal = 14.dp, vertical = 9.dp),
+                    .padding(
+                        horizontal = if (mediaVisual && cita == null) 3.dp else 14.dp,
+                        vertical = if (mediaVisual && cita == null) 3.dp else 9.dp,
+                    ),
             )
             {
                 if (cita != null)
@@ -819,6 +1217,7 @@ private fun BurbujaGrupo(
                         modifier = Modifier.padding(start = 8.dp, bottom = 6.dp),
                     )
                 }
+                val media = if (m.borrado) null else leerMedia(m.texto)
                 if (m.borrado)
                 {
                     Text(
@@ -827,6 +1226,31 @@ private fun BurbujaGrupo(
                         fontStyle = FontStyle.Italic,
                         color = (if (mio) colores.botonTexto else colores.muted).copy(alpha = 0.8f),
                     )
+                }
+                else if (media != null && (media.t == "img" || media.t == "sticker"))
+                {
+                    AdjuntoImagen(app = app, media = media, colores = colores, alAbrir = alAbrirImagen, alMantener = alMantener)
+                    if (media.cap != null)
+                    {
+                        Text(
+                            media.cap,
+                            fontSize = 14.sp,
+                            color = if (mio) colores.botonTexto else colores.texto,
+                            modifier = Modifier.padding(top = 6.dp),
+                        )
+                    }
+                }
+                else if (media != null && media.t == "video")
+                {
+                    AdjuntoVideo(media = media, colores = colores, alReproducir = { alAbrirVideo(media) }, alMantener = alMantener)
+                }
+                else if (media != null && media.t == "audio")
+                {
+                    AdjuntoAudio(app = app, media = media, mio = mio, colores = colores)
+                }
+                else if (media != null && media.t == "file")
+                {
+                    AdjuntoArchivo(app = app, media = media, mio = mio, colores = colores)
                 }
                 else
                 {

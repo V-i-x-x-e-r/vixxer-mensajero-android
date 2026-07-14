@@ -201,6 +201,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
     var previo by remember { mutableStateOf<Pair<android.net.Uri, ImagenLista>?>(null) }
     var caption by remember { mutableStateOf("") }
     val contexto = LocalContext.current
+    val envioMedia = remember { EnvioMedia(app, contexto) }
     val listaEstado = rememberLazyListState()
     val escribiendoJob = remember { arrayOf<Job?>(null) }
     val apagarEscribiendo = remember { arrayOf<Job?>(null) }
@@ -452,26 +453,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
     {
         subiendo = true
         alcance.launch {
-            val plano = withContext(Dispatchers.IO) {
-                val cifrado = Medios.cifrarArchivo(imagen.bytes)
-                val respuesta = runCatching { app.api.subirMediaConProgreso(cifrado.datos) as JSONObject }.getOrNull()
-                    ?: return@withContext null
-                val path = respuesta.getString("path")
-                CacheMedia.guardar(contexto, path, imagen.bytes)
-                val obj = JSONObject()
-                    .put("t", "img")
-                    .put("path", path)
-                    .put("mime", "image/jpeg")
-                    .put("k", cifrado.clave)
-                    .put("n", cifrado.nonce)
-                    .put("w", imagen.ancho)
-                    .put("h", imagen.alto)
-                if (!cap.isNullOrBlank())
-                {
-                    obj.put("cap", cap.trim())
-                }
-                obj.toString()
-            }
+            val plano = withContext(Dispatchers.IO) { envioMedia.prepararImagen(imagen, cap) }
             subiendo = false
             if (plano != null)
             {
@@ -484,35 +466,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
     {
         subiendo = true
         alcance.launch {
-            val plano = withContext(Dispatchers.IO) {
-                val bytes = runCatching {
-                    contexto.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                }.getOrNull() ?: return@withContext null
-                if (bytes.size > 50 * 1024 * 1024)
-                {
-                    return@withContext null
-                }
-                val (prev, medidas, dur) = miniaturaVideo(contexto, uri)
-                val cifrado = Medios.cifrarArchivo(bytes)
-                val respuesta = runCatching { app.api.subirMediaConProgreso(cifrado.datos) as JSONObject }.getOrNull()
-                    ?: return@withContext null
-                val path = respuesta.getString("path")
-                CacheMedia.guardar(contexto, path, bytes)
-                val obj = JSONObject()
-                    .put("t", "video")
-                    .put("path", path)
-                    .put("mime", contexto.contentResolver.getType(uri) ?: "video/mp4")
-                    .put("k", cifrado.clave)
-                    .put("n", cifrado.nonce)
-                    .put("w", medidas.first)
-                    .put("h", medidas.second)
-                    .put("dur", dur)
-                if (prev != null)
-                {
-                    obj.put("prev", prev)
-                }
-                obj.toString()
-            }
+            val plano = withContext(Dispatchers.IO) { envioMedia.prepararVideo(uri) }
             subiendo = false
             if (plano != null)
             {
@@ -525,28 +479,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
     {
         subiendo = true
         alcance.launch {
-            val plano = withContext(Dispatchers.IO) {
-                val bytes = runCatching { archivo.readBytes() }.getOrNull() ?: return@withContext null
-                val cifrado = Medios.cifrarArchivo(bytes)
-                val respuesta = runCatching { app.api.subirMediaConProgreso(cifrado.datos) as JSONObject }.getOrNull()
-                    ?: return@withContext null
-                val path = respuesta.getString("path")
-                CacheMedia.guardar(contexto, path, bytes)
-                val wf = org.json.JSONArray()
-                for (v in ondas)
-                {
-                    wf.put(v.toDouble())
-                }
-                JSONObject()
-                    .put("t", "audio")
-                    .put("path", path)
-                    .put("mime", "audio/mp4")
-                    .put("k", cifrado.clave)
-                    .put("n", cifrado.nonce)
-                    .put("dur", maxOf(1, dur))
-                    .put("wf", wf)
-                    .toString()
-            }
+            val plano = withContext(Dispatchers.IO) { envioMedia.prepararAudio(archivo, dur, ondas) }
             subiendo = false
             runCatching { archivo.delete() }
             if (plano != null)
@@ -576,27 +509,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
     {
         subiendo = true
         alcance.launch {
-            val plano = withContext(Dispatchers.IO) {
-                val archivo = leerArchivo(contexto, uri) ?: return@withContext null
-                if (archivo.bytes.size > 25 * 1024 * 1024)
-                {
-                    return@withContext null
-                }
-                val cifrado = Medios.cifrarArchivo(archivo.bytes)
-                val respuesta = runCatching { app.api.subirMediaConProgreso(cifrado.datos) as JSONObject }.getOrNull()
-                    ?: return@withContext null
-                val path = respuesta.getString("path")
-                CacheMedia.guardar(contexto, path, archivo.bytes)
-                JSONObject()
-                    .put("t", "file")
-                    .put("path", path)
-                    .put("mime", archivo.mime)
-                    .put("k", cifrado.clave)
-                    .put("n", cifrado.nonce)
-                    .put("nombre", archivo.nombre)
-                    .put("peso", archivo.peso)
-                    .toString()
-            }
+            val plano = withContext(Dispatchers.IO) { envioMedia.prepararDocumento(uri) }
             subiendo = false
             if (plano != null)
             {
