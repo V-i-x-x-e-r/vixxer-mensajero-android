@@ -196,6 +196,15 @@ fun IconoGrupos(color: Color, tamano: Dp = 16.dp)
 }
 
 @Composable
+fun IconoCamara(color: Color, tamano: Dp = 20.dp)
+{
+    Icono24(tamano) {
+        trazo("M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z", color)
+        drawCircle(color, radius = 4f, center = Offset(12f, 13f), style = Stroke(width = 2f))
+    }
+}
+
+@Composable
 fun IconoImagen(color: Color, tamano: Dp = 20.dp)
 {
     Icono24(tamano) {

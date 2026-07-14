@@ -210,6 +210,8 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
     val selectorDocumentoRef = remember { arrayOf<(() -> Unit)?>(null) }
     val selectorVideoRef = remember { arrayOf<(() -> Unit)?>(null) }
     val permisoMicRef = remember { arrayOf<(() -> Unit)?>(null) }
+    val camaraRef = remember { arrayOf<(() -> Unit)?>(null) }
+    val fotoCamara = remember { arrayOf<android.net.Uri?>(null) }
     val claveBorrador = "chat-$otroId"
 
     val visibles = remember(mensajes, ocultos, buscando, consulta) {
@@ -1224,6 +1226,28 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                     selectorDocumentoRef[0] = { selectorDocumento.launch("*/*") }
                     selectorVideoRef[0] = { selectorVideo.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)) }
                     permisoMicRef[0] = { permisoMic.launch(android.Manifest.permission.RECORD_AUDIO) }
+                    val camara = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
+                        val uri = fotoCamara[0]
+                        if (ok && uri != null)
+                        {
+                            alcance.launch {
+                                val imagen = withContext(Dispatchers.IO) { comprimirImagen(contexto, uri) }
+                                if (imagen != null)
+                                {
+                                    caption = ""
+                                    previo = PrevioEnvio(uri, imagen, null, esVideo = false)
+                                }
+                            }
+                        }
+                    }
+                    camaraRef[0] = {
+                        val dir = java.io.File(contexto.cacheDir, "capturas")
+                        dir.mkdirs()
+                        val destino = java.io.File(dir, "captura-${System.currentTimeMillis()}.jpg")
+                        val uri = androidx.core.content.FileProvider.getUriForFile(contexto, "dev.vixxer.mensajero.nativo.archivos", destino)
+                        fotoCamara[0] = uri
+                        camara.launch(uri)
+                    }
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1379,6 +1403,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                         Triple("Imagen", 0) { adjuntando = false; selectorFotoRef[0]?.invoke() },
                         Triple("Video", 1) { adjuntando = false; selectorVideoRef[0]?.invoke() },
                         Triple("Archivo", 2) { adjuntando = false; selectorDocumentoRef[0]?.invoke() },
+                        Triple("Cámara", 3) { adjuntando = false; camaraRef[0]?.invoke() },
                     ))
                     {
                         Column(
@@ -1391,7 +1416,8 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                             {
                                 0 -> IconoImagen(color = colores.texto, tamano = 22.dp)
                                 1 -> IconoVideo(color = colores.texto, tamano = 22.dp)
-                                else -> Documento(color = colores.texto, tamano = 22.dp)
+                                2 -> Documento(color = colores.texto, tamano = 22.dp)
+                                else -> IconoCamara(color = colores.texto, tamano = 22.dp)
                             }
                             Text(etiqueta, fontSize = 11.sp, color = colores.muted)
                         }
