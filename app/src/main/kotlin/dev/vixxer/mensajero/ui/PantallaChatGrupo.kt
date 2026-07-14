@@ -102,6 +102,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
     var indiceFijado by remember { mutableStateOf(0) }
     var ocultos by remember { mutableStateOf(setOf<String>()) }
     val portapapeles = LocalClipboardManager.current
+    val vibrador = androidx.compose.ui.platform.LocalHapticFeedback.current
     val pubs = remember { HashMap<String, String>() }
     val nombres = remember { HashMap<String, String>() }
     val marcados = remember { HashSet<String>() }
@@ -618,7 +619,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
         {
             items(visibles, key = { it.id }) { m ->
                 var limites by remember { mutableStateOf(Rect.Zero) }
-                Box(modifier = Modifier.onGloballyPositioned { limites = it.boundsInRoot() }) {
+                Box(modifier = Modifier.animateItem().onGloballyPositioned { limites = it.boundsInRoot() }) {
                     BurbujaGrupo(
                         m = m,
                         mio = m.remitenteId == miId,
@@ -627,6 +628,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                         alMantener = {
                             if (!m.borrado)
                             {
+                                vibrador.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                                 sel = AccionesDe(m, limites)
                             }
                         },

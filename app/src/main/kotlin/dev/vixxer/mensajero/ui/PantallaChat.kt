@@ -166,6 +166,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
     val colores = tema.colores
     val alcance = rememberCoroutineScope()
     val portapapeles = LocalClipboardManager.current
+    val vibrador = androidx.compose.ui.platform.LocalHapticFeedback.current
     val otroId = amigo.id
     var mensajes by remember { mutableStateOf(listOf<Mensaje>()) }
     var texto by remember { mutableStateOf("") }
@@ -1124,7 +1125,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
                 itemsIndexed(visibles, key = { _, m -> m.id }) { _, m ->
                     val mio = m.remitenteId == miId
                     var limites by remember { mutableStateOf(Rect.Zero) }
-                    Box(modifier = Modifier.onGloballyPositioned { limites = it.boundsInRoot() }) {
+                    Box(modifier = Modifier.animateItem().onGloballyPositioned { limites = it.boundsInRoot() }) {
                         Burbuja(
                             m = m,
                             mio = mio,
@@ -1145,6 +1146,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
                             alMantener = {
                                 if (!seleccionando && !m.borrado)
                                 {
+                                    vibrador.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                                     sel = AccionesDe(m, limites)
                                 }
                             },

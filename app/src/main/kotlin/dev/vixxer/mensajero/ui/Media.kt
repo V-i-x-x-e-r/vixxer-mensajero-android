@@ -9,12 +9,19 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -33,6 +40,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -495,6 +503,13 @@ fun VisorVideo(app: AplicacionVixxer, media: MediaMensaje?, alCerrar: () -> Unit
     val contexto = androidx.compose.ui.platform.LocalContext.current
     var archivo by remember(media.path) { mutableStateOf<File?>(null) }
     var fallo by remember(media.path) { mutableStateOf(false) }
+    var controles by remember { mutableStateOf(true) }
+    var pausado by remember { mutableStateOf(false) }
+    var pos by remember { mutableStateOf(0L) }
+    var dur by remember { mutableStateOf(0L) }
+    var arrastre by remember { mutableStateOf<Float?>(null) }
+    var anchoBarra by remember { mutableStateOf(1f) }
+    val reproductor = remember { arrayOf<androidx.media3.exoplayer.ExoPlayer?>(null) }
 
     androidx.activity.compose.BackHandler { alCerrar() }
 
@@ -512,57 +527,210 @@ fun VisorVideo(app: AplicacionVixxer, media: MediaMensaje?, alCerrar: () -> Unit
         }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.97f)),
-        contentAlignment = Alignment.Center,
-    )
+    LaunchedEffect(archivo) {
+        while (archivo != null)
+        {
+            val actual = reproductor[0]
+            if (actual != null)
+            {
+                pos = actual.currentPosition
+                dur = actual.duration.coerceAtLeast(0L)
+                pausado = !actual.isPlaying
+            }
+            kotlinx.coroutines.delay(100)
+        }
+    }
+
+    LaunchedEffect(controles, pausado, arrastre) {
+        if (controles && !pausado && arrastre == null)
+        {
+            kotlinx.coroutines.delay(3000)
+            controles = false
+        }
+    }
+
+    fun alternar()
     {
+        val actual = reproductor[0] ?: return
+        if (actual.isPlaying)
+        {
+            actual.pause()
+            controles = true
+        }
+        else
+        {
+            if (dur > 0 && pos >= dur - 200)
+            {
+                actual.seekTo(0)
+            }
+            actual.play()
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         val listo = archivo
         when
         {
             listo != null ->
             {
-                val reproductor = remember(listo) {
+                val jugador = remember(listo) {
                     androidx.media3.exoplayer.ExoPlayer.Builder(contexto).build().apply {
                         setMediaItem(androidx.media3.common.MediaItem.fromUri(Uri.fromFile(listo)))
                         prepare()
                         playWhenReady = true
+                        reproductor[0] = this
                     }
                 }
                 androidx.compose.runtime.DisposableEffect(listo) {
-                    onDispose { reproductor.release() }
+                    onDispose {
+                        jugador.release()
+                        reproductor[0] = null
+                    }
                 }
                 androidx.compose.ui.viewinterop.AndroidView(
                     factory = { c ->
                         androidx.media3.ui.PlayerView(c).apply {
-                            player = reproductor
-                            setShowNextButton(false)
-                            setShowPreviousButton(false)
-                            setShowFastForwardButton(false)
-                            setShowRewindButton(false)
-                            setShowSubtitleButton(false)
-                            setShowShuffleButton(false)
-                            findViewById<android.view.View>(androidx.media3.ui.R.id.exo_settings)?.visibility = android.view.View.GONE
+                            player = jugador
+                            useController = false
                         }
                     },
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                            controles = true
+                            alternar()
+                        },
                 )
             }
-            fallo -> Text("No se pudo cargar el video", fontSize = 13.sp, color = Color.White)
-            else -> CircularProgressIndicator(modifier = Modifier.size(26.dp), color = Color.White, strokeWidth = 2.dp)
+            fallo -> Text("No se pudo cargar el video", fontSize = 13.sp, color = Color.White, modifier = Modifier.align(Alignment.Center))
+            else -> CircularProgressIndicator(modifier = Modifier.size(26.dp).align(Alignment.Center), color = Color.White, strokeWidth = 2.dp)
         }
-        Text(
-            "✕",
-            fontSize = 24.sp,
-            color = Color.White,
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(16.dp)
-                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alCerrar() },
-        )
+
+        if (controles)
+        {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .statusBarsPadding()
+                    .padding(top = 12.dp, end = 20.dp)
+                    .size(38.dp)
+                    .background(Color.White.copy(alpha = 0.12f), androidx.compose.foundation.shape.CircleShape)
+                    .border(0.5.dp, Color.White.copy(alpha = 0.25f), androidx.compose.foundation.shape.CircleShape)
+                    .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alCerrar() },
+                contentAlignment = Alignment.Center,
+            )
+            {
+                Text("✕", fontSize = 17.sp, color = Color.White)
+            }
+
+            if (pausado && archivo != null)
+            {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(68.dp)
+                        .background(Color.White.copy(alpha = 0.14f), androidx.compose.foundation.shape.CircleShape)
+                        .border(0.5.dp, Color.White.copy(alpha = 0.3f), androidx.compose.foundation.shape.CircleShape)
+                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alternar() },
+                    contentAlignment = Alignment.Center,
+                )
+                {
+                    Reproducir(color = Color.White, tamano = 28.dp)
+                }
+            }
+
+            val progreso = arrastre ?: if (dur > 0) (pos.toFloat() / dur).coerceIn(0f, 1f) else 0f
+            val tiempoActual = if (arrastre != null && dur > 0) (arrastre!! * dur).toLong() else pos
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(start = 14.dp, end = 14.dp, bottom = 20.dp)
+                    .fillMaxWidth()
+                    .background(Color.White.copy(alpha = 0.10f), RoundedCornerShape(26.dp))
+                    .border(0.5.dp, Color.White.copy(alpha = 0.22f), RoundedCornerShape(26.dp))
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            )
+            {
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alternar() },
+                    contentAlignment = Alignment.Center,
+                )
+                {
+                    if (pausado)
+                    {
+                        Reproducir(color = Color.White, tamano = 16.dp)
+                    }
+                    else
+                    {
+                        Pausa(color = Color.White, tamano = 16.dp)
+                    }
+                }
+                Text(duracionVisor(tiempoActual), fontSize = 12.sp, color = Color.White.copy(alpha = 0.92f))
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(28.dp)
+                        .onSizeChanged { anchoBarra = it.width.toFloat().coerceAtLeast(1f) }
+                        .pointerInput(dur) {
+                            detectTapGestures { toque ->
+                                if (dur > 0)
+                                {
+                                    val frac = (toque.x / anchoBarra).coerceIn(0f, 1f)
+                                    reproductor[0]?.seekTo((frac * dur).toLong())
+                                    pos = (frac * dur).toLong()
+                                }
+                            }
+                        }
+                        .pointerInput(dur) {
+                            detectHorizontalDragGestures(
+                                onDragStart = { inicio ->
+                                    arrastre = (inicio.x / anchoBarra).coerceIn(0f, 1f)
+                                },
+                                onDragEnd = {
+                                    val frac = arrastre
+                                    if (frac != null && dur > 0)
+                                    {
+                                        reproductor[0]?.seekTo((frac * dur).toLong())
+                                        pos = (frac * dur).toLong()
+                                    }
+                                    arrastre = null
+                                },
+                                onDragCancel = { arrastre = null },
+                            ) { cambio, _ ->
+                                arrastre = (cambio.position.x / anchoBarra).coerceIn(0f, 1f)
+                            }
+                        },
+                    contentAlignment = Alignment.CenterStart,
+                )
+                {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(3.5.dp)
+                            .background(Color.White.copy(alpha = 0.28f), RoundedCornerShape(2.dp)),
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(progreso)
+                            .height(3.5.dp)
+                            .background(Color.White, RoundedCornerShape(2.dp)),
+                    )
+                }
+                Text(duracionVisor(dur), fontSize = 12.sp, color = Color.White.copy(alpha = 0.92f))
+            }
+        }
     }
+}
+
+private fun duracionVisor(ms: Long): String
+{
+    val total = (ms / 1000).coerceAtLeast(0)
+    return "%d:%02d".format(total / 60, total % 60)
 }
 
 @Composable
