@@ -196,6 +196,37 @@ fun IconoGrupos(color: Color, tamano: Dp = 16.dp)
 }
 
 @Composable
+fun IconoImagen(color: Color, tamano: Dp = 20.dp)
+{
+    Icono24(tamano) {
+        drawRoundRect(
+            color,
+            topLeft = Offset(3f, 3f),
+            size = androidx.compose.ui.geometry.Size(18f, 18f),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(2f),
+            style = Stroke(width = 2f),
+        )
+        drawCircle(color, radius = 1.5f, center = Offset(8.5f, 8.5f), style = Stroke(width = 2f))
+        trazo("M21 15l-5-5L5 21", color)
+    }
+}
+
+@Composable
+fun IconoVideo(color: Color, tamano: Dp = 20.dp)
+{
+    Icono24(tamano) {
+        trazo("M23 7l-7 5 7 5V7z", color)
+        drawRoundRect(
+            color,
+            topLeft = Offset(1f, 5f),
+            size = androidx.compose.ui.geometry.Size(15f, 14f),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(2f),
+            style = Stroke(width = 2f),
+        )
+    }
+}
+
+@Composable
 fun Microfono(color: Color, tamano: Dp = 20.dp)
 {
     Icono24(tamano) {

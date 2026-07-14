@@ -68,6 +68,8 @@ fun <T> AccionesMensaje(
     val densidad = LocalDensity.current
     val mensaje = sel.mensaje
 
+    androidx.activity.compose.BackHandler { alCerrar() }
+
     data class Accion(val etiqueta: String, val color: Color?, val icono: @Composable (Color) -> Unit, val correr: () -> Unit)
 
     val acciones = buildList {
@@ -105,10 +107,10 @@ fun <T> AccionesMensaje(
         }
     }
 
-    val ancho = 260.dp
+    val ancho = 232.dp
     val porFila = 4
     val filas = maxOf(1, (acciones.size + porFila - 1) / porFila)
-    val altoPx = with(densidad) { ((if (alReaccionar != null) 48 else 6) + filas * 62).dp.toPx() }
+    val altoPx = with(densidad) { ((if (alReaccionar != null) 40 else 6) + filas * 52).dp.toPx() }
     val anchoPx = with(densidad) { ancho.toPx() }
 
     Box(
@@ -127,8 +129,8 @@ fun <T> AccionesMensaje(
             modifier = Modifier
                 .offset { IntOffset(izquierda.coerceAtLeast(maxIzq).roundToInt(), top.roundToInt()) }
                 .width(ancho)
-                .panelVidrio(radio = 16.dp, fuerte = true)
-                .padding(6.dp),
+                .panelVidrio(radio = 16.dp)
+                .padding(4.dp),
         )
         {
             if (alReaccionar != null)
@@ -143,7 +145,7 @@ fun <T> AccionesMensaje(
                     {
                         Text(
                             emoji,
-                            fontSize = 20.sp,
+                            fontSize = 17.sp,
                             modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
                                 alReaccionar(mensaje, emoji)
                             },
@@ -161,13 +163,13 @@ fun <T> AccionesMensaje(
                             modifier = Modifier
                                 .weight(1f)
                                 .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { accion.correr() }
-                                .padding(vertical = 8.dp),
+                                .padding(vertical = 6.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalArrangement = Arrangement.spacedBy(3.dp),
                         )
                         {
                             accion.icono(accion.color ?: colores.texto)
-                            Text(accion.etiqueta, fontSize = 11.sp, color = accion.color ?: colores.texto)
+                            Text(accion.etiqueta, fontSize = 10.sp, color = accion.color ?: colores.texto)
                         }
                     }
                     repeat(porFila - fila.size) {
@@ -188,6 +190,8 @@ fun SelectorContacto(app: AplicacionVixxer, visible: Boolean, titulo: String, al
     }
     val colores = LocalTema.current.colores
     var amigos by remember { mutableStateOf(listOf<Amigo>()) }
+
+    androidx.activity.compose.BackHandler { alCerrar() }
 
     LaunchedEffect(Unit) {
         runCatching {
