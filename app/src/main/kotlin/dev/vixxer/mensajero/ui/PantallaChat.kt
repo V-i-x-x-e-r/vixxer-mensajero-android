@@ -160,7 +160,7 @@ private fun reaccionesDe(data: JSONObject): Map<String, String>
 }
 
 @Composable
-fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
+fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Unit = {}, alVolver: () -> Unit)
 {
     val tema = LocalTema.current
     val colores = tema.colores
@@ -979,7 +979,11 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
                         modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alVolver() },
                     )
                     Avatar(nombre = nombre, uri = amigo.avatarUrl.ifEmpty { null }, tamano = 32.dp)
-                    Column(modifier = Modifier.weight(1f)) {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alNavegar("perfil") },
+                    ) {
                         Text(nombre, fontSize = 16.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.SemiBold, color = colores.texto)
                         if (sub != null)
                         {
