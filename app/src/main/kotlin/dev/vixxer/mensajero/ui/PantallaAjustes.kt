@@ -58,6 +58,33 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
     var copiado by remember { mutableStateOf(false) }
     var prefs by remember { mutableStateOf<JSONObject?>(null) }
     var confirmarSalir by remember { mutableStateOf(false) }
+    var mostrarQr by remember { mutableStateOf(false) }
+    var subiendoFoto by remember { mutableStateOf(false) }
+    val contexto = androidx.compose.ui.platform.LocalContext.current
+
+    val selectorFoto = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia(),
+    ) { uri ->
+        if (uri != null)
+        {
+            subiendoFoto = true
+            alcance.launch {
+                val nueva = withContext(Dispatchers.IO) {
+                    runCatching {
+                        val imagen = comprimirImagen(contexto, uri) ?: return@runCatching null
+                        val b64 = android.util.Base64.encodeToString(imagen.bytes, android.util.Base64.NO_WRAP)
+                        val r = app.api.subirAvatar(b64, "image/jpeg") as JSONObject
+                        r.textoO("avatar_url").ifEmpty { null }
+                    }.getOrNull()
+                }
+                subiendoFoto = false
+                if (nueva != null)
+                {
+                    avatar = nueva
+                }
+            }
+        }
+    }
 
     LaunchedEffect(Unit) {
         val cache = withContext(Dispatchers.IO) { app.estado.leer("vixxer_perfil_cache") }
@@ -127,8 +154,22 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
             verticalArrangement = Arrangement.spacedBy(6.dp),
         )
         {
-            Avatar(nombre = usuario, uri = avatar, tamano = 92.dp)
+            Box(
+                modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                    selectorFoto.launch(androidx.activity.result.PickVisualMediaRequest(
+                        androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly,
+                    ))
+                },
+            )
+            {
+                Avatar(nombre = usuario, uri = avatar, tamano = 92.dp)
+            }
             Text(usuario.ifEmpty { "…" }, fontSize = 20.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.SemiBold, color = colores.texto)
+            Text(
+                if (subiendoFoto) "subiendo foto…" else "toca la foto para cambiarla",
+                fontSize = 12.sp,
+                color = colores.muted,
+            )
         }
 
         Seccion("TU CÓDIGO DE AMIGO", colores)
@@ -148,6 +189,8 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
                 Text(codigo.ifEmpty { "…" }, fontSize = 17.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, color = colores.texto)
                 Text(if (copiado) "copiado ✓" else "toca para copiar", fontSize = 12.sp, color = colores.muted)
             }
+            Separador(colores)
+            FilaNav("Mostrar código QR", colores) { mostrarQr = true }
         }
 
         Seccion("APARIENCIA", colores)
@@ -237,6 +280,11 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
             modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
+    }
+
+    if (mostrarQr && codigo.isNotEmpty())
+    {
+        CodigoQr(codigo = codigo, colores = colores) { mostrarQr = false }
     }
 
     Confirmacion(
