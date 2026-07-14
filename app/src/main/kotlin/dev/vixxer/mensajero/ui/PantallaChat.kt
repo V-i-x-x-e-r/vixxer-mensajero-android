@@ -191,11 +191,16 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
     var nuevosAbajo by remember { mutableStateOf(0) }
     var visor by remember { mutableStateOf<File?>(null) }
     var subiendo by remember { mutableStateOf(false) }
+    var adjuntando by remember { mutableStateOf(false) }
+    var previo by remember { mutableStateOf<Pair<android.net.Uri, ImagenLista>?>(null) }
+    var caption by remember { mutableStateOf("") }
     val contexto = LocalContext.current
     val listaEstado = rememberLazyListState()
     val escribiendoJob = remember { arrayOf<Job?>(null) }
     val apagarEscribiendo = remember { arrayOf<Job?>(null) }
     val purgados = remember { HashSet<String>() }
+    val selectorFotoRef = remember { arrayOf<(() -> Unit)?>(null) }
+    val selectorDocumentoRef = remember { arrayOf<(() -> Unit)?>(null) }
     val claveBorrador = "chat-$otroId"
 
     val visibles = remember(mensajes, ocultos, buscando, consulta) {
@@ -435,18 +440,17 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
         mandar(if (temporizador > 0) Efimero.envolver(limpio, temporizador) else limpio)
     }
 
-    fun enviarImagen(uri: android.net.Uri)
+    fun enviarImagen(imagen: ImagenLista, cap: String?)
     {
         subiendo = true
         alcance.launch {
             val plano = withContext(Dispatchers.IO) {
-                val imagen = comprimirImagen(contexto, uri) ?: return@withContext null
                 val cifrado = Medios.cifrarArchivo(imagen.bytes)
                 val respuesta = runCatching { app.api.subirMediaConProgreso(cifrado.datos) as JSONObject }.getOrNull()
                     ?: return@withContext null
                 val path = respuesta.getString("path")
                 CacheMedia.guardar(contexto, path, imagen.bytes)
-                JSONObject()
+                val obj = JSONObject()
                     .put("t", "img")
                     .put("path", path)
                     .put("mime", "image/jpeg")
@@ -454,6 +458,43 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
                     .put("n", cifrado.nonce)
                     .put("w", imagen.ancho)
                     .put("h", imagen.alto)
+                if (!cap.isNullOrBlank())
+                {
+                    obj.put("cap", cap.trim())
+                }
+                obj.toString()
+            }
+            subiendo = false
+            if (plano != null)
+            {
+                mandar(plano)
+            }
+        }
+    }
+
+    fun enviarDocumento(uri: android.net.Uri)
+    {
+        subiendo = true
+        alcance.launch {
+            val plano = withContext(Dispatchers.IO) {
+                val archivo = leerArchivo(contexto, uri) ?: return@withContext null
+                if (archivo.bytes.size > 25 * 1024 * 1024)
+                {
+                    return@withContext null
+                }
+                val cifrado = Medios.cifrarArchivo(archivo.bytes)
+                val respuesta = runCatching { app.api.subirMediaConProgreso(cifrado.datos) as JSONObject }.getOrNull()
+                    ?: return@withContext null
+                val path = respuesta.getString("path")
+                CacheMedia.guardar(contexto, path, archivo.bytes)
+                JSONObject()
+                    .put("t", "file")
+                    .put("path", path)
+                    .put("mime", archivo.mime)
+                    .put("k", cifrado.clave)
+                    .put("n", cifrado.nonce)
+                    .put("nombre", archivo.nombre)
+                    .put("peso", archivo.peso)
                     .toString()
             }
             subiendo = false
@@ -1075,9 +1116,24 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
                     val selectorFoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
                         if (uri != null)
                         {
-                            enviarImagen(uri)
+                            alcance.launch {
+                                val imagen = withContext(Dispatchers.IO) { comprimirImagen(contexto, uri) }
+                                if (imagen != null)
+                                {
+                                    caption = ""
+                                    previo = Pair(uri, imagen)
+                                }
+                            }
                         }
                     }
+                    val selectorDocumento = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+                        if (uri != null)
+                        {
+                            enviarDocumento(uri)
+                        }
+                    }
+                    selectorFotoRef[0] = { selectorFoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+                    selectorDocumentoRef[0] = { selectorDocumento.launch("*/*") }
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1090,9 +1146,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
                         Box(
                             modifier = Modifier
                                 .size(44.dp)
-                                .clickable(enabled = !subiendo, indication = null, interactionSource = remember { MutableInteractionSource() }) {
-                                    selectorFoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                                },
+                                .clickable(enabled = !subiendo, indication = null, interactionSource = remember { MutableInteractionSource() }) { adjuntando = true },
                             contentAlignment = Alignment.Center,
                         )
                         {
@@ -1192,6 +1246,132 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
             alBorrarLocal = { borrarLocal(it) },
             alCerrar = { sel = null },
         )
+
+        if (adjuntando)
+        {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.35f))
+                    .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { adjuntando = false },
+                contentAlignment = Alignment.BottomCenter,
+            )
+            {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .panelVidrio(radio = 20.dp, fuerte = true)
+                        .navigationBarsPadding()
+                        .padding(top = 8.dp, bottom = 28.dp),
+                )
+                {
+                    Text(
+                        "ADJUNTAR",
+                        fontSize = 12.sp,
+                        fontFamily = FuenteOutfit,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 1.sp,
+                        color = colores.muted,
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                    )
+                    Text(
+                        "Foto",
+                        fontSize = 16.sp,
+                        color = colores.texto,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                                adjuntando = false
+                                selectorFotoRef[0]?.invoke()
+                            }
+                            .padding(vertical = 14.dp, horizontal = 24.dp),
+                    )
+                    Text(
+                        "Documento",
+                        fontSize = 16.sp,
+                        color = colores.texto,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                                adjuntando = false
+                                selectorDocumentoRef[0]?.invoke()
+                            }
+                            .padding(vertical = 14.dp, horizontal = 24.dp),
+                    )
+                }
+            }
+        }
+
+        val previoActual = previo
+        if (previoActual != null)
+        {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.94f))
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+                    .imePadding(),
+            )
+            {
+                Row(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                    Text(
+                        "✕",
+                        fontSize = 22.sp,
+                        color = androidx.compose.ui.graphics.Color.White,
+                        modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { previo = null },
+                    )
+                }
+                coil.compose.AsyncImage(
+                    model = previoActual.first,
+                    contentDescription = null,
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.Bottom,
+                )
+                {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(colores.surface, RoundedCornerShape(22.dp))
+                            .border(Vidrio.anchoBorde, colores.borde, RoundedCornerShape(22.dp))
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                    )
+                    {
+                        if (caption.isEmpty())
+                        {
+                            Text("Añade un comentario…", fontSize = 15.sp, color = colores.placeholder)
+                        }
+                        BasicTextField(
+                            value = caption,
+                            onValueChange = { caption = it },
+                            textStyle = TextStyle(fontSize = 15.sp, color = colores.texto),
+                            cursorBrush = SolidColor(colores.texto),
+                            maxLines = 3,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .background(colores.botonFondo, CircleShape)
+                            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                                val listo = previoActual.second
+                                previo = null
+                                enviarImagen(listo, caption)
+                            },
+                        contentAlignment = Alignment.Center,
+                    )
+                    {
+                        Text("➤", fontSize = 18.sp, color = colores.botonTexto)
+                    }
+                }
+            }
+        }
 
         VisorImagen(archivo = visor, alCerrar = { visor = null })
 
@@ -1348,6 +1528,10 @@ private fun Burbuja(
                             modifier = Modifier.padding(top = 6.dp),
                         )
                     }
+                }
+                else if (media != null && media.t == "file")
+                {
+                    AdjuntoArchivo(app = app, media = media, mio = mio, colores = colores)
                 }
                 else if (media != null)
                 {

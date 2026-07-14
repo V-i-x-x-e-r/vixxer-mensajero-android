@@ -41,6 +41,14 @@ import java.io.File
 import java.net.URL
 import java.security.MessageDigest
 import org.json.JSONObject
+import android.content.ContentValues
+import android.os.Build
+import android.provider.MediaStore
+import android.provider.OpenableColumns
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.padding
 
 data class MediaMensaje(
     val t: String,
@@ -248,5 +256,128 @@ fun VisorImagen(archivo: File?, alCerrar: () -> Unit)
                     translationY = despY
                 },
         )
+    }
+}
+
+
+data class ArchivoElegido(val nombre: String, val peso: Long, val mime: String, val bytes: ByteArray)
+
+fun leerArchivo(contexto: Context, uri: Uri): ArchivoElegido?
+{
+    return runCatching {
+        var nombre = "archivo"
+        var peso = 0L
+        contexto.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst())
+            {
+                val iNombre = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                val iPeso = cursor.getColumnIndex(OpenableColumns.SIZE)
+                if (iNombre >= 0)
+                {
+                    nombre = cursor.getString(iNombre) ?: nombre
+                }
+                if (iPeso >= 0)
+                {
+                    peso = cursor.getLong(iPeso)
+                }
+            }
+        }
+        val mime = contexto.contentResolver.getType(uri) ?: "application/octet-stream"
+        val bytes = contexto.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return null
+        ArchivoElegido(nombre, if (peso > 0) peso else bytes.size.toLong(), mime, bytes)
+    }.getOrNull()
+}
+
+fun guardarEnDescargas(contexto: Context, archivo: File, nombre: String, mime: String): Boolean
+{
+    return runCatching {
+        if (Build.VERSION.SDK_INT >= 29)
+        {
+            val valores = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, nombre)
+                put(MediaStore.Downloads.MIME_TYPE, mime)
+            }
+            val destino = contexto.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, valores)
+                ?: return false
+            contexto.contentResolver.openOutputStream(destino)?.use { salida ->
+                archivo.inputStream().use { it.copyTo(salida) }
+            } ?: return false
+            true
+        }
+        else
+        {
+            val carpeta = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+            carpeta.mkdirs()
+            archivo.copyTo(File(carpeta, nombre), overwrite = true)
+            true
+        }
+    }.getOrDefault(false)
+}
+
+private fun pesoLegible(peso: Long): String
+{
+    if (peso <= 0)
+    {
+        return ""
+    }
+    if (peso < 1024 * 1024)
+    {
+        return "%.0f KB".format(peso / 1024f)
+    }
+    return "%.1f MB".format(peso / (1024f * 1024f))
+}
+
+@Composable
+fun AdjuntoArchivo(app: AplicacionVixxer, media: MediaMensaje, mio: Boolean, colores: Paleta)
+{
+    val contexto = androidx.compose.ui.platform.LocalContext.current
+    var estado by remember(media.path) { mutableStateOf("") }
+    val colorTexto = if (mio) colores.botonTexto else colores.texto
+
+    Row(
+        modifier = Modifier
+            .widthIn(max = 260.dp)
+            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                if (estado.isEmpty())
+                {
+                    estado = "descargando"
+                }
+            },
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    )
+    {
+        Documento(color = colorTexto, tamano = 26.dp)
+        Column {
+            Text(
+                media.nombre ?: "Documento",
+                fontSize = 14.sp,
+                color = colorTexto,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            )
+            Text(
+                when (estado)
+                {
+                    "descargando" -> "descargando…"
+                    "listo" -> "guardado en Descargas"
+                    "fallo" -> "no se pudo descargar"
+                    else -> pesoLegible(media.peso).ifEmpty { "tocar para descargar" }
+                },
+                fontSize = 11.sp,
+                color = colorTexto.copy(alpha = 0.7f),
+            )
+        }
+    }
+
+    LaunchedEffect(estado) {
+        if (estado == "descargando")
+        {
+            val ok = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                val archivo = CacheMedia.obtener(contexto, app, media) ?: return@withContext false
+                guardarEnDescargas(contexto, archivo, media.nombre ?: "documento", media.mime.ifEmpty { "application/octet-stream" })
+            }
+            estado = if (ok) "listo" else "fallo"
+        }
     }
 }
