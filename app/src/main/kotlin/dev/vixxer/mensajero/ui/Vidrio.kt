@@ -66,6 +66,23 @@ fun Modifier.pildoraVidrio(): Modifier
 }
 
 @Composable
+fun Modifier.vidrioFlotante(radio: Dp = 22.dp): Modifier
+{
+    val tema = LocalTema.current
+    val forma = RoundedCornerShape(radio)
+    if (tema.oscuro)
+    {
+        return this
+            .background(Vidrio.fondoFuerte, forma)
+            .border(Vidrio.anchoBorde, Vidrio.borde, forma)
+    }
+    val colores = tema.colores
+    return this
+        .background(colores.surface.copy(alpha = 0.8f), forma)
+        .border(Vidrio.anchoBorde, colores.borde, forma)
+}
+
+@Composable
 fun colorPestanaActiva(): Color
 {
     val tema = LocalTema.current

@@ -952,7 +952,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                 modifier = Modifier
                     .navigationBarsPadding()
                     .padding(start = 12.dp, bottom = 68.dp)
-                    .panelVidrio(radio = 22.dp, fuerte = true)
+                    .vidrioFlotante(radio = 22.dp)
                     .padding(horizontal = 14.dp, vertical = 10.dp),
                 horizontalArrangement = Arrangement.spacedBy(18.dp),
             )
@@ -1083,7 +1083,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                 .fillMaxWidth()
                 .navigationBarsPadding()
                 .padding(12.dp)
-                .panelVidrio(radio = 22.dp, fuerte = true)
+                .vidrioFlotante(radio = 22.dp)
                 .padding(horizontal = 18.dp, vertical = 14.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalAlignment = Alignment.CenterVertically,

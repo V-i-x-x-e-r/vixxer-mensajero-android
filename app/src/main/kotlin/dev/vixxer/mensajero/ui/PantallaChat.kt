@@ -1512,6 +1512,14 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
                     color = colores.texto,
                     modifier = Modifier.weight(1f),
                 )
+                Text(
+                    "Cancelar",
+                    fontSize = 14.sp,
+                    color = colores.muted,
+                    modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                        terminarGrabacion(false)
+                    },
+                )
                 Box(
                     modifier = Modifier
                         .size(34.dp)
@@ -1537,14 +1545,6 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alVolver: () -> Unit)
                         Pausa(color = colores.texto, tamano = 16.dp)
                     }
                 }
-                Text(
-                    "Cancelar",
-                    fontSize = 14.sp,
-                    color = colores.muted,
-                    modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
-                        terminarGrabacion(false)
-                    },
-                )
                 Box(
                     modifier = Modifier
                         .size(40.dp)
