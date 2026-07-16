@@ -60,6 +60,7 @@ import dev.vixxer.mensajero.ui.PantallaChats
 import dev.vixxer.mensajero.ui.PantallaInfoGrupo
 import dev.vixxer.mensajero.ui.PantallaGrupos
 import dev.vixxer.mensajero.ui.PantallaLogin
+import dev.vixxer.mensajero.ui.PantallaMultimedia
 import dev.vixxer.mensajero.ui.PantallaPerfil
 import dev.vixxer.mensajero.ui.PantallaRecuperar
 import dev.vixxer.mensajero.ui.PantallaRegistro
@@ -124,6 +125,7 @@ class ActividadPrincipal : FragmentActivity()
                 BackHandler(enabled = pantalla == "grupo-crear") { pantalla = "grupos" }
                 BackHandler(enabled = pantalla.startsWith("grupo/")) { pantalla = "grupos" }
                 BackHandler(enabled = pantalla.startsWith("grupo-info/")) { pantalla = "grupo/${pantalla.removePrefix("grupo-info/")}" }
+                BackHandler(enabled = pantalla.startsWith("multimedia/")) { pantalla = "perfil" }
                 Box(modifier = Modifier.fillMaxSize()) {
                     AnimatedContent(
                         targetState = pantalla,
@@ -190,6 +192,7 @@ class ActividadPrincipal : FragmentActivity()
                         {
                             destino.startsWith("grupo/") -> PantallaChatGrupo(app, destino.removePrefix("grupo/"), "") { pantalla = it }
                             destino.startsWith("grupo-info/") -> PantallaInfoGrupo(app, destino.removePrefix("grupo-info/")) { pantalla = it }
+                            destino.startsWith("multimedia/") -> PantallaMultimedia(app, destino.removePrefix("multimedia/")) { pantalla = "perfil" }
                             else -> PantallaPendiente(destino)
                         }
                     }
