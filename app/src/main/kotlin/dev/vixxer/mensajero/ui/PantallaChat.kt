@@ -198,8 +198,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
     var segundosGrabando by remember { mutableStateOf(0) }
     var grabacionPausada by remember { mutableStateOf(false) }
     val grabadora = remember { arrayOf<Grabadora?>(null) }
-    var previo by remember { mutableStateOf<PrevioEnvio?>(null) }
-    var caption by remember { mutableStateOf("") }
+    var previos by remember { mutableStateOf(listOf<PrevioEnvio>()) }
     val contexto = LocalContext.current
     val enfoque = androidx.compose.ui.platform.LocalFocusManager.current
     val envioMedia = remember { EnvioMedia(app, contexto) }
@@ -452,29 +451,26 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
         mandar(if (temporizador > 0) Efimero.envolver(limpio, temporizador) else limpio)
     }
 
-    fun enviarImagen(imagen: ImagenLista, cap: String?)
+    fun enviarLote(lista: List<Pair<PrevioEnvio, String?>>)
     {
-        subiendo = true
-        alcance.launch {
-            val plano = withContext(Dispatchers.IO) { envioMedia.prepararImagen(imagen, cap) }
-            subiendo = false
-            if (plano != null)
-            {
-                mandar(plano)
-            }
+        if (lista.isEmpty())
+        {
+            return
         }
-    }
-
-    fun enviarVideo(uri: android.net.Uri, cap: String? = null)
-    {
         subiendo = true
         alcance.launch {
-            val plano = withContext(Dispatchers.IO) { envioMedia.prepararVideo(uri, cap) }
-            subiendo = false
-            if (plano != null)
+            for ((item, cap) in lista)
             {
-                mandar(plano)
+                val plano = withContext(Dispatchers.IO) {
+                    if (item.esVideo) envioMedia.prepararVideo(item.uri, cap)
+                    else item.imagen?.let { envioMedia.prepararImagen(it, cap) }
+                }
+                if (plano != null)
+                {
+                    mandar(plano)
+                }
             }
+            subiendo = false
         }
     }
 
@@ -891,14 +887,14 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
     }
 
     androidx.activity.compose.BackHandler(
-        enabled = sel != null || adjuntando || previo != null || grabando || buscando || seleccionando || pickerTemp || reenviando != null,
+        enabled = sel != null || adjuntando || previos.isNotEmpty() || grabando || buscando || seleccionando || pickerTemp || reenviando != null,
     )
     {
         when
         {
             sel != null -> sel = null
             adjuntando -> adjuntando = false
-            previo != null -> previo = null
+            previos.isNotEmpty() -> previos = emptyList()
             grabando -> terminarGrabacion(false)
             pickerTemp -> pickerTemp = false
             reenviando != null -> reenviando = null
@@ -1181,15 +1177,16 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                             )
                         }
                     }
-                    val selectorFoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-                        if (uri != null)
+                    val selectorFoto = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(10)) { uris ->
+                        if (uris.isNotEmpty())
                         {
                             alcance.launch {
-                                val imagen = withContext(Dispatchers.IO) { comprimirImagen(contexto, uri) }
-                                if (imagen != null)
+                                val lista = withContext(Dispatchers.IO) {
+                                    uris.mapNotNull { u -> comprimirImagen(contexto, u)?.let { PrevioEnvio(u, it, null, esVideo = false) } }
+                                }
+                                if (lista.isNotEmpty())
                                 {
-                                    caption = ""
-                                    previo = PrevioEnvio(uri, imagen, null, esVideo = false)
+                                    previos = lista
                                 }
                             }
                         }
@@ -1200,13 +1197,14 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                             enviarDocumento(uri)
                         }
                     }
-                    val selectorVideo = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-                        if (uri != null)
+                    val selectorVideo = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(10)) { uris ->
+                        if (uris.isNotEmpty())
                         {
                             alcance.launch {
-                                val (miniatura, _, _) = withContext(Dispatchers.IO) { miniaturaVideo(contexto, uri) }
-                                caption = ""
-                                previo = PrevioEnvio(uri, null, miniatura, esVideo = true)
+                                val lista = withContext(Dispatchers.IO) {
+                                    uris.map { u -> PrevioEnvio(u, null, miniaturaVideo(contexto, u).first, esVideo = true) }
+                                }
+                                previos = lista
                             }
                         }
                     }
@@ -1235,8 +1233,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                                 val imagen = withContext(Dispatchers.IO) { comprimirImagen(contexto, uri) }
                                 if (imagen != null)
                                 {
-                                    caption = ""
-                                    previo = PrevioEnvio(uri, imagen, null, esVideo = false)
+                                    previos = listOf(PrevioEnvio(uri, imagen, null, esVideo = false))
                                 }
                             }
                         }
@@ -1431,78 +1428,17 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
             }
         }
 
-        val previoActual = previo
-        if (previoActual != null)
+        if (previos.isNotEmpty())
         {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.94f))
-                    .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {}
-                    .statusBarsPadding()
-                    .navigationBarsPadding()
-                    .imePadding(),
+            PrevioMediaMulti(
+                items = previos,
+                colores = colores,
+                onCancelar = { previos = emptyList() },
+                onEnviar = { lista ->
+                    previos = emptyList()
+                    enviarLote(lista)
+                },
             )
-            {
-                Row(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                    Text(
-                        "✕",
-                        fontSize = 22.sp,
-                        color = androidx.compose.ui.graphics.Color.White,
-                        modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { previo = null },
-                    )
-                }
-                VistaPrevio(previo = previoActual, modifier = Modifier.weight(1f).fillMaxWidth())
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.Bottom,
-                )
-                {
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .background(colores.surface, RoundedCornerShape(22.dp))
-                            .border(Vidrio.anchoBorde, colores.borde, RoundedCornerShape(22.dp))
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                    )
-                    {
-                        if (caption.isEmpty())
-                        {
-                            Text("Añade un comentario…", fontSize = 15.sp, color = colores.placeholder)
-                        }
-                        BasicTextField(
-                            value = caption,
-                            onValueChange = { caption = it },
-                            textStyle = TextStyle(fontSize = 15.sp, color = colores.texto),
-                            cursorBrush = SolidColor(colores.texto),
-                            maxLines = 3,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .background(colores.botonFondo, CircleShape)
-                            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
-                                val listo = previoActual
-                                previo = null
-                                if (listo.esVideo)
-                                {
-                                    enviarVideo(listo.uri, caption)
-                                }
-                                else if (listo.imagen != null)
-                                {
-                                    enviarImagen(listo.imagen, caption)
-                                }
-                            },
-                        contentAlignment = Alignment.Center,
-                    )
-                    {
-                        Text("➤", fontSize = 18.sp, color = colores.botonTexto)
-                    }
-                }
-            }
         }
 
         if (grabando)
