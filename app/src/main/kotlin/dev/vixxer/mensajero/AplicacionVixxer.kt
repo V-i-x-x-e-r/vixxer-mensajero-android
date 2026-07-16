@@ -41,6 +41,9 @@ class AplicacionVixxer : Application()
         private set
     var alExpirarSesion: () -> Unit = {}
 
+    @Volatile
+    var saltarBloqueo: Boolean = false
+
     override fun onCreate()
     {
         super.onCreate()

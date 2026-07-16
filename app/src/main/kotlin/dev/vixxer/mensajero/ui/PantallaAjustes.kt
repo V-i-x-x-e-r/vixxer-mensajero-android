@@ -161,6 +161,7 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
         {
             Box(
                 modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                    app.saltarBloqueo = true
                     selectorFoto.launch(androidx.activity.result.PickVisualMediaRequest(
                         androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly,
                     ))

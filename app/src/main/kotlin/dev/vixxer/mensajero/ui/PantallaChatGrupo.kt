@@ -858,9 +858,9 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                 }
             }
         }
-        selectorFotoRef[0] = { selectorFoto.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
-        selectorVideoRef[0] = { selectorVideo.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)) }
-        selectorDocumentoRef[0] = { selectorDocumento.launch("*/*") }
+        selectorFotoRef[0] = { app.saltarBloqueo = true; selectorFoto.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+        selectorVideoRef[0] = { app.saltarBloqueo = true; selectorVideo.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)) }
+        selectorDocumentoRef[0] = { app.saltarBloqueo = true; selectorDocumento.launch("*/*") }
         permisoMicRef[0] = { permisoMic.launch(android.Manifest.permission.RECORD_AUDIO) }
         val camara = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
             val uri = fotoCamara[0]
@@ -882,6 +882,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
             val destino = java.io.File(dir, "captura-${System.currentTimeMillis()}.jpg")
             val uri = androidx.core.content.FileProvider.getUriForFile(contexto, "dev.vixxer.mensajero.nativo.archivos", destino)
             fotoCamara[0] = uri
+            app.saltarBloqueo = true
             camara.launch(uri)
         }
         Row(
