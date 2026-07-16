@@ -5,11 +5,16 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeTint
+import dev.chrisbanes.haze.hazeEffect
 
 object Vidrio
 {
@@ -29,11 +34,28 @@ object Vidrio
     val anchoBorde = 0.7.dp
 }
 
+private fun Modifier.conBlur(estado: HazeState, forma: Shape, tinte: Color, radioBlur: Dp, borde: Color): Modifier =
+    this
+        .clip(forma)
+        .hazeEffect(estado) {
+            blurRadius = radioBlur
+            tints = listOf(HazeTint(tinte))
+        }
+        .border(Vidrio.anchoBorde, borde, forma)
+
 @Composable
-fun Modifier.panelVidrio(radio: Dp = Vidrio.radioPanel, fuerte: Boolean = false): Modifier
+fun Modifier.panelVidrio(radio: Dp = Vidrio.radioPanel, fuerte: Boolean = false, desenfocar: Boolean = false): Modifier
 {
     val tema = LocalTema.current
     val forma = RoundedCornerShape(radio)
+    val haze = LocalHazeState.current
+    if (desenfocar && hayBlur && haze != null)
+    {
+        val tinte = if (tema.oscuro) Color(0xFF121212).copy(alpha = if (fuerte) 0.42f else 0.3f)
+            else tema.colores.surface.copy(alpha = if (fuerte) 0.42f else 0.34f)
+        val borde = if (tema.oscuro) Vidrio.borde else tema.colores.borde
+        return this.conBlur(estado = haze, forma = forma, tinte = tinte, radioBlur = 22.dp, borde = borde)
+    }
     if (tema.oscuro)
     {
         return this
@@ -54,6 +76,13 @@ fun Modifier.pildoraVidrio(): Modifier
 {
     val tema = LocalTema.current
     val forma = RoundedCornerShape(Vidrio.radioPildora)
+    val haze = LocalHazeState.current
+    if (hayBlur && haze != null)
+    {
+        val tinte = if (tema.oscuro) Color(0xFF121212).copy(alpha = 0.46f) else tema.colores.surface.copy(alpha = 0.46f)
+        val borde = if (tema.oscuro) Vidrio.borde else tema.colores.borde
+        return this.conBlur(estado = haze, forma = forma, tinte = tinte, radioBlur = 26.dp, borde = borde)
+    }
     if (tema.oscuro)
     {
         return this
@@ -74,6 +103,13 @@ fun Modifier.vidrioFlotante(radio: Dp = 22.dp): Modifier
 {
     val tema = LocalTema.current
     val forma = RoundedCornerShape(radio)
+    val haze = LocalHazeState.current
+    if (hayBlur && haze != null)
+    {
+        val tinte = if (tema.oscuro) Color(0xFF121212).copy(alpha = 0.44f) else tema.colores.surface.copy(alpha = 0.42f)
+        val borde = if (tema.oscuro) Vidrio.borde else tema.colores.borde
+        return this.conBlur(estado = haze, forma = forma, tinte = tinte, radioBlur = 24.dp, borde = borde)
+    }
     if (tema.oscuro)
     {
         return this
