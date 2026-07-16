@@ -46,7 +46,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import dev.vixxer.mensajero.ui.BarraPestanas
 import dev.vixxer.mensajero.ui.FuenteOutfit
+import dev.vixxer.mensajero.ui.LocalHazeState
 import dev.vixxer.mensajero.ui.LocalTema
+import dev.vixxer.mensajero.ui.fondoDesenfocable
+import dev.vixxer.mensajero.ui.recordarHaze
 import dev.vixxer.mensajero.ui.PantallaAgregar
 import dev.vixxer.mensajero.ui.PantallaAjustes
 import dev.vixxer.mensajero.ui.PantallaAmigos
@@ -79,6 +82,7 @@ class ActividadPrincipal : FragmentActivity()
         setContent {
             val oscuroSistema = isSystemInDarkTheme()
             val estadoTema = remember { EstadoTema(app.estado, oscuroSistema) }
+            val haze = recordarHaze()
             var pantalla by remember { mutableStateOf("arranque") }
             var chatAbierto by remember { mutableStateOf<Amigo?>(null) }
             var bloqueado by remember { mutableStateOf(false) }
@@ -129,6 +133,7 @@ class ActividadPrincipal : FragmentActivity()
                 Box(modifier = Modifier.fillMaxSize()) {
                     AnimatedContent(
                         targetState = pantalla,
+                        modifier = Modifier.fondoDesenfocable(haze),
                         transitionSpec = {
                             (fadeIn(tween(180)) + slideInVertically(tween(180)) { alto -> alto / 24 })
                                 .togetherWith(fadeOut(tween(120)))
@@ -199,11 +204,13 @@ class ActividadPrincipal : FragmentActivity()
                     }
                     if (esPestana)
                     {
-                        BarraPestanas(
-                            actual = pantalla,
-                            alCambiar = { pantalla = it },
-                            modifier = Modifier.align(Alignment.BottomCenter),
-                        )
+                        CompositionLocalProvider(LocalHazeState provides haze) {
+                            BarraPestanas(
+                                actual = pantalla,
+                                alCambiar = { pantalla = it },
+                                modifier = Modifier.align(Alignment.BottomCenter),
+                            )
+                        }
                     }
                     if (bloqueado)
                     {
