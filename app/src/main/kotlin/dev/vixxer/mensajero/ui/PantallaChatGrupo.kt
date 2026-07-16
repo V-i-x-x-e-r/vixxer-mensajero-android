@@ -118,6 +118,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
     var subiendo by remember { mutableStateOf(false) }
     var adjuntando by remember { mutableStateOf(false) }
     var previos by remember { mutableStateOf(listOf<PrevioEnvio>()) }
+    var mostrandoStickers by remember { mutableStateOf(false) }
     var visor by remember { mutableStateOf<java.io.File?>(null) }
     var visorVideo by remember { mutableStateOf<MediaMensaje?>(null) }
     var grabando by remember { mutableStateOf(false) }
@@ -242,6 +243,23 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                 mensajes.map { if (it.id == clienteId) it.copy(estado = "fallido") else it }
             }
             withContext(Dispatchers.IO) { guardarCache(mensajes) }
+        }
+    }
+
+    fun enviarStickerGrupo(archivo: java.io.File)
+    {
+        mostrandoStickers = false
+        subiendo = true
+        alcance.launch {
+            val plano = withContext(Dispatchers.IO) {
+                val datos = Stickers.leer(archivo) ?: return@withContext null
+                envioMedia.prepararSticker(datos.first, datos.second, datos.third)
+            }
+            subiendo = false
+            if (plano != null)
+            {
+                mandarPlano(plano)
+            }
         }
     }
 
@@ -1054,6 +1072,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                     Triple("Video", 1) { adjuntando = false; selectorVideoRef[0]?.invoke() },
                     Triple("Archivo", 2) { adjuntando = false; selectorDocumentoRef[0]?.invoke() },
                     Triple("Cámara", 3) { adjuntando = false; camaraRef[0]?.invoke() },
+                    Triple("Sticker", 4) { adjuntando = false; mostrandoStickers = true },
                 ))
                 {
                     Column(
@@ -1067,7 +1086,8 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                             0 -> IconoImagen(color = colores.texto, tamano = 22.dp)
                             1 -> IconoVideo(color = colores.texto, tamano = 22.dp)
                             2 -> Documento(color = colores.texto, tamano = 22.dp)
-                            else -> IconoCamara(color = colores.texto, tamano = 22.dp)
+                            3 -> IconoCamara(color = colores.texto, tamano = 22.dp)
+                            else -> IconoSticker(color = colores.texto, tamano = 22.dp)
                         }
                         Text(etiqueta, fontSize = 11.sp, color = colores.muted)
                     }
@@ -1088,6 +1108,8 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
             },
         )
     }
+
+    SelectorSticker(app = app, visible = mostrandoStickers, alElegir = { enviarStickerGrupo(it) }, alCerrar = { mostrandoStickers = false })
 
     if (grabando)
     {

@@ -207,6 +207,17 @@ fun PersonaMas(color: Color, tamano: Dp = 18.dp)
 }
 
 @Composable
+fun IconoSticker(color: Color, tamano: Dp = 20.dp)
+{
+    Icono24(tamano) {
+        drawCircle(color, radius = 10f, center = Offset(12f, 12f), style = Stroke(width = 2f))
+        drawCircle(color, radius = 1.2f, center = Offset(9f, 10f))
+        drawCircle(color, radius = 1.2f, center = Offset(15f, 10f))
+        trazo("M8.5 14a4 4 0 0 0 7 0", color)
+    }
+}
+
+@Composable
 fun Campana(color: Color, tamano: Dp = 18.dp)
 {
     Icono24(tamano) {
