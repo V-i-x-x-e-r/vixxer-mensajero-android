@@ -155,9 +155,9 @@ fun PantallaAmigos(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCh
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
-                        AccionAmigos("Agregar por código", colores, Modifier.weight(1f)) { alNavegar("agregar") }
+                        AccionAmigos("Agregar por código", { PersonaMas(it) }, colores, Modifier.weight(1f)) { alNavegar("agregar") }
                         Box(modifier = Modifier.weight(1f)) {
-                            AccionAmigos("Solicitudes", colores, Modifier.fillMaxWidth()) { alNavegar("solicitudes") }
+                            AccionAmigos("Solicitudes", { Campana(it) }, colores, Modifier.fillMaxWidth()) { alNavegar("solicitudes") }
                             if (pendientes > 0)
                             {
                                 Box(
@@ -255,16 +255,18 @@ fun PantallaAmigos(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCh
 }
 
 @Composable
-private fun AccionAmigos(texto: String, colores: Paleta, modifier: Modifier, alPulsar: () -> Unit)
+private fun AccionAmigos(texto: String, icono: @Composable (androidx.compose.ui.graphics.Color) -> Unit, colores: Paleta, modifier: Modifier, alPulsar: () -> Unit)
 {
-    Box(
+    Row(
         modifier = modifier
             .panelVidrio(radio = 10.dp)
             .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alPulsar() }
             .padding(horizontal = 12.dp, vertical = 11.dp),
-        contentAlignment = Alignment.Center,
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically,
     )
     {
-        Text(texto, fontSize = 14.sp, color = colores.texto)
+        icono(colores.texto)
+        Text(texto, fontSize = 14.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.Medium, color = colores.texto)
     }
 }
