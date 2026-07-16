@@ -181,7 +181,32 @@ fun PantallaPerfil(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> U
         }
 
         Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-            Seccion("MULTIMEDIA", colores)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            )
+            {
+                Text(
+                    "MULTIMEDIA",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 1.sp,
+                    color = colores.muted,
+                    modifier = Modifier.padding(top = 24.dp, bottom = 8.dp),
+                )
+                if (media.isNotEmpty())
+                {
+                    Text(
+                        "Ver todo ›",
+                        fontSize = 13.sp,
+                        color = colores.enlace,
+                        modifier = Modifier
+                            .padding(top = 16.dp)
+                            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alNavegar("multimedia/${amigo.id}") },
+                    )
+                }
+            }
             if (media.isNotEmpty())
             {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

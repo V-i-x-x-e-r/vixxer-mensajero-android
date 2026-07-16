@@ -114,6 +114,8 @@ fun leerMedia(texto: String?): MediaMensaje?
 
 object CacheMedia
 {
+    private const val LIMITE = 150L * 1024 * 1024
+
     private fun carpeta(contexto: Context): File
     {
         val dir = File(contexto.cacheDir, "media")
@@ -130,7 +132,10 @@ object CacheMedia
 
     fun guardar(contexto: Context, path: String, bytes: ByteArray)
     {
-        runCatching { archivoDe(contexto, path).writeBytes(bytes) }
+        runCatching {
+            archivoDe(contexto, path).writeBytes(bytes)
+            podar(contexto)
+        }
     }
 
     fun obtener(contexto: Context, app: AplicacionVixxer, media: MediaMensaje): File?
@@ -138,6 +143,7 @@ object CacheMedia
         val destino = archivoDe(contexto, media.path)
         if (destino.exists() && destino.length() > 0)
         {
+            destino.setLastModified(System.currentTimeMillis())
             return destino
         }
         return runCatching {
@@ -154,8 +160,31 @@ object CacheMedia
                 }
             }
             temporal.renameTo(destino)
+            podar(contexto)
             destino
         }.getOrNull()
+    }
+
+    private fun podar(contexto: Context)
+    {
+        val archivos = carpeta(contexto).listFiles()?.filter { it.isFile && !it.name.endsWith(".tmp") } ?: return
+        var total = archivos.sumOf { it.length() }
+        if (total <= LIMITE)
+        {
+            return
+        }
+        for (archivo in archivos.sortedBy { it.lastModified() })
+        {
+            if (total <= LIMITE * 9 / 10)
+            {
+                break
+            }
+            val peso = archivo.length()
+            if (archivo.delete())
+            {
+                total -= peso
+            }
+        }
     }
 }
 
