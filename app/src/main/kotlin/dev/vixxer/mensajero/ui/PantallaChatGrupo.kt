@@ -18,7 +18,10 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -81,7 +84,10 @@ data class MensajeGrupo(
     val estado: String? = null,
     val reacciones: Map<String, String> = emptyMap(),
     val respuestaA: String? = null,
+    val leidoPor: Map<String, String> = emptyMap(),
 )
+
+data class MiembroGrupo(val id: String, val usuario: String, val avatarUrl: String?)
 
 @Composable
 fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: String, alNavegar: (String) -> Unit)
@@ -92,6 +98,8 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
     var texto by remember { mutableStateOf("") }
     var nombreGrupo by remember { mutableStateOf(nombreInicial) }
     var numMiembros by remember { mutableStateOf(0) }
+    var miembros by remember { mutableStateOf(listOf<MiembroGrupo>()) }
+    var infoDe by remember { mutableStateOf<MensajeGrupo?>(null) }
     var escribiendoDe by remember { mutableStateOf<String?>(null) }
     var hayMas by remember { mutableStateOf(true) }
     var masCargando by remember { mutableStateOf(false) }
@@ -158,6 +166,9 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
         val reacciones = f.optJSONObject("reacciones")?.let { obj ->
             obj.keys().asSequence().associateWith { obj.optString(it) }
         } ?: emptyMap()
+        val leidoPor = f.optJSONObject("leido_por")?.let { obj ->
+            obj.keys().asSequence().associateWith { obj.optString(it) }
+        } ?: emptyMap()
         return MensajeGrupo(
             id = f.optString("id"),
             remitenteId = remitente,
@@ -169,6 +180,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
             editado = f.optBoolean("editado"),
             reacciones = reacciones,
             respuestaA = if (f.isNull("respuesta_a")) null else f.optString("respuesta_a"),
+            leidoPor = leidoPor,
         )
     }
 
@@ -489,14 +501,17 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
             runCatching {
                 val g = app.api.infoGrupo(grupoId) as JSONObject
                 nombreGrupo = g.optString("nombre").ifEmpty { nombreInicial }
-                val miembros = g.optJSONArray("miembros") ?: JSONArray()
-                numMiembros = miembros.length()
-                for (i in 0 until miembros.length())
+                val listaMiembros = g.optJSONArray("miembros") ?: JSONArray()
+                numMiembros = listaMiembros.length()
+                val acumulado = mutableListOf<MiembroGrupo>()
+                for (i in 0 until listaMiembros.length())
                 {
-                    val m = miembros.getJSONObject(i)
+                    val m = listaMiembros.getJSONObject(i)
                     pubs[m.getString("id")] = m.textoO("llave_publica")
                     nombres[m.getString("id")] = m.optString("usuario")
+                    acumulado.add(MiembroGrupo(m.getString("id"), m.optString("usuario"), m.textoO("avatar_url").ifEmpty { null }))
                 }
+                miembros = acumulado
             }
             runCatching {
                 val filas = app.api.historialGrupo(grupoId) as JSONArray
@@ -662,17 +677,35 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                 mensajes = mensajes.map { if (it.id == data.optString("id")) it.copy(reacciones = reacciones) else it }
             }
         }
+        val alLeido = Emitter.Listener { args ->
+            val data = args.getOrNull(0) as? JSONObject ?: return@Listener
+            if (data.optString("grupo_id") != grupoId)
+            {
+                return@Listener
+            }
+            val lecturas = data.optJSONArray("lecturas") ?: return@Listener
+            val porMensaje = HashMap<String, Map<String, String>>()
+            for (i in 0 until lecturas.length())
+            {
+                val l = lecturas.getJSONObject(i)
+                val lp = l.optJSONObject("leido_por") ?: continue
+                porMensaje[l.optString("id")] = lp.keys().asSequence().associateWith { lp.optString(it) }
+            }
+            mensajes = mensajes.map { porMensaje[it.id]?.let { nuevo -> it.copy(leidoPor = nuevo) } ?: it }
+        }
         socket?.on("grupo:mensaje", alMensaje)
         socket?.on("grupo:escribiendo", alEscribiendo)
         socket?.on("grupo:borrado", alBorrado)
         socket?.on("grupo:editado", alEditado)
         socket?.on("grupo:reaccion", alReaccion)
+        socket?.on("grupo:leido", alLeido)
         onDispose {
             socket?.off("grupo:mensaje", alMensaje)
             socket?.off("grupo:escribiendo", alEscribiendo)
             socket?.off("grupo:borrado", alBorrado)
             socket?.off("grupo:editado", alEditado)
             socket?.off("grupo:reaccion", alReaccion)
+            socket?.off("grupo:leido", alLeido)
         }
     }
 
@@ -745,6 +778,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                     BurbujaGrupo(
                         m = m,
                         mio = m.remitenteId == miId,
+                        numMiembros = numMiembros,
                         colores = colores,
                         app = app,
                         alAbrirImagen = { visor = it },
@@ -884,6 +918,38 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
             fotoCamara[0] = uri
             app.saltarBloqueo = true
             camara.launch(uri)
+        }
+        val mencionParcial = Regex("(^|\\s)@([\\w.-]*)$").find(texto)?.groupValues?.get(2)?.lowercase()
+        val sugerencias = if (mencionParcial != null)
+            miembros.filter { it.id != miId && it.usuario.lowercase().startsWith(mencionParcial) }.take(5)
+        else emptyList()
+        if (sugerencias.isNotEmpty())
+        {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 4.dp)
+                    .panelVidrio(radio = 12.dp),
+            )
+            {
+                for (mb in sugerencias)
+                {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                                texto = texto.replace(Regex("@[\\w.-]*$"), "@${mb.usuario} ")
+                            }
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    )
+                    {
+                        Avatar(nombre = mb.usuario, uri = mb.avatarUrl, tamano = 26.dp)
+                        Text("@${mb.usuario}", fontSize = 14.sp, color = colores.texto)
+                    }
+                }
+            }
         }
         Row(
             modifier = Modifier
@@ -1180,10 +1246,16 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
             texto = m.texto ?: ""
         },
         alFijar = { fijar(it) },
+        alInfo = { m ->
+            sel = null
+            infoDe = m
+        },
         alBorrar = { borrar(it) },
         alBorrarLocal = { borrarLocal(it) },
         alCerrar = { sel = null },
     )
+
+    HojaVistos(infoDe, miembros, miId, numMiembros, colores) { infoDe = null }
 
     SelectorContacto(
         app = app,
@@ -1199,6 +1271,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
 private fun BurbujaGrupo(
     m: MensajeGrupo,
     mio: Boolean,
+    numMiembros: Int,
     colores: Paleta,
     app: AplicacionVixxer,
     alAbrirImagen: (java.io.File) -> Unit,
@@ -1327,6 +1400,16 @@ private fun BurbujaGrupo(
                     {
                         Text("No se envió", fontSize = 10.sp, color = colores.error)
                     }
+                    if (mio && m.estado != "enviando" && m.estado != "fallido")
+                    {
+                        val lecturas = m.leidoPor.size
+                        val todos = numMiembros > 1 && lecturas >= numMiembros - 1
+                        Visto(
+                            color = if (todos) colores.botonTexto else colores.botonTexto.copy(alpha = 0.5f),
+                            dos = lecturas > 0,
+                            tamano = 12.dp,
+                        )
+                    }
                 }
             }
             if (m.reacciones.isNotEmpty())
@@ -1361,4 +1444,66 @@ private fun textoVisibleGrupo(texto: String?): String
         return dev.vixxer.mensajero.nucleo.Resumen.resumenMensaje(texto)
     }
     return texto
+}
+
+@Composable
+private fun HojaVistos(
+    mensaje: MensajeGrupo?,
+    miembros: List<MiembroGrupo>,
+    miId: String,
+    numMiembros: Int,
+    colores: Paleta,
+    alCerrar: () -> Unit,
+)
+{
+    if (mensaje == null)
+    {
+        return
+    }
+    val leidoPor = mensaje.leidoPor
+    val vistos = miembros
+        .filter { it.id != miId && leidoPor.containsKey(it.id) }
+        .sortedBy { leidoPor[it.id] }
+    androidx.compose.ui.window.Dialog(onDismissRequest = alCerrar) {
+        Column(
+            modifier = Modifier
+                .widthIn(max = 360.dp)
+                .background(colores.surface, RoundedCornerShape(16.dp))
+                .border(Vidrio.anchoBorde, colores.borde, RoundedCornerShape(16.dp))
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        )
+        {
+            Text(
+                "Visto por ${vistos.size} de ${maxOf(0, numMiembros - 1)}",
+                fontSize = 16.sp,
+                fontFamily = FuenteOutfit,
+                fontWeight = FontWeight.SemiBold,
+                color = colores.texto,
+            )
+            if (vistos.isEmpty())
+            {
+                Text("Nadie lo ha visto todavía.", fontSize = 13.sp, color = colores.muted)
+            }
+            Column(
+                modifier = Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            )
+            {
+                for (mb in vistos)
+                {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    )
+                    {
+                        Avatar(nombre = mb.usuario, uri = mb.avatarUrl, tamano = 30.dp)
+                        Text(mb.usuario, fontSize = 14.sp, color = colores.texto, modifier = Modifier.weight(1f))
+                        Text(Fechas.hora(leidoPor[mb.id] ?: ""), fontSize = 12.sp, color = colores.muted)
+                    }
+                }
+            }
+        }
+    }
 }
