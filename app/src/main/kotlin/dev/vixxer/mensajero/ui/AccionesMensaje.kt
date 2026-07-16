@@ -55,6 +55,7 @@ fun <T> AccionesMensaje(
     alCopiar: ((T) -> Unit)? = null,
     alEditar: ((T) -> Unit)? = null,
     alFijar: ((T) -> Unit)? = null,
+    alInfo: ((T) -> Unit)? = null,
     alBorrar: ((T) -> Unit)? = null,
     alBorrarLocal: ((T) -> Unit)? = null,
     alCerrar: () -> Unit,
@@ -96,6 +97,10 @@ fun <T> AccionesMensaje(
         if (esMio && alEditar != null)
         {
             add(Accion("Editar", null, { Lapiz(it) }) { alEditar(mensaje) })
+        }
+        if (esMio && alInfo != null)
+        {
+            add(Accion("Vistos", null, { Ojo(mostrando = true, color = it) }) { alInfo(mensaje) })
         }
         if (alBorrarLocal != null)
         {
