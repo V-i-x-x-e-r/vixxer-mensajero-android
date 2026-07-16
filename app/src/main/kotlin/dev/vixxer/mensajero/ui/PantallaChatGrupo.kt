@@ -117,8 +117,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
     val envioMedia = remember { EnvioMedia(app, contexto) }
     var subiendo by remember { mutableStateOf(false) }
     var adjuntando by remember { mutableStateOf(false) }
-    var previo by remember { mutableStateOf<PrevioEnvio?>(null) }
-    var caption by remember { mutableStateOf("") }
+    var previos by remember { mutableStateOf(listOf<PrevioEnvio>()) }
     var visor by remember { mutableStateOf<java.io.File?>(null) }
     var visorVideo by remember { mutableStateOf<MediaMensaje?>(null) }
     var grabando by remember { mutableStateOf(false) }
@@ -246,29 +245,26 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
         }
     }
 
-    fun enviarImagenGrupo(imagen: ImagenLista, cap: String?)
+    fun enviarLoteGrupo(lista: List<Pair<PrevioEnvio, String?>>)
     {
-        subiendo = true
-        alcance.launch {
-            val plano = withContext(Dispatchers.IO) { envioMedia.prepararImagen(imagen, cap) }
-            subiendo = false
-            if (plano != null)
-            {
-                mandarPlano(plano)
-            }
+        if (lista.isEmpty())
+        {
+            return
         }
-    }
-
-    fun enviarVideoGrupo(uri: android.net.Uri, cap: String? = null)
-    {
         subiendo = true
         alcance.launch {
-            val plano = withContext(Dispatchers.IO) { envioMedia.prepararVideo(uri, cap) }
-            subiendo = false
-            if (plano != null)
+            for ((item, cap) in lista)
             {
-                mandarPlano(plano)
+                val plano = withContext(Dispatchers.IO) {
+                    if (item.esVideo) envioMedia.prepararVideo(item.uri, cap)
+                    else item.imagen?.let { envioMedia.prepararImagen(it, cap) }
+                }
+                if (plano != null)
+                {
+                    mandarPlano(plano)
+                }
             }
+            subiendo = false
         }
     }
 
@@ -550,14 +546,14 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
     }
 
     androidx.activity.compose.BackHandler(
-        enabled = sel != null || adjuntando || previo != null || grabando || reenviando != null,
+        enabled = sel != null || adjuntando || previos.isNotEmpty() || grabando || reenviando != null,
     )
     {
         when
         {
             sel != null -> sel = null
             adjuntando -> adjuntando = false
-            previo != null -> previo = null
+            previos.isNotEmpty() -> previos = emptyList()
             grabando -> terminarGrabacion(false)
             reenviando != null -> reenviando = null
         }
@@ -851,26 +847,28 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
             }
         }
 
-        val selectorFoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-            if (uri != null)
+        val selectorFoto = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(10)) { uris ->
+            if (uris.isNotEmpty())
             {
                 alcance.launch {
-                    val imagen = withContext(Dispatchers.IO) { comprimirImagen(contexto, uri) }
-                    if (imagen != null)
+                    val lista = withContext(Dispatchers.IO) {
+                        uris.mapNotNull { u -> comprimirImagen(contexto, u)?.let { PrevioEnvio(u, it, null, esVideo = false) } }
+                    }
+                    if (lista.isNotEmpty())
                     {
-                        caption = ""
-                        previo = PrevioEnvio(uri, imagen, null, esVideo = false)
+                        previos = lista
                     }
                 }
             }
         }
-        val selectorVideo = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-            if (uri != null)
+        val selectorVideo = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(10)) { uris ->
+            if (uris.isNotEmpty())
             {
                 alcance.launch {
-                    val (miniatura, _, _) = withContext(Dispatchers.IO) { miniaturaVideo(contexto, uri) }
-                    caption = ""
-                    previo = PrevioEnvio(uri, null, miniatura, esVideo = true)
+                    val lista = withContext(Dispatchers.IO) {
+                        uris.map { u -> PrevioEnvio(u, null, miniaturaVideo(contexto, u).first, esVideo = true) }
+                    }
+                    previos = lista
                 }
             }
         }
@@ -905,8 +903,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                     val imagen = withContext(Dispatchers.IO) { comprimirImagen(contexto, uri) }
                     if (imagen != null)
                     {
-                        caption = ""
-                        previo = PrevioEnvio(uri, imagen, null, esVideo = false)
+                        previos = listOf(PrevioEnvio(uri, imagen, null, esVideo = false))
                     }
                 }
             }
@@ -1079,78 +1076,17 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
         }
     }
 
-    val previoActual = previo
-    if (previoActual != null)
+    if (previos.isNotEmpty())
     {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.94f))
-                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {}
-                .statusBarsPadding()
-                .navigationBarsPadding()
-                .imePadding(),
+        PrevioMediaMulti(
+            items = previos,
+            colores = colores,
+            onCancelar = { previos = emptyList() },
+            onEnviar = { lista ->
+                previos = emptyList()
+                enviarLoteGrupo(lista)
+            },
         )
-        {
-            Row(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                Text(
-                    "✕",
-                    fontSize = 22.sp,
-                    color = androidx.compose.ui.graphics.Color.White,
-                    modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { previo = null },
-                )
-            }
-            VistaPrevio(previo = previoActual, modifier = Modifier.weight(1f).fillMaxWidth())
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.Bottom,
-            )
-            {
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .background(colores.surface, RoundedCornerShape(22.dp))
-                        .border(Vidrio.anchoBorde, colores.borde, RoundedCornerShape(22.dp))
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                )
-                {
-                    if (caption.isEmpty())
-                    {
-                        Text("Añade un comentario…", fontSize = 15.sp, color = colores.placeholder)
-                    }
-                    BasicTextField(
-                        value = caption,
-                        onValueChange = { caption = it },
-                        textStyle = TextStyle(fontSize = 15.sp, color = colores.texto),
-                        cursorBrush = SolidColor(colores.texto),
-                        maxLines = 3,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .background(colores.botonFondo, CircleShape)
-                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
-                            val listo = previoActual
-                            previo = null
-                            if (listo.esVideo)
-                            {
-                                enviarVideoGrupo(listo.uri, caption)
-                            }
-                            else if (listo.imagen != null)
-                            {
-                                enviarImagenGrupo(listo.imagen, caption)
-                            }
-                        },
-                    contentAlignment = Alignment.Center,
-                )
-                {
-                    Text("➤", fontSize = 18.sp, color = colores.botonTexto)
-                }
-            }
-        }
     }
 
     if (grabando)
