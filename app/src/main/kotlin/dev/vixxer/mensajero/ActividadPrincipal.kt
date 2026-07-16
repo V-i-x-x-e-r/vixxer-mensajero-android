@@ -1,10 +1,15 @@
 package dev.vixxer.mensajero
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.runtime.DisposableEffect
+import dev.vixxer.mensajero.ui.PantallaBloqueo
+import dev.vixxer.mensajero.ui.Seguridad
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -59,18 +64,23 @@ import dev.vixxer.mensajero.ui.PantallaPerfil
 import dev.vixxer.mensajero.ui.PantallaRecuperar
 import dev.vixxer.mensajero.ui.PantallaRegistro
 
-class ActividadPrincipal : ComponentActivity()
+class ActividadPrincipal : FragmentActivity()
 {
     override fun onCreate(estado: Bundle?)
     {
         super.onCreate(estado)
         enableEdgeToEdge()
         val app = application as AplicacionVixxer
+        if (Seguridad.capturasBloqueadas(app.estado))
+        {
+            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        }
         setContent {
             val oscuroSistema = isSystemInDarkTheme()
             val estadoTema = remember { EstadoTema(app.estado, oscuroSistema) }
             var pantalla by remember { mutableStateOf("arranque") }
             var chatAbierto by remember { mutableStateOf<Amigo?>(null) }
+            var bloqueado by remember { mutableStateOf(false) }
             app.alExpirarSesion = { runOnUiThread { pantalla = "login" } }
 
             LaunchedEffect(Unit) {
@@ -79,6 +89,21 @@ class ActividadPrincipal : ComponentActivity()
                 {
                     pantalla = if (token != null) "chats" else "login"
                 }
+                if (Seguridad.candadoHabilitado(app.boveda, app.estado))
+                {
+                    bloqueado = true
+                }
+            }
+
+            DisposableEffect(Unit) {
+                val observador = LifecycleEventObserver { _, evento ->
+                    if (evento == Lifecycle.Event.ON_STOP && Seguridad.candadoHabilitado(app.boveda, app.estado))
+                    {
+                        bloqueado = true
+                    }
+                }
+                lifecycle.addObserver(observador)
+                onDispose { lifecycle.removeObserver(observador) }
             }
 
             CompositionLocalProvider(LocalTema provides estadoTema) {
@@ -169,6 +194,10 @@ class ActividadPrincipal : ComponentActivity()
                             alCambiar = { pantalla = it },
                             modifier = Modifier.align(Alignment.BottomCenter),
                         )
+                    }
+                    if (bloqueado)
+                    {
+                        PantallaBloqueo(app) { bloqueado = false }
                     }
                 }
             }

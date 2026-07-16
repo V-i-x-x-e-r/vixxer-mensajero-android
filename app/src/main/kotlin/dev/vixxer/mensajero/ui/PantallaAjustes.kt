@@ -61,6 +61,11 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
     var mostrarQr by remember { mutableStateOf(false) }
     var subiendoFoto by remember { mutableStateOf(false) }
     val contexto = androidx.compose.ui.platform.LocalContext.current
+    var capturas by remember { mutableStateOf(Seguridad.capturasBloqueadas(app.estado)) }
+    var pinPuesto by remember { mutableStateOf(Seguridad.pinConfigurado(app.boveda)) }
+    var biometrico by remember { mutableStateOf(Seguridad.biometricoActivo(app.estado)) }
+    var configurandoPin by remember { mutableStateOf(false) }
+    val hayBiometrico = remember { biometricoDisponible(contexto) }
 
     val selectorFoto = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia(),
@@ -258,6 +263,36 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
             FilaNav("Usuarios bloqueados", colores) { alNavegar("bloqueados") }
         }
 
+        Seccion("SEGURIDAD", colores)
+        Tarjeta {
+            FilaSwitch("Bloquear capturas de pantalla", capturas, colores) { activo ->
+                capturas = activo
+                Seguridad.ponerCapturas(app.estado, activo)
+                (contexto as? android.app.Activity)?.let { aplicarCapturas(it, activo) }
+            }
+            Separador(colores)
+            FilaSwitch("Bloqueo con PIN", pinPuesto, colores) { activo ->
+                if (activo)
+                {
+                    configurandoPin = true
+                }
+                else
+                {
+                    Seguridad.quitarPin(app.boveda, app.estado)
+                    pinPuesto = false
+                    biometrico = false
+                }
+            }
+            if (pinPuesto && hayBiometrico)
+            {
+                Separador(colores)
+                FilaSwitch("Desbloqueo biométrico", biometrico, colores) { activo ->
+                    biometrico = activo
+                    Seguridad.ponerBiometrico(app.estado, activo)
+                }
+            }
+        }
+
         Seccion("CUENTA", colores)
         Tarjeta {
             FilaNav("Cambiar contraseña", colores) { alNavegar("cambiar-contrasena") }
@@ -285,6 +320,17 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
     if (mostrarQr && codigo.isNotEmpty())
     {
         CodigoQr(codigo = codigo, colores = colores) { mostrarQr = false }
+    }
+
+    if (configurandoPin)
+    {
+        ConfigurarPin(app) { exito ->
+            configurandoPin = false
+            if (exito)
+            {
+                pinPuesto = true
+            }
+        }
     }
 
     Confirmacion(
