@@ -201,6 +201,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
     var previo by remember { mutableStateOf<PrevioEnvio?>(null) }
     var caption by remember { mutableStateOf("") }
     val contexto = LocalContext.current
+    val enfoque = androidx.compose.ui.platform.LocalFocusManager.current
     val envioMedia = remember { EnvioMedia(app, contexto) }
     val listaEstado = rememberLazyListState()
     val escribiendoJob = remember { arrayOf<Job?>(null) }
@@ -1261,7 +1262,10 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                         Box(
                             modifier = Modifier
                                 .size(44.dp)
-                                .clickable(enabled = !subiendo, indication = null, interactionSource = remember { MutableInteractionSource() }) { adjuntando = true },
+                                .clickable(enabled = !subiendo, indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                                    enfoque.clearFocus()
+                                    adjuntando = true
+                                },
                             contentAlignment = Alignment.Center,
                         )
                         {
@@ -1503,9 +1507,15 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
 
         if (grabando)
         {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {},
+                contentAlignment = Alignment.BottomCenter,
+            )
+            {
             Row(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .navigationBarsPadding()
                     .padding(12.dp)
@@ -1569,6 +1579,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                 {
                     Text("➤", fontSize = 16.sp, color = colores.botonTexto)
                 }
+            }
             }
         }
 

@@ -113,6 +113,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
     var ocultos by remember { mutableStateOf(setOf<String>()) }
     val portapapeles = LocalClipboardManager.current
     val contexto = androidx.compose.ui.platform.LocalContext.current
+    val enfoque = androidx.compose.ui.platform.LocalFocusManager.current
     val envioMedia = remember { EnvioMedia(app, contexto) }
     var subiendo by remember { mutableStateOf(false) }
     var adjuntando by remember { mutableStateOf(false) }
@@ -963,7 +964,10 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
             Box(
                 modifier = Modifier
                     .size(44.dp)
-                    .clickable(enabled = !subiendo, indication = null, interactionSource = remember { MutableInteractionSource() }) { adjuntando = true },
+                    .clickable(enabled = !subiendo, indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                        enfoque.clearFocus()
+                        adjuntando = true
+                    },
                 contentAlignment = Alignment.Center,
             )
             {
@@ -1151,9 +1155,15 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
 
     if (grabando)
     {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {},
+            contentAlignment = Alignment.BottomCenter,
+        )
+        {
         Row(
             modifier = Modifier
-                .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .navigationBarsPadding()
                 .padding(12.dp)
@@ -1217,6 +1227,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
             {
                 Text("➤", fontSize = 16.sp, color = colores.botonTexto)
             }
+        }
         }
     }
 
