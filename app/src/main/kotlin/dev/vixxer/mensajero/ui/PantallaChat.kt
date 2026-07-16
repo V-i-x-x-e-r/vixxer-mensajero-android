@@ -199,6 +199,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
     var grabacionPausada by remember { mutableStateOf(false) }
     val grabadora = remember { arrayOf<Grabadora?>(null) }
     var previos by remember { mutableStateOf(listOf<PrevioEnvio>()) }
+    var mostrandoStickers by remember { mutableStateOf(false) }
     val contexto = LocalContext.current
     val enfoque = androidx.compose.ui.platform.LocalFocusManager.current
     val envioMedia = remember { EnvioMedia(app, contexto) }
@@ -449,6 +450,23 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
         ConexionSocket.obtener()?.emit("usuario:escribiendo", JSONObject().put("para", otroId).put("activo", false))
         texto = ""
         mandar(if (temporizador > 0) Efimero.envolver(limpio, temporizador) else limpio)
+    }
+
+    fun enviarSticker(archivo: java.io.File)
+    {
+        mostrandoStickers = false
+        subiendo = true
+        alcance.launch {
+            val plano = withContext(Dispatchers.IO) {
+                val datos = Stickers.leer(archivo) ?: return@withContext null
+                envioMedia.prepararSticker(datos.first, datos.second, datos.third)
+            }
+            subiendo = false
+            if (plano != null)
+            {
+                mandar(plano)
+            }
+        }
     }
 
     fun enviarLote(lista: List<Pair<PrevioEnvio, String?>>)
@@ -1406,6 +1424,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                         Triple("Video", 1) { adjuntando = false; selectorVideoRef[0]?.invoke() },
                         Triple("Archivo", 2) { adjuntando = false; selectorDocumentoRef[0]?.invoke() },
                         Triple("Cámara", 3) { adjuntando = false; camaraRef[0]?.invoke() },
+                        Triple("Sticker", 4) { adjuntando = false; mostrandoStickers = true },
                     ))
                     {
                         Column(
@@ -1419,7 +1438,8 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                                 0 -> IconoImagen(color = colores.texto, tamano = 22.dp)
                                 1 -> IconoVideo(color = colores.texto, tamano = 22.dp)
                                 2 -> Documento(color = colores.texto, tamano = 22.dp)
-                                else -> IconoCamara(color = colores.texto, tamano = 22.dp)
+                                3 -> IconoCamara(color = colores.texto, tamano = 22.dp)
+                                else -> IconoSticker(color = colores.texto, tamano = 22.dp)
                             }
                             Text(etiqueta, fontSize = 11.sp, color = colores.muted)
                         }
@@ -1440,6 +1460,8 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                 },
             )
         }
+
+        SelectorSticker(app = app, visible = mostrandoStickers, alElegir = { enviarSticker(it) }, alCerrar = { mostrandoStickers = false })
 
         if (grabando)
         {

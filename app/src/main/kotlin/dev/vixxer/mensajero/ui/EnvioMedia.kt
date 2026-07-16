@@ -69,6 +69,20 @@ class EnvioMedia(private val app: AplicacionVixxer, private val contexto: Contex
         return obj.toString()
     }
 
+    fun prepararSticker(bytes: ByteArray, ancho: Int, alto: Int): String?
+    {
+        val (path, cifrado) = subir(bytes) ?: return null
+        return JSONObject()
+            .put("t", "sticker")
+            .put("path", path)
+            .put("mime", "image/png")
+            .put("k", cifrado.clave)
+            .put("n", cifrado.nonce)
+            .put("w", ancho)
+            .put("h", alto)
+            .toString()
+    }
+
     fun prepararDocumento(uri: Uri): String?
     {
         val archivo = leerArchivo(contexto, uri) ?: return null
