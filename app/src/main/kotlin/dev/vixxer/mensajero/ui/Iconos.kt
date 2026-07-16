@@ -196,6 +196,26 @@ fun IconoGrupos(color: Color, tamano: Dp = 16.dp)
 }
 
 @Composable
+fun PersonaMas(color: Color, tamano: Dp = 18.dp)
+{
+    Icono24(tamano) {
+        trazo("M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2", color)
+        drawCircle(color, radius = 4f, center = Offset(9f, 7f), style = Stroke(width = 2f))
+        drawLine(color, Offset(19f, 8f), Offset(19f, 14f), strokeWidth = 2f, cap = StrokeCap.Round)
+        drawLine(color, Offset(16f, 11f), Offset(22f, 11f), strokeWidth = 2f, cap = StrokeCap.Round)
+    }
+}
+
+@Composable
+fun Campana(color: Color, tamano: Dp = 18.dp)
+{
+    Icono24(tamano) {
+        trazo("M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9", color)
+        trazo("M13.73 21a2 2 0 0 1-3.46 0", color)
+    }
+}
+
+@Composable
 fun IconoCamara(color: Color, tamano: Dp = 20.dp)
 {
     Icono24(tamano) {

@@ -1,6 +1,7 @@
 package dev.vixxer.mensajero.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -308,11 +309,14 @@ fun PantallaGrupos(app: AplicacionVixxer, alNavegar: (String) -> Unit)
                                 else
                                 {
                                     Box(
-                                        modifier = Modifier.size(44.dp).background(colores.surface, CircleShape),
+                                        modifier = Modifier
+                                            .size(44.dp)
+                                            .background(colores.surface, CircleShape)
+                                            .border(Vidrio.anchoBorde, colores.borde, CircleShape),
                                         contentAlignment = Alignment.Center,
                                     )
                                     {
-                                        Text("👥", fontSize = 18.sp)
+                                        IconoGrupos(color = colores.muted, tamano = 20.dp)
                                     }
                                 }
                                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
