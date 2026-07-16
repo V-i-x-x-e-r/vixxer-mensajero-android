@@ -97,9 +97,16 @@ class ActividadPrincipal : FragmentActivity()
 
             DisposableEffect(Unit) {
                 val observador = LifecycleEventObserver { _, evento ->
-                    if (evento == Lifecycle.Event.ON_STOP && Seguridad.candadoHabilitado(app.boveda, app.estado))
+                    if (evento == Lifecycle.Event.ON_STOP)
                     {
-                        bloqueado = true
+                        if (app.saltarBloqueo)
+                        {
+                            app.saltarBloqueo = false
+                        }
+                        else if (Seguridad.candadoHabilitado(app.boveda, app.estado))
+                        {
+                            bloqueado = true
+                        }
                     }
                 }
                 lifecycle.addObserver(observador)

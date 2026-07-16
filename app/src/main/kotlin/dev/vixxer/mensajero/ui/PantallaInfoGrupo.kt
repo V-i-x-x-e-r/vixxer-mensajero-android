@@ -139,6 +139,7 @@ fun PantallaInfoGrupo(app: AplicacionVixxer, grupoId: String, alNavegar: (String
         {
             Box(
                 modifier = Modifier.clickable(enabled = soyAdmin, indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                    app.saltarBloqueo = true
                     selectorFoto.launch(androidx.activity.result.PickVisualMediaRequest(
                         androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly,
                     ))
