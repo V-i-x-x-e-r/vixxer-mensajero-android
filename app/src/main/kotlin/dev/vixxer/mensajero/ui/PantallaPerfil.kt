@@ -195,17 +195,14 @@ fun PantallaPerfil(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> U
                     color = colores.muted,
                     modifier = Modifier.padding(top = 24.dp, bottom = 8.dp),
                 )
-                if (media.isNotEmpty())
-                {
-                    Text(
-                        "Ver todo ›",
-                        fontSize = 13.sp,
-                        color = colores.enlace,
-                        modifier = Modifier
-                            .padding(top = 16.dp)
-                            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alNavegar("multimedia/${amigo.id}") },
-                    )
-                }
+                Text(
+                    "Ver todo ›",
+                    fontSize = 13.sp,
+                    color = colores.enlace,
+                    modifier = Modifier
+                        .padding(top = 16.dp)
+                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alNavegar("multimedia/${amigo.id}") },
+                )
             }
             if (media.isNotEmpty())
             {

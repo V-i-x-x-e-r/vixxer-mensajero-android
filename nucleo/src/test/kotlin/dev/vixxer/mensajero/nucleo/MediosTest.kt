@@ -16,7 +16,7 @@ class MediosTest
         val cifrado = Medios.cifrarArchivo(original)
         val salida = ByteArrayOutputStream()
         val ok = Medios.descifrarFlujo(
-            ByteArrayInputStream(cifrado.datos.toByteArray(Charsets.US_ASCII)),
+            ByteArrayInputStream(Cripto.deBase64(cifrado.datos)),
             cifrado.clave,
             cifrado.nonce,
             salida,
@@ -32,7 +32,7 @@ class MediosTest
         val cifrado = Medios.cifrarArchivo(original)
         val salida = ByteArrayOutputStream()
         assertTrue(Medios.descifrarFlujo(
-            ByteArrayInputStream(cifrado.datos.toByteArray(Charsets.US_ASCII)),
+            ByteArrayInputStream(Cripto.deBase64(cifrado.datos)),
             cifrado.clave,
             cifrado.nonce,
             salida,
@@ -47,7 +47,7 @@ class MediosTest
         val salida = ByteArrayOutputStream()
         val claveMala = Cripto.aBase64(ByteArray(Cripto.TAMANO_CLAVE) { 7 })
         assertFalse(Medios.descifrarFlujo(
-            ByteArrayInputStream(cifrado.datos.toByteArray(Charsets.US_ASCII)),
+            ByteArrayInputStream(Cripto.deBase64(cifrado.datos)),
             claveMala,
             cifrado.nonce,
             salida,

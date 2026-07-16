@@ -3,7 +3,6 @@ package dev.vixxer.mensajero.nucleo
 import java.io.InputStream
 import java.io.OutputStream
 import java.security.SecureRandom
-import java.util.Base64
 
 object Medios
 {
@@ -23,7 +22,7 @@ object Medios
     {
         val clave = Cripto.deBase64(claveB64)
         val nonceBase = Cripto.deBase64(nonceB64)
-        val flujo = Base64.getDecoder().wrap(entrada)
+        val flujo = entrada
         val magia = leer(flujo, 6)
         if (magia == null || !magia.contentEquals(Cripto.deBase64(FormatoTrozos.MAGIA_B64)))
         {

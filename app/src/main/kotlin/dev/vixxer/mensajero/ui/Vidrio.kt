@@ -43,8 +43,9 @@ fun Modifier.panelVidrio(radio: Dp = Vidrio.radioPanel, fuerte: Boolean = false)
     }
     val colores = tema.colores
     return this
-        .shadow(if (fuerte) 10.dp else 6.dp, forma, ambientColor = Vidrio.sombra, spotColor = Vidrio.sombra)
-        .background(colores.surface, forma)
+        .shadow(if (fuerte) 5.dp else 3.dp, forma, ambientColor = Vidrio.sombra, spotColor = Vidrio.sombra)
+        .background(colores.surface.copy(alpha = if (fuerte) 0.82f else 0.72f), forma)
+        .background(brilloVidrioClaro(), forma)
         .border(Vidrio.anchoBorde, colores.borde, forma)
 }
 
@@ -62,8 +63,9 @@ fun Modifier.pildoraVidrio(): Modifier
     }
     val colores = tema.colores
     return this
-        .shadow(10.dp, forma, ambientColor = Vidrio.sombra, spotColor = Vidrio.sombra)
-        .background(colores.surface, forma)
+        .shadow(6.dp, forma, ambientColor = Vidrio.sombra, spotColor = Vidrio.sombra)
+        .background(colores.surface.copy(alpha = 0.78f), forma)
+        .background(brilloVidrioClaro(), forma)
         .border(Vidrio.anchoBorde, colores.borde, forma)
 }
 
