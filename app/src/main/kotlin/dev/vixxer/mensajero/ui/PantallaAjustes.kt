@@ -67,6 +67,40 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
     var configurandoPin by remember { mutableStateOf(false) }
     var cambiandoPin by remember { mutableStateOf(false) }
     val hayBiometrico = remember { biometricoDisponible(contexto) }
+    var respaldoCfg by remember { mutableStateOf(RespaldoConfig.leer(app.estado)) }
+    var respaldando by remember { mutableStateOf(false) }
+    var nuevoCodigo by remember { mutableStateOf("") }
+    var importando by remember { mutableStateOf(false) }
+    var importArchivo by remember { mutableStateOf<JSONObject?>(null) }
+    var importCodigo by remember { mutableStateOf("") }
+    var importEstado by remember { mutableStateOf("") }
+
+    val selectorRespaldo = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.GetContent(),
+    ) { uri ->
+        if (uri != null)
+        {
+            importEstado = ""
+            alcance.launch {
+                val leido = withContext(Dispatchers.IO) {
+                    runCatching {
+                        contexto.contentResolver.openInputStream(uri)?.use { flujo ->
+                            app.identidad.leerRespaldoArchivo(flujo.readBytes().toString(Charsets.UTF_8))
+                        }
+                    }.getOrNull()
+                }
+                if (leido != null)
+                {
+                    importArchivo = leido
+                    importEstado = ""
+                }
+                else
+                {
+                    importEstado = "Archivo no válido."
+                }
+            }
+        }
+    }
 
     val selectorFoto = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia(),
@@ -138,6 +172,58 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
                 errorPreferencias = "No se pudo guardar la preferencia. Revisa tu conexión."
             }
             guardandoPreferencia = false
+        }
+    }
+
+    fun aplicarCfg(nueva: RespaldoConfig)
+    {
+        respaldoCfg = nueva
+        RespaldoConfig.guardar(app.estado, nueva)
+    }
+
+    fun hacerCopiaAhora()
+    {
+        if (respaldando) return
+        respaldando = true
+        app.saltarBloqueo = true
+        alcance.launch {
+            val listo = withContext(Dispatchers.IO) {
+                runCatching {
+                    val preparado = app.identidad.prepararRespaldoActual() ?: return@runCatching null
+                    if (respaldoCfg.destino != "local")
+                    {
+                        app.api.subirRespaldo(preparado.respaldo)
+                    }
+                    preparado
+                }.getOrNull()
+            }
+            if (listo != null)
+            {
+                if (respaldoCfg.destino == "local")
+                {
+                    runCatching { exportarRespaldoArchivo(contexto, listo.respaldo) }
+                }
+                aplicarCfg(respaldoCfg.copy(ultimo = System.currentTimeMillis()))
+                nuevoCodigo = listo.codigo
+            }
+            respaldando = false
+        }
+    }
+
+    fun importarLlaveAnterior()
+    {
+        importEstado = ""
+        val archivo = importArchivo
+        if (archivo == null || importCodigo.trim().isEmpty())
+        {
+            importEstado = "Elige el archivo y escribe su código."
+            return
+        }
+        alcance.launch {
+            val ok = withContext(Dispatchers.IO) {
+                app.identidad.importarLlaveAnterior(archivo, importCodigo.trim())
+            }
+            importEstado = if (ok) "listo" else "El código no abre ese respaldo."
         }
     }
 
@@ -321,8 +407,35 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
             }
         }
 
+        Seccion("COPIA DE SEGURIDAD", colores)
+        Tarjeta {
+            FilaValor("Destino", if (respaldoCfg.destino == "nube") "Servidor (cifrada)" else "Archivo", colores) {
+                aplicarCfg(respaldoCfg.copy(destino = if (respaldoCfg.destino == "nube") "local" else "nube"))
+            }
+            Separador(colores)
+            FilaValor("Frecuencia", RespaldoConfig.etiquetaFrecuencia(respaldoCfg.frecuencia), colores) {
+                val i = RespaldoConfig.FRECUENCIAS.indexOf(respaldoCfg.frecuencia)
+                aplicarCfg(respaldoCfg.copy(frecuencia = RespaldoConfig.FRECUENCIAS[(i + 1) % RespaldoConfig.FRECUENCIAS.size]))
+            }
+            Separador(colores)
+            FilaValor("Hora", "%02d:00".format(respaldoCfg.hora), colores, apagada = respaldoCfg.frecuencia == "nunca") {
+                aplicarCfg(respaldoCfg.copy(hora = (respaldoCfg.hora + 1) % 24))
+            }
+            Separador(colores)
+            FilaNav(if (respaldando) "Respaldando…" else "Hacer copia ahora", colores) { hacerCopiaAhora() }
+        }
+        Text(
+            (respaldoCfg.ultimo?.let { "Última copia: ${textoFecha(it)}. " } ?: "Aún no has hecho una copia. ") +
+                "Tu llave se respalda cifrada; solo tu código de recuperación la abre.",
+            fontSize = 12.sp,
+            color = colores.muted,
+            modifier = Modifier.padding(top = 8.dp).padding(horizontal = 4.dp),
+        )
+
         Seccion("CUENTA", colores)
         Tarjeta {
+            FilaNav("Importar llave anterior", colores) { importando = true }
+            Separador(colores)
             FilaNav("Cambiar contraseña", colores) { alNavegar("cambiar-contrasena") }
             Separador(colores)
             Text(
@@ -359,6 +472,30 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
                 pinPuesto = true
             }
         }
+    }
+
+    RespaldoCodigo(visible = nuevoCodigo.isNotEmpty(), codigo = nuevoCodigo) { nuevoCodigo = "" }
+
+    if (importando)
+    {
+        ImportarLlave(
+            colores = colores,
+            archivoCargado = importArchivo != null,
+            codigo = importCodigo,
+            estado = importEstado,
+            alElegirArchivo = {
+                app.saltarBloqueo = true
+                selectorRespaldo.launch("application/json")
+            },
+            alCambiarCodigo = { importCodigo = it },
+            alImportar = { importarLlaveAnterior() },
+            alCerrar = {
+                importando = false
+                importArchivo = null
+                importCodigo = ""
+                importEstado = ""
+            },
+        )
     }
 
     Confirmacion(
@@ -451,4 +588,139 @@ private fun FilaSwitch(
             ),
         )
     }
+}
+
+@Composable
+private fun FilaValor(
+    etiqueta: String,
+    valor: String,
+    colores: Paleta,
+    apagada: Boolean = false,
+    alPulsar: () -> Unit,
+)
+{
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (apagada) Modifier
+                else Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alPulsar() },
+            )
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    )
+    {
+        Text(etiqueta, fontSize = 15.sp, color = if (apagada) colores.muted else colores.texto)
+        Text(valor, fontSize = 14.sp, color = colores.muted)
+    }
+}
+
+@Composable
+private fun ImportarLlave(
+    colores: Paleta,
+    archivoCargado: Boolean,
+    codigo: String,
+    estado: String,
+    alElegirArchivo: () -> Unit,
+    alCambiarCodigo: (String) -> Unit,
+    alImportar: () -> Unit,
+    alCerrar: () -> Unit,
+)
+{
+    val listo = estado == "listo"
+    androidx.compose.ui.window.Dialog(onDismissRequest = alCerrar)
+    {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(colores.surface, RoundedCornerShape(16.dp))
+                .border(1.dp, colores.borde, RoundedCornerShape(16.dp))
+                .padding(22.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        )
+        {
+            Text("Importar llave anterior", fontSize = 17.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.SemiBold, color = colores.texto)
+            Text(
+                "Si tienes el archivo de respaldo y el código de una identidad vieja, podrás volver a leer esos chats sin perder los actuales.",
+                fontSize = 13.sp,
+                color = colores.muted,
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, if (archivoCargado) colores.botonFondo else colores.borde, RoundedCornerShape(12.dp))
+                    .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alElegirArchivo() }
+                    .padding(horizontal = 14.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            )
+            {
+                Text(
+                    if (archivoCargado) "Respaldo cargado ✓  (toca para cambiar)" else "Toca para elegir el archivo .json del respaldo",
+                    fontSize = 14.sp,
+                    color = if (archivoCargado) colores.texto else colores.muted,
+                )
+            }
+            Campo(valor = codigo, alCambiar = alCambiarCodigo, placeholder = "Código de recuperación de esa llave", enMayusculas = true)
+            if (listo)
+            {
+                Text("Llave importada. Tus chats viejos vuelven a leerse.", fontSize = 13.sp, color = colores.texto)
+            }
+            else if (estado.isNotEmpty())
+            {
+                Text(estado, fontSize = 13.sp, color = colores.error)
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            )
+            {
+                Text(
+                    if (listo) "Cerrar" else "Cancelar",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = colores.texto,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier
+                        .weight(1f)
+                        .border(Vidrio.anchoBorde, colores.borde, RoundedCornerShape(Vidrio.radioPildora))
+                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alCerrar() }
+                        .padding(vertical = 12.dp),
+                )
+                if (!listo)
+                {
+                    Text(
+                        "Importar",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = colores.botonTexto,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(colores.botonFondo, RoundedCornerShape(Vidrio.radioPildora))
+                            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alImportar() }
+                            .padding(vertical = 12.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun textoFecha(millis: Long): String =
+    java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM).format(java.util.Date(millis))
+
+private fun exportarRespaldoArchivo(contexto: android.content.Context, respaldo: JSONObject)
+{
+    val carpeta = java.io.File(contexto.cacheDir, "respaldos")
+    carpeta.mkdirs()
+    val archivo = java.io.File(carpeta, "vixxer-respaldo.json")
+    archivo.writeText(JSONObject(respaldo.toString()).put("v", 1).toString())
+    val uri = androidx.core.content.FileProvider.getUriForFile(contexto, "dev.vixxer.mensajero.nativo.archivos", archivo)
+    val envio = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+        type = "application/json"
+        putExtra(android.content.Intent.EXTRA_STREAM, uri)
+        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    contexto.startActivity(android.content.Intent.createChooser(envio, "Guardar respaldo de Vixxer"))
 }

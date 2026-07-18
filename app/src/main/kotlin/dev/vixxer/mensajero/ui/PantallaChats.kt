@@ -290,6 +290,10 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
     }
 
     LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) { respaldoAutomatico(app) }
+    }
+
+    LaunchedEffect(Unit) {
         val token = withContext(Dispatchers.IO) { app.boveda.leer(ClavesSeguras.TOKEN) }
         if (token == null)
         {

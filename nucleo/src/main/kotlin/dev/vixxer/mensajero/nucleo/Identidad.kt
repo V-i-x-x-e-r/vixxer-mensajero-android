@@ -28,6 +28,8 @@ class Identidad(
         val firma: FirmaNueva,
     )
 
+    data class RespaldoListo(val respaldo: JSONObject, val codigo: String)
+
     private val llavero = LlavesPasadas(boveda)
 
     fun asegurarClaves(): String
@@ -65,6 +67,32 @@ class Identidad(
         respaldo.put("nonce", Cripto.aBase64(nonce))
         respaldo.put("salt", salt)
         return respaldo
+    }
+
+    fun codigoRecuperacion(): String
+    {
+        val actual = boveda.leer(ClavesSeguras.CODIGO_RECUP)
+        if (!actual.isNullOrEmpty())
+        {
+            return actual
+        }
+        val nuevo = generarCodigoRecuperacion()
+        boveda.escribir(ClavesSeguras.CODIGO_RECUP, nuevo)
+        return nuevo
+    }
+
+    fun prepararRespaldoActual(): RespaldoListo?
+    {
+        val secreta = boveda.leer(ClavesSeguras.CLAVE_PRIVADA) ?: return null
+        val codigo = codigoRecuperacion()
+        return RespaldoListo(crearRespaldo(secreta, codigo), codigo)
+    }
+
+    fun importarLlaveAnterior(respaldo: JSONObject?, codigo: String): Boolean
+    {
+        val nueva = prepararRestauracion(respaldo, codigo) ?: return false
+        llavero.recordar(nueva.privateKey)
+        return true
     }
 
     fun crearIdentidad(): Nueva

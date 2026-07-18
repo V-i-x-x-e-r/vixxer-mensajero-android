@@ -195,4 +195,42 @@ class IdentidadTest
         assertEquals("a", valido!!.getString("cifrado"))
         assertTrue(!valido.has("extra"))
     }
+
+    @Test
+    fun importarLlaveAnteriorAgregaAlLlaveroSinReemplazar()
+    {
+        val vieja = instancia(AlmacenEnMemoria()).crearIdentidad()
+        val almacen = AlmacenEnMemoria()
+        val identidad = instancia(almacen)
+        val actual = identidad.crearIdentidad()
+        val privadaActual = almacen.leer(ClavesSeguras.CLAVE_PRIVADA)
+
+        assertTrue(identidad.importarLlaveAnterior(vieja.respaldo, vieja.codigo))
+
+        assertEquals(privadaActual, almacen.leer(ClavesSeguras.CLAVE_PRIVADA))
+        assertEquals(actual.publicKey, almacen.leer(ClavesSeguras.CLAVE_PUBLICA))
+        assertTrue(LlavesPasadas(almacen).cargar().contains(vieja.privateKey))
+    }
+
+    @Test
+    fun importarLlaveAnteriorConCodigoMalRegresaFalse()
+    {
+        val vieja = instancia(AlmacenEnMemoria()).crearIdentidad()
+        val identidad = instancia(AlmacenEnMemoria())
+        assertTrue(!identidad.importarLlaveAnterior(vieja.respaldo, "AAAA-BBBB-CCCC-DDDD-EEEE"))
+    }
+
+    @Test
+    fun respaldoActualSeReabreConSuCodigo()
+    {
+        val almacen = AlmacenEnMemoria()
+        val identidad = instancia(almacen)
+        identidad.crearIdentidad()
+
+        val listo = identidad.prepararRespaldoActual()
+        assertNotNull(listo)
+
+        val restaurada = instancia(AlmacenEnMemoria()).prepararRestauracion(listo.respaldo, listo.codigo)
+        assertEquals(almacen.leer(ClavesSeguras.CLAVE_PRIVADA), restaurada?.privateKey)
+    }
 }
