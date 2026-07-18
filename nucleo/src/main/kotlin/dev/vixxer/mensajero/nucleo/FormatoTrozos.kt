@@ -4,8 +4,19 @@ object FormatoTrozos
 {
     const val MAGIA_B64 = "VlgyQ0gx"
     const val TROZO_B64 = 87376
+    const val TROZO_BYTES = 65532
 
-    data class Marco(val len: Int, val salto: Int)
+    private const val MARCA_1 = 0x56
+    private const val MARCA_2 = 0x58
+    private const val BANDERA_FINAL = 1
+
+    data class Marco(
+        val len: Int,
+        val salto: Int,
+        val marcado: Boolean = false,
+        val final: Boolean = false,
+        val cabeceraValida: Boolean = true,
+    )
 
     fun nonceDeTrozo(nonceBase: ByteArray, indice: Int): ByteArray
     {
@@ -14,6 +25,16 @@ object FormatoTrozos
         n[21] = ((indice ushr 16) and 255).toByte()
         n[22] = ((indice ushr 8) and 255).toByte()
         n[23] = (indice and 255).toByte()
+        return n
+    }
+
+    fun nonceDeTrozoStreaming(nonceBase: ByteArray, indice: Int, final: Boolean): ByteArray
+    {
+        val n = nonceDeTrozo(nonceBase, indice)
+        n[16] = 0x56
+        n[17] = 0x58
+        n[18] = 0x32
+        n[19] = if (final) 0x46 else 0x53
         return n
     }
 
@@ -28,13 +49,37 @@ object FormatoTrozos
         return marco
     }
 
+    fun enmarcarStreaming(sellado: ByteArray, final: Boolean): ByteArray
+    {
+        val marco = enmarcar(sellado)
+        marco[3] = MARCA_1.toByte()
+        marco[4] = MARCA_2.toByte()
+        marco[5] = if (final) BANDERA_FINAL.toByte() else 0
+        return marco
+    }
+
     fun medidaMarco(cabecera: ByteArray): Marco
     {
+        if (cabecera.size != 6)
+        {
+            return Marco(0, 0, cabeceraValida = false)
+        }
         val len = ((cabecera[0].toInt() and 255) shl 16) or
             ((cabecera[1].toInt() and 255) shl 8) or
             (cabecera[2].toInt() and 255)
         val relleno = (3 - ((6 + len) % 3)) % 3
-        return Marco(len, 6 + len + relleno)
+        val marca1 = cabecera[3].toInt() and 255
+        val marca2 = cabecera[4].toInt() and 255
+        val banderas = cabecera[5].toInt() and 255
+        val legado = marca1 == 0 && marca2 == 0 && banderas == 0
+        val marcado = marca1 == MARCA_1 && marca2 == MARCA_2 && banderas and BANDERA_FINAL.inv() == 0
+        return Marco(
+            len = len,
+            salto = 6 + len + relleno,
+            marcado = marcado,
+            final = marcado && banderas and BANDERA_FINAL != 0,
+            cabeceraValida = legado || marcado,
+        )
     }
 
     fun cifrarArchivo(archivoB64: String, clave: ByteArray, nonce: ByteArray): String

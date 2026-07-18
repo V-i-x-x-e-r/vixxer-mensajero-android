@@ -44,6 +44,7 @@ fun PantallaBloqueados(app: AplicacionVixxer, alVolver: () -> Unit)
     var lista by remember { mutableStateOf(listOf<Amigo>()) }
     var cargando by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf(false) }
+    var errorAccion by remember { mutableStateOf("") }
     var ocupado by remember { mutableStateOf<String?>(null) }
 
     suspend fun cargar()
@@ -90,6 +91,10 @@ fun PantallaBloqueados(app: AplicacionVixxer, alVolver: () -> Unit)
             )
             Text("Usuarios bloqueados", fontSize = 18.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.SemiBold, color = colores.texto)
         }
+        if (errorAccion.isNotEmpty())
+        {
+            Text(errorAccion, fontSize = 13.sp, color = colores.error)
+        }
         LazyColumn(modifier = Modifier.fillMaxSize()) {
             if (lista.isEmpty())
             {
@@ -123,11 +128,21 @@ fun PantallaBloqueados(app: AplicacionVixxer, alVolver: () -> Unit)
                             color = colores.texto,
                             modifier = Modifier
                                 .border(1.dp, colores.borde, RoundedCornerShape(10.dp))
-                                .clickable(enabled = ocupado != item.id, indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                                .clickable(enabled = ocupado == null, indication = null, interactionSource = remember { MutableInteractionSource() }) {
                                     ocupado = item.id
+                                    errorAccion = ""
                                     alcance.launch {
-                                        withContext(Dispatchers.IO) { runCatching { app.api.desbloquear(item.id) } }
-                                        lista = lista.filter { it.id != item.id }
+                                        val desbloqueado = withContext(Dispatchers.IO) {
+                                            runCatching { app.api.desbloquear(item.id) }.isSuccess
+                                        }
+                                        if (desbloqueado)
+                                        {
+                                            lista = lista.filter { it.id != item.id }
+                                        }
+                                        else
+                                        {
+                                            errorAccion = "No se pudo desbloquear. Revisa tu conexión."
+                                        }
                                         ocupado = null
                                     }
                                 }

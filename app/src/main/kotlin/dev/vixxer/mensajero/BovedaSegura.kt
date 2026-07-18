@@ -19,13 +19,19 @@ class BovedaSegura(contexto: Context) : Almacen
 
     override fun escribir(clave: String, valor: String)
     {
-        preferencias.edit().putString(clave, valor).apply()
+        check(preferencias.edit().putString(clave, valor).commit()) {
+            "No se pudo guardar la boveda"
+        }
     }
 
     override fun borrar(clave: String)
     {
-        preferencias.edit().remove(clave).apply()
+        check(preferencias.edit().remove(clave).commit()) {
+            "No se pudo actualizar la boveda"
+        }
     }
+
+    fun claves(): Set<String> = runCatching { preferencias.all.keys }.getOrDefault(emptySet())
 }
 
 class AlmacenPreferencias(contexto: Context) : Almacen
@@ -43,4 +49,6 @@ class AlmacenPreferencias(contexto: Context) : Almacen
     {
         preferencias.edit().remove(clave).apply()
     }
+
+    fun claves(): Set<String> = preferencias.all.keys
 }

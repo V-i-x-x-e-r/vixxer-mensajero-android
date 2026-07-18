@@ -15,7 +15,9 @@ class CacheChats(private val almacen: Almacen)
         for (i in 0 until mensajes.length())
         {
             val m = mensajes.optJSONObject(i) ?: continue
-            if (!m.optString("id").startsWith("local-"))
+            val esPendienteLegado = m.optString("id").startsWith("local-")
+            val tieneEstadoPendiente = !m.isNull("estado") && m.optString("estado").isNotEmpty()
+            if (!esPendienteLegado && !tieneEstadoPendiente)
             {
                 limpios.put(m)
             }

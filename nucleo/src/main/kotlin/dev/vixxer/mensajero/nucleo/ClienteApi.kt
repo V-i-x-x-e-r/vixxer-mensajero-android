@@ -1,5 +1,6 @@
 package dev.vixxer.mensajero.nucleo
 
+import java.io.File
 import java.io.IOException
 import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
@@ -29,19 +30,40 @@ class ClienteApi(
     private val alExpirarSesion: () -> Unit = {})
 {
     private val tipoJson = "application/json".toMediaType()
+    private val tipoBinario = "application/octet-stream".toMediaType()
     private val cliente = OkHttpClient.Builder()
-        .callTimeout(12, TimeUnit.SECONDS)
+        .connectTimeout(12, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
+        .build()
+    private val clienteMedia = cliente.newBuilder()
+        .callTimeout(5, TimeUnit.MINUTES)
+        .readTimeout(60, TimeUnit.SECONDS)
+        .writeTimeout(5, TimeUnit.MINUTES)
         .build()
 
     fun login(usuario: String, contrasena: String): Any? =
         pedir("/api/auth/login", "POST", JSONObject().put("usuario", usuario).put("contrasena", contrasena), auth = false)
 
-    fun registrar(usuario: String, contrasena: String, llavePublica: String, llaveFirma: String): Any? =
-        pedir("/api/auth/register", "POST", JSONObject()
+    fun registrar(
+        usuario: String,
+        contrasena: String,
+        llavePublica: String,
+        llaveFirma: String,
+        respaldo: JSONObject? = null,
+    ): Any?
+    {
+        val datos = JSONObject()
             .put("usuario", usuario)
             .put("contrasena", contrasena)
             .put("llave_publica", llavePublica)
-            .put("llave_firma", llaveFirma), auth = false)
+            .put("llave_firma", llaveFirma)
+        if (respaldo != null)
+        {
+            datos.put("respaldo", respaldo)
+        }
+        return pedir("/api/auth/register", "POST", datos, auth = false)
+    }
 
     fun cambiarContrasena(actual: String, nueva: String): Any? =
         pedir("/api/auth/cambiar-contrasena", "POST", JSONObject().put("actual", actual).put("nueva", nueva))
@@ -53,6 +75,18 @@ class ClienteApi(
 
     fun actualizarLlaveFirma(llaveFirma: String): Any? =
         pedir("/api/usuarios/llave-firma", "PUT", JSONObject().put("llave_firma", llaveFirma))
+
+    fun publicarIdentidad(llavePublica: String, llaveFirma: String, respaldo: JSONObject? = null): Any?
+    {
+        val datos = JSONObject()
+            .put("llave_publica", llavePublica)
+            .put("llave_firma", llaveFirma)
+        if (respaldo != null)
+        {
+            datos.put("respaldo", respaldo)
+        }
+        return pedir("/api/usuarios/identidad", "PUT", datos)
+    }
 
     fun guardarPushToken(token: String, plataforma: String): Any? =
         pedir("/api/usuarios/push-token", "PUT", JSONObject().put("token", token).put("plataforma", plataforma))
@@ -138,35 +172,44 @@ class ClienteApi(
 
     fun actualizarPreferencias(datos: JSONObject): Any? = pedir("/api/usuarios/preferencias", "PATCH", datos)
 
-    fun subirMedia(datos: String): Any? = pedir("/api/media", "POST", JSONObject().put("datos", datos))
-
-    fun subirMediaConProgreso(datos: String, onProgreso: ((Double) -> Unit)? = null): Any?
+    fun subirMediaConProgreso(archivo: File, onProgreso: ((Double) -> Unit)? = null): Any?
     {
-        val crudo = JSONObject().put("datos", datos).toString().toByteArray()
+        require(archivo.isFile) { "El archivo de media no existe" }
+        val longitud = archivo.length()
         val cuerpo = object : RequestBody()
         {
-            override fun contentType() = tipoJson
+            override fun contentType() = tipoBinario
 
-            override fun contentLength() = crudo.size.toLong()
+            override fun contentLength() = longitud
 
             override fun writeTo(sink: BufferedSink)
             {
-                var escrito = 0
-                while (escrito < crudo.size)
+                var escrito = 0L
+                val bufer = ByteArray(64 * 1024)
+                archivo.inputStream().buffered().use { entrada ->
+                    while (true)
+                    {
+                        val leidos = entrada.read(bufer)
+                        if (leidos < 0) break
+                        sink.write(bufer, 0, leidos)
+                        escrito += leidos
+                        if (longitud > 0)
+                        {
+                            onProgreso?.invoke((escrito.toDouble() / longitud).coerceAtMost(1.0))
+                        }
+                    }
+                }
+                if (escrito != longitud)
                 {
-                    val n = minOf(65536, crudo.size - escrito)
-                    sink.write(crudo, escrito, n)
-                    sink.flush()
-                    escrito += n
-                    onProgreso?.invoke(escrito.toDouble() / crudo.size)
+                    throw IOException("El archivo cambio durante la subida")
                 }
             }
         }
         val solicitud = Request.Builder()
-            .url("$baseUrl/api/media")
+            .url("$baseUrl/api/media/archivo")
             .header("Authorization", "Bearer ${token()}")
             .method("POST", cuerpo)
-        return ejecutar(solicitud.build(), auth = true)
+        return ejecutar(solicitud.build(), auth = true, clienteHttp = clienteMedia)
     }
 
     fun urlMedia(path: String): Any? = pedir("/api/media/url?path=${codificar(path)}")
@@ -209,11 +252,11 @@ class ClienteApi(
         return ejecutar(solicitud.build(), auth)
     }
 
-    private fun ejecutar(solicitud: Request, auth: Boolean): Any?
+    private fun ejecutar(solicitud: Request, auth: Boolean, clienteHttp: OkHttpClient = cliente): Any?
     {
         val respuesta = try
         {
-            cliente.newCall(solicitud).execute()
+            clienteHttp.newCall(solicitud).execute()
         }
         catch (e: IOException)
         {
@@ -230,7 +273,10 @@ class ClienteApi(
                 {
                     ""
                 }
-                if (r.code == 401 && auth)
+                val tokenActual = token()
+                val esSesionActual = tokenActual != null &&
+                    solicitud.header("Authorization") == "Bearer $tokenActual"
+                if (r.code == 401 && auth && esSesionActual)
                 {
                     alExpirarSesion()
                 }

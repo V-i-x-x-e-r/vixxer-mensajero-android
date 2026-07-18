@@ -13,6 +13,9 @@ android {
         targetSdk = 36
         versionCode = 2
         versionName = "0.2.0-f2"
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
+        }
     }
 
     compileOptions {
@@ -23,6 +26,12 @@ android {
     buildFeatures {
         compose = true
     }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging = false
+        }
+    }
 }
 
 dependencies {
@@ -31,7 +40,7 @@ dependencies {
         exclude(group = "net.java.dev.jna", module = "jna")
     }
     implementation("com.goterl:lazysodium-android:5.2.0@aar")
-    implementation("net.java.dev.jna:jna:5.14.0@aar")
+    implementation("net.java.dev.jna:jna:5.17.0@aar")
     implementation("androidx.security:security-crypto:1.1.0")
     implementation(platform("androidx.compose:compose-bom:2026.06.01"))
     implementation("androidx.activity:activity-compose:1.13.0")

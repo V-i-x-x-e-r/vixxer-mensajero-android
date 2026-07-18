@@ -1,8 +1,12 @@
 package dev.vixxer.mensajero.nucleo
 
+import java.io.File
+import java.util.concurrent.TimeUnit
+import kotlin.concurrent.thread
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
@@ -60,6 +64,38 @@ class ClienteApiTest
         assertEquals("GET", recibido.method)
         assertEquals("/api/amigos", recibido.path)
         assertEquals("Bearer tok123", recibido.getHeader("Authorization"))
+    }
+
+    @Test
+    fun registroIncluyeRespaldoAtomico()
+    {
+        servidor.enqueue(MockResponse().setBody("""{"id":"u1"}"""))
+        val respaldo = JSONObject().put("cifrado", "c").put("nonce", "n").put("salt", "s")
+
+        api().registrar("cesar", "secreta", "pub", "firma", respaldo)
+
+        val recibido = servidor.takeRequest()
+        assertEquals("/api/auth/register", recibido.path)
+        val cuerpo = JSONObject(recibido.body.readUtf8())
+        assertEquals("c", cuerpo.getJSONObject("respaldo").getString("cifrado"))
+    }
+
+    @Test
+    fun publicaIdentidadEnUnaSolaPeticion()
+    {
+        servidor.enqueue(MockResponse().setBody("""{"ok":true}"""))
+        val respaldo = JSONObject().put("cifrado", "c").put("nonce", "n").put("salt", "s")
+
+        api().publicarIdentidad("pub", "firma", respaldo)
+
+        val recibido = servidor.takeRequest()
+        assertEquals("PUT", recibido.method)
+        assertEquals("/api/usuarios/identidad", recibido.path)
+        assertEquals("Bearer tok123", recibido.getHeader("Authorization"))
+        val cuerpo = JSONObject(recibido.body.readUtf8())
+        assertEquals("pub", cuerpo.getString("llave_publica"))
+        assertEquals("firma", cuerpo.getString("llave_firma"))
+        assertEquals("s", cuerpo.getJSONObject("respaldo").getString("salt"))
     }
 
     @Test
@@ -138,6 +174,33 @@ class ClienteApiTest
     }
 
     @Test
+    fun error401DeTokenAnteriorNoExpiraSesionNueva()
+    {
+        var tokenActual = "viejo"
+        var expirada = false
+        var error: Throwable? = null
+        val cliente = ClienteApi(
+            servidor.url("/").toString().trimEnd('/'),
+            { tokenActual },
+            { expirada = true },
+        )
+        servidor.enqueue(MockResponse()
+            .setResponseCode(401)
+            .setBody("""{"detail":"Token invalido"}""")
+            .setHeadersDelay(200, TimeUnit.MILLISECONDS))
+
+        val solicitud = thread {
+            error = runCatching { cliente.amigos() }.exceptionOrNull()
+        }
+        assertEquals("Bearer viejo", servidor.takeRequest().getHeader("Authorization"))
+        tokenActual = "nuevo"
+        solicitud.join()
+
+        assertTrue(error is ErrorApi)
+        assertTrue(!expirada)
+    }
+
+    @Test
     fun sinConexionLanzaStatusCero()
     {
         val url = servidor.url("/").toString().trimEnd('/')
@@ -167,13 +230,25 @@ class ClienteApiTest
     fun subirMediaConProgresoReportaYParsea()
     {
         servidor.enqueue(MockResponse().setBody("""{"path":"media/x.bin"}"""))
+        val contenido = ByteArray(200_000) { (it and 255).toByte() }
+        val archivo = File.createTempFile("media-api-", ".vx2").apply { writeBytes(contenido) }
         val avances = mutableListOf<Double>()
-        val salida = api().subirMediaConProgreso("A".repeat(200000)) { avances.add(it) } as JSONObject
-        assertEquals("media/x.bin", salida.getString("path"))
-        assertTrue(avances.isNotEmpty())
-        assertEquals(1.0, avances.last())
-        val recibido = servidor.takeRequest()
-        assertEquals("/api/media", recibido.path)
-        assertEquals("Bearer tok123", recibido.getHeader("Authorization"))
+        try
+        {
+            val salida = api().subirMediaConProgreso(archivo) { avances.add(it) } as JSONObject
+            assertEquals("media/x.bin", salida.getString("path"))
+            assertTrue(avances.isNotEmpty())
+            assertEquals(1.0, avances.last())
+            val recibido = servidor.takeRequest()
+            assertEquals("/api/media/archivo", recibido.path)
+            assertEquals("Bearer tok123", recibido.getHeader("Authorization"))
+            assertEquals("application/octet-stream", recibido.getHeader("Content-Type"))
+            assertEquals(contenido.size.toLong(), recibido.getHeader("Content-Length")?.toLong())
+            assertContentEquals(contenido, recibido.body.readByteArray())
+        }
+        finally
+        {
+            archivo.delete()
+        }
     }
 }

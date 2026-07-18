@@ -6,31 +6,42 @@ import java.net.URI
 
 object ConexionSocket
 {
+    @Volatile
     private var socket: Socket? = null
+    private var tokenActivo: String? = null
 
+    @Synchronized
     fun conectar(socketUrl: String, token: String): Socket
     {
-        val actual = socket
-        if (actual != null && actual.connected())
+        if (tokenActivo != null && tokenActivo != token)
         {
+            desconectar()
+        }
+        val actual = socket
+        if (actual != null)
+        {
+            if (!actual.connected())
+            {
+                actual.connect()
+            }
             return actual
         }
-        if (socket == null)
-        {
-            val opciones = IO.Options.builder()
-                .setAuth(mapOf("token" to token))
-                .setTransports(arrayOf("websocket"))
-                .build()
-            socket = IO.socket(URI.create(socketUrl), opciones).connect()
-        }
+        val opciones = IO.Options.builder()
+            .setAuth(mapOf("token" to token))
+            .setTransports(arrayOf("websocket"))
+            .build()
+        tokenActivo = token
+        socket = IO.socket(URI.create(socketUrl), opciones).connect()
         return socket!!
     }
 
     fun obtener(): Socket? = socket
 
+    @Synchronized
     fun desconectar()
     {
         socket?.disconnect()
         socket = null
+        tokenActivo = null
     }
 }

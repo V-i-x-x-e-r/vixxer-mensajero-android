@@ -47,6 +47,9 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.TextStyle
@@ -55,16 +58,22 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.vixxer.mensajero.AplicacionVixxer
+import dev.vixxer.mensajero.DrenadorOutbox
 import dev.vixxer.mensajero.nucleo.ClavesSeguras
 import dev.vixxer.mensajero.nucleo.ConexionSocket
 import dev.vixxer.mensajero.nucleo.Cripto
+import dev.vixxer.mensajero.nucleo.ErrorApi
 import dev.vixxer.mensajero.nucleo.Fechas
 import dev.vixxer.mensajero.nucleo.Fijados
 import dev.vixxer.mensajero.nucleo.GrupoVisto
+import dev.vixxer.mensajero.nucleo.IdMensaje
 import dev.vixxer.mensajero.nucleo.Ocultos
+import dev.vixxer.mensajero.nucleo.Outbox
 import dev.vixxer.mensajero.nucleo.Resumen
+import io.socket.client.Socket
 import io.socket.emitter.Emitter
 import java.time.Instant
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -82,12 +91,20 @@ data class MensajeGrupo(
     val borrado: Boolean = false,
     val editado: Boolean = false,
     val estado: String? = null,
+    val clienteId: String? = null,
     val reacciones: Map<String, String> = emptyMap(),
     val respuestaA: String? = null,
+    val respuestaTexto: String? = null,
     val leidoPor: Map<String, String> = emptyMap(),
 )
 
 data class MiembroGrupo(val id: String, val usuario: String, val avatarUrl: String?)
+
+private data class DatosGrupo(
+    val nombre: String,
+    val miembros: List<MiembroGrupo>,
+    val publicas: Map<String, String>,
+)
 
 @Composable
 fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: String, alNavegar: (String) -> Unit)
@@ -113,9 +130,11 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
     var ocultos by remember { mutableStateOf(setOf<String>()) }
     val portapapeles = LocalClipboardManager.current
     val contexto = androidx.compose.ui.platform.LocalContext.current
+    val cicloVida = LocalLifecycleOwner.current
     val enfoque = androidx.compose.ui.platform.LocalFocusManager.current
     val envioMedia = remember { EnvioMedia(app, contexto) }
     var subiendo by remember { mutableStateOf(false) }
+    var progresoSubida by remember { mutableStateOf(0f) }
     var adjuntando by remember { mutableStateOf(false) }
     var previos by remember { mutableStateOf(listOf<PrevioEnvio>()) }
     var mostrandoStickers by remember { mutableStateOf(false) }
@@ -132,8 +151,8 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
     val camaraRef = remember { arrayOf<(() -> Unit)?>(null) }
     val fotoCamara = remember { arrayOf<android.net.Uri?>(null) }
     val vibrador = androidx.compose.ui.platform.LocalHapticFeedback.current
-    val pubs = remember { HashMap<String, String>() }
-    val nombres = remember { HashMap<String, String>() }
+    val pubs = remember { ConcurrentHashMap<String, String>() }
+    val nombres = remember { ConcurrentHashMap<String, String>() }
     val marcados = remember { HashSet<String>() }
     val listaEstado = rememberLazyListState()
     val tecleandoJob = remember { arrayOf<Job?>(null) }
@@ -154,12 +173,16 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
             obj.put("enviado_en", m.enviadoEn)
             obj.put("borrado", m.borrado)
             obj.put("editado", m.editado)
+            obj.put("estado", m.estado ?: JSONObject.NULL)
+            obj.put("cliente_id", m.clienteId ?: JSONObject.NULL)
+            obj.put("respuesta_a", m.respuestaA ?: JSONObject.NULL)
+            obj.put("respuestaTexto", m.respuestaTexto ?: JSONObject.NULL)
             arreglo.put(obj)
         }
         app.cacheChats.guardarChat(claveCache, arreglo)
     }
 
-    fun descifrarFila(f: JSONObject, priv: String): MensajeGrupo
+    fun descifrarFila(f: JSONObject): MensajeGrupo
     {
         val remitente = f.optString("remitente_id")
         val pub = pubs[remitente]
@@ -175,10 +198,15 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
             remitenteId = remitente,
             autor = nombres[remitente],
             texto = if (borrado || pub == null) null
-                else Cripto.descifrarTexto(f.getString("contenido_cifrado"), f.getString("nonce"), pub, priv) ?: "No se pudo descifrar",
+                else app.identidad.descifrarConHistoricas(
+                    f.getString("contenido_cifrado"),
+                    f.getString("nonce"),
+                    pub,
+                ) ?: "No se pudo descifrar",
             enviadoEn = f.optString("enviado_en"),
             borrado = borrado,
             editado = f.optBoolean("editado"),
+            clienteId = if (f.isNull("cliente_id")) null else f.optString("cliente_id"),
             reacciones = reacciones,
             respuestaA = if (f.isNull("respuesta_a")) null else f.optString("respuesta_a"),
             leidoPor = leidoPor,
@@ -188,7 +216,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
     fun reportarLeidos(lista: List<MensajeGrupo>)
     {
         val ids = lista
-            .filter { it.remitenteId != miId && !it.id.startsWith("local-") && !marcados.contains(it.id) }
+            .filter { it.remitenteId != miId && it.estado == null && !marcados.contains(it.id) }
             .map { it.id }
         if (ids.isEmpty())
         {
@@ -214,35 +242,72 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
         return copias
     }
 
-    fun mandarPlano(plano: String, respuestaA: String? = null)
+    suspend fun refrescarGrupo(): Boolean
     {
-        val clienteId = "local-${System.currentTimeMillis()}"
-        mensajes = mensajes + MensajeGrupo(
-            id = clienteId,
-            remitenteId = miId,
-            autor = null,
-            texto = plano,
-            enviadoEn = Instant.now().toString(),
-            estado = "enviando",
-            respuestaA = respuestaA,
-        )
+        val datos = withContext(Dispatchers.IO) {
+            runCatching {
+                val grupo = app.api.infoGrupo(grupoId) as JSONObject
+                val lista = grupo.optJSONArray("miembros") ?: JSONArray()
+                val miembrosNuevos = ArrayList<MiembroGrupo>()
+                val publicas = LinkedHashMap<String, String>()
+                for (i in 0 until lista.length())
+                {
+                    val miembro = lista.getJSONObject(i)
+                    val id = miembro.getString("id")
+                    publicas[id] = miembro.textoO("llave_publica")
+                    miembrosNuevos.add(MiembroGrupo(
+                        id,
+                        miembro.optString("usuario"),
+                        miembro.textoO("avatar_url").ifEmpty { null },
+                    ))
+                }
+                DatosGrupo(
+                    nombre = grupo.optString("nombre").ifEmpty { nombreInicial },
+                    miembros = miembrosNuevos,
+                    publicas = publicas,
+                )
+            }.getOrNull()
+        } ?: return false
+        nombreGrupo = datos.nombre
+        miembros = datos.miembros
+        numMiembros = datos.miembros.size
+        pubs.clear()
+        pubs.putAll(datos.publicas)
+        nombres.clear()
+        datos.miembros.forEach { nombres[it.id] = it.usuario }
+        return true
+    }
+
+    fun mandarPlano(plano: String, respuestaA: String? = null, respuestaTexto: String? = null)
+    {
         alcance.launch {
+            val item = withContext(Dispatchers.IO) {
+                val nuevo = JSONObject()
+                    .put("localId", IdMensaje.nuevo())
+                    .put("texto", plano)
+                    .put("respuestaA", respuestaA ?: JSONObject.NULL)
+                    .put("respuestaTexto", respuestaTexto ?: JSONObject.NULL)
+                    .put("enviado_en", Instant.now().toString())
+                app.outbox.agregarGrupo(grupoId, nuevo)
+                nuevo
+            }
+            val clienteId = item.getString("localId")
+            mensajes = mensajes + MensajeGrupo(
+                id = clienteId,
+                remitenteId = miId,
+                autor = null,
+                texto = plano,
+                enviadoEn = item.getString("enviado_en"),
+                estado = "enviando",
+                respuestaA = respuestaA,
+                respuestaTexto = respuestaTexto,
+            )
             listaEstado.animateScrollToItem(maxOf(0, mensajes.size - 1))
-            val resultado = withContext(Dispatchers.IO) {
-                runCatching {
-                    val priv = app.boveda.leer(ClavesSeguras.CLAVE_PRIVADA) ?: return@runCatching null
-                    app.api.enviarGrupo(grupoId, clienteId, cifrarParaTodos(plano, priv), respuestaA) as? JSONObject
-                }.getOrNull()
-            }
-            mensajes = if (resultado != null && resultado.optBoolean("ok"))
-            {
-                mensajes.map { if (it.id == clienteId) it.copy(id = resultado.optString("id"), estado = "enviado") else it }
-            }
-            else
-            {
-                mensajes.map { if (it.id == clienteId) it.copy(estado = "fallido") else it }
-            }
-            withContext(Dispatchers.IO) { guardarCache(mensajes) }
+            DrenadorOutbox.enviar(
+                app,
+                miId,
+                Outbox.Pendiente(Outbox.Tipo.GRUPO, grupoId, item),
+            )
         }
     }
 
@@ -250,10 +315,13 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
     {
         mostrandoStickers = false
         subiendo = true
+        progresoSubida = 0f
         alcance.launch {
             val plano = withContext(Dispatchers.IO) {
                 val datos = Stickers.leer(archivo) ?: return@withContext null
-                envioMedia.prepararSticker(datos.first, datos.second, datos.third)
+                envioMedia.prepararSticker(datos.first, datos.second, datos.third) { avance ->
+                    alcance.launch { progresoSubida = avance.toFloat().coerceIn(0f, 1f) }
+                }
             }
             subiendo = false
             if (plano != null)
@@ -270,13 +338,20 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
             return
         }
         subiendo = true
+        progresoSubida = 0f
         alcance.launch {
-            for ((item, cap) in lista)
+            for ((indice, par) in lista.withIndex())
             {
+                val (item, cap) = par
                 val plano = withContext(Dispatchers.IO) {
-                    if (item.esVideo) envioMedia.prepararVideo(item.uri, cap)
-                    else item.imagen?.let { envioMedia.prepararImagen(it, cap) }
+                    val progreso: (Double) -> Unit = { avance ->
+                        val total = (indice + avance.coerceIn(0.0, 1.0)) / lista.size
+                        alcance.launch { progresoSubida = total.toFloat() }
+                    }
+                    if (item.esVideo) envioMedia.prepararVideo(item.uri, cap, progreso)
+                    else item.imagen?.let { envioMedia.prepararImagen(it, cap, progreso) }
                 }
+                progresoSubida = (indice + 1f) / lista.size
                 if (plano != null)
                 {
                     mandarPlano(plano)
@@ -289,8 +364,13 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
     fun enviarDocumentoGrupo(uri: android.net.Uri)
     {
         subiendo = true
+        progresoSubida = 0f
         alcance.launch {
-            val plano = withContext(Dispatchers.IO) { envioMedia.prepararDocumento(uri) }
+            val plano = withContext(Dispatchers.IO) {
+                envioMedia.prepararDocumento(uri) { avance ->
+                    alcance.launch { progresoSubida = avance.toFloat().coerceIn(0f, 1f) }
+                }
+            }
             subiendo = false
             if (plano != null)
             {
@@ -302,8 +382,13 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
     fun enviarAudioGrupo(archivo: java.io.File, dur: Int, ondas: List<Float>)
     {
         subiendo = true
+        progresoSubida = 0f
         alcance.launch {
-            val plano = withContext(Dispatchers.IO) { envioMedia.prepararAudio(archivo, dur, ondas) }
+            val plano = withContext(Dispatchers.IO) {
+                envioMedia.prepararAudio(archivo, dur, ondas) { avance ->
+                    alcance.launch { progresoSubida = avance.toFloat().coerceIn(0f, 1f) }
+                }
+            }
             subiendo = false
             runCatching { archivo.delete() }
             if (plano != null)
@@ -329,6 +414,55 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
         }
     }
 
+    DisposableEffect(cicloVida) {
+        val observador = LifecycleEventObserver { _, evento ->
+            if (evento == Lifecycle.Event.ON_STOP)
+            {
+                terminarGrabacion(false)
+            }
+        }
+        cicloVida.lifecycle.addObserver(observador)
+        onDispose {
+            cicloVida.lifecycle.removeObserver(observador)
+            terminarGrabacion(false)
+        }
+    }
+
+    suspend fun editarMensaje(objetivo: MensajeGrupo, plano: String): Boolean
+    {
+        for (intento in 0..1)
+        {
+            if (!refrescarGrupo())
+            {
+                return false
+            }
+            val totalMiembros = miembros.size
+            try
+            {
+                withContext(Dispatchers.IO) {
+                    val privada = app.boveda.leer(ClavesSeguras.CLAVE_PRIVADA)
+                        ?: error("No hay llave privada")
+                    val cifrados = cifrarParaTodos(plano, privada)
+                    require(cifrados.length() == totalMiembros && cifrados.length() > 0)
+                    app.api.editarMensajeGrupo(grupoId, objetivo.id, cifrados)
+                }
+                return true
+            }
+            catch (error: ErrorApi)
+            {
+                if (error.status != 409 || intento == 1)
+                {
+                    return false
+                }
+            }
+            catch (_: Exception)
+            {
+                return false
+            }
+        }
+        return false
+    }
+
     fun enviar()
     {
         val limpio = texto.trim()
@@ -342,11 +476,9 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
         if (objetivo != null)
         {
             alcance.launch {
-                withContext(Dispatchers.IO) {
-                    runCatching {
-                        val priv = app.boveda.leer(ClavesSeguras.CLAVE_PRIVADA) ?: return@runCatching
-                        app.api.editarMensajeGrupo(grupoId, objetivo.id, cifrarParaTodos(limpio, priv))
-                    }
+                if (!editarMensaje(objetivo, limpio))
+                {
+                    return@launch
                 }
                 mensajes = mensajes.map { if (it.id == objetivo.id) it.copy(texto = limpio, editado = true) else it }
                 editando = null
@@ -357,7 +489,22 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
         texto = ""
         val resp = respondiendo
         respondiendo = null
-        mandarPlano(limpio, resp?.id)
+        mandarPlano(limpio, resp?.id, resp?.texto?.let { Resumen.resumenMensaje(it) })
+    }
+
+    fun reintentar(mensaje: MensajeGrupo)
+    {
+        alcance.launch {
+            val item = withContext(Dispatchers.IO) {
+                app.outbox.leerGrupo(grupoId).find { it.optString("localId") == mensaje.id }
+            } ?: return@launch
+            mensajes = mensajes.map { if (it.id == mensaje.id) it.copy(estado = "enviando") else it }
+            DrenadorOutbox.enviar(
+                app,
+                miId,
+                Outbox.Pendiente(Outbox.Tipo.GRUPO, grupoId, item),
+            )
+        }
     }
 
     fun reaccionar(mensaje: MensajeGrupo, emoji: String)
@@ -432,17 +579,22 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
         val objetivo = reenviando ?: return
         reenviando = null
         val plano = objetivo.texto ?: return
-        alcance.launch(Dispatchers.IO) {
-            runCatching {
-                val priv = app.boveda.leer(ClavesSeguras.CLAVE_PRIVADA) ?: return@runCatching
-                val pub = app.llaves.llavePublicaDe(destino.id)
-                val (contenidoCifrado, nonce) = Cripto.cifrarTexto(plano, pub, priv)
-                ConexionSocket.obtener()?.emit("mensaje:enviar", JSONObject()
-                    .put("destinatarioId", destino.id)
-                    .put("contenidoCifrado", contenidoCifrado)
-                    .put("nonce", nonce)
-                    .put("respuestaA", JSONObject.NULL))
+        alcance.launch {
+            val item = withContext(Dispatchers.IO) {
+                val nuevo = JSONObject()
+                    .put("localId", IdMensaje.nuevo())
+                    .put("respuestaA", JSONObject.NULL)
+                    .put("texto", plano)
+                    .put("respuestaTexto", JSONObject.NULL)
+                    .put("enviado_en", Instant.now().toString())
+                app.outbox.agregar(destino.id, nuevo)
+                nuevo
             }
+            DrenadorOutbox.enviar(
+                app,
+                miId,
+                Outbox.Pendiente(Outbox.Tipo.DIRECTO, destino.id, item),
+            )
         }
     }
 
@@ -482,21 +634,27 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
     LaunchedEffect(grupoId) {
         val datos = withContext(Dispatchers.IO) {
             val mi = app.boveda.leer(ClavesSeguras.MI_ID) ?: ""
-            val priv = app.boveda.leer(ClavesSeguras.CLAVE_PRIVADA) ?: ""
             val cache = app.cacheChats.leerChat(claveCache)
             val borrador = app.borradores.leer(claveBorrador).optString("texto")
-            Triple(mi, priv, Pair(cache, borrador))
+            val pendientes = app.outbox.leerGrupo(grupoId)
+            Triple(mi, cache, Pair(borrador, pendientes))
         }
         miId = datos.first
-        if (datos.third.second.isNotEmpty())
+        if (datos.third.first.isNotEmpty())
         {
-            texto = datos.third.second
+            texto = datos.third.first
         }
-        withContext(Dispatchers.IO) {
-            fijados = Fijados(app.estado).leer(claveCache)
-            ocultos = Ocultos(app.estado).leer(claveCache)
+        val persistentes = withContext(Dispatchers.IO) {
+            Triple(
+                Fijados(app.estado).leer(claveCache),
+                Ocultos(app.estado).leer(claveCache),
+                datos.third.second,
+            )
         }
-        val cache = datos.third.first
+        fijados = persistentes.first
+        ocultos = persistentes.second
+        val locales = persistentes.third
+        val cache = datos.second
         if (cache != null)
         {
             mensajes = (0 until cache.length()).map { i ->
@@ -509,39 +667,60 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                     enviadoEn = m.optString("enviado_en"),
                     borrado = m.optBoolean("borrado"),
                     editado = m.optBoolean("editado"),
+                    estado = if (m.isNull("estado")) null else m.optString("estado"),
+                    clienteId = if (m.isNull("cliente_id")) null else m.optString("cliente_id"),
+                    respuestaA = if (m.isNull("respuesta_a")) null else m.optString("respuesta_a"),
+                    respuestaTexto = if (m.isNull("respuestaTexto")) null else m.optString("respuestaTexto"),
                 )
             }
         }
-        withContext(Dispatchers.IO) {
-            runCatching {
-                val g = app.api.infoGrupo(grupoId) as JSONObject
-                nombreGrupo = g.optString("nombre").ifEmpty { nombreInicial }
-                val listaMiembros = g.optJSONArray("miembros") ?: JSONArray()
-                numMiembros = listaMiembros.length()
-                val acumulado = mutableListOf<MiembroGrupo>()
-                for (i in 0 until listaMiembros.length())
-                {
-                    val m = listaMiembros.getJSONObject(i)
-                    pubs[m.getString("id")] = m.textoO("llave_publica")
-                    nombres[m.getString("id")] = m.optString("usuario")
-                    acumulado.add(MiembroGrupo(m.getString("id"), m.optString("usuario"), m.textoO("avatar_url").ifEmpty { null }))
-                }
-                miembros = acumulado
+        if (locales.isNotEmpty())
+        {
+            val existentes = mensajes.flatMap { mensaje ->
+                listOfNotNull(mensaje.id, mensaje.clienteId)
+            }.toSet()
+            mensajes = mensajes + locales.filter { it.optString("localId") !in existentes }.map { item ->
+                MensajeGrupo(
+                    id = item.getString("localId"),
+                    remitenteId = miId,
+                    autor = null,
+                    texto = item.optString("texto"),
+                    enviadoEn = item.optString("enviado_en"),
+                    estado = "enviando",
+                    respuestaA = if (item.isNull("respuestaA")) null else item.optString("respuestaA"),
+                    respuestaTexto = if (item.isNull("respuestaTexto")) null else item.optString("respuestaTexto"),
+                )
             }
-            runCatching {
-                val filas = app.api.historialGrupo(grupoId) as JSONArray
-                hayMas = filas.length() >= 50
-                val desc = (0 until filas.length()).map { descifrarFila(filas.getJSONObject(it), datos.second) }
-                if (desc.isNotEmpty() || cache == null)
-                {
-                    val locales = mensajes.filter { m -> m.id.startsWith("local-") && desc.none { it.id == m.id } }
-                    val junto = (desc + locales).sortedBy { it.enviadoEn }
-                    mensajes = junto
-                    guardarCache(junto)
-                }
-                GrupoVisto(app.estado).marcarVisto(grupoId)
-                reportarLeidos(mensajes)
+        }
+        if (refrescarGrupo())
+        {
+            val historial = withContext(Dispatchers.IO) {
+                runCatching {
+                    val filas = app.api.historialGrupo(grupoId) as JSONArray
+                    Pair(filas.length(), (0 until filas.length()).map { descifrarFila(filas.getJSONObject(it)) })
+                }.getOrNull()
             }
+            if (historial != null)
+            {
+                hayMas = historial.first >= 50
+                val descifrados = historial.second
+                if (descifrados.isNotEmpty() || cache == null)
+                {
+                    val pendientes = mensajes.filter { mensaje ->
+                        mensaje.estado != null && descifrados.none { servidor ->
+                            servidor.id == mensaje.id || servidor.clienteId == mensaje.id
+                        }
+                    }
+                    mensajes = (descifrados + pendientes).sortedBy { it.enviadoEn }
+                    withContext(Dispatchers.IO) { guardarCache(mensajes) }
+                }
+            }
+        }
+        withContext(Dispatchers.IO) { GrupoVisto(app.estado).marcarVisto(grupoId) }
+        reportarLeidos(mensajes)
+        if (miId.isNotBlank())
+        {
+            DrenadorOutbox.drenar(app, miId, Outbox.Tipo.GRUPO, grupoId, forzar = true)
         }
         if (mensajes.isNotEmpty())
         {
@@ -592,9 +771,8 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                 runCatching {
                     val primero = mensajes.first().enviadoEn
                     val lote = withContext(Dispatchers.IO) {
-                        val priv = app.boveda.leer(ClavesSeguras.CLAVE_PRIVADA) ?: ""
                         val filas = app.api.historialGrupo(grupoId, primero) as JSONArray
-                        Pair(filas.length(), (0 until filas.length()).map { descifrarFila(filas.getJSONObject(it), priv) })
+                        Pair(filas.length(), (0 until filas.length()).map { descifrarFila(filas.getJSONObject(it)) })
                     }
                     if (lote.first < 50)
                     {
@@ -619,11 +797,31 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                 return@Listener
             }
             alcance.launch {
-                val nuevo = withContext(Dispatchers.IO) {
-                    val priv = app.boveda.leer(ClavesSeguras.CLAVE_PRIVADA) ?: ""
-                    descifrarFila(data, priv)
+                if (!pubs.containsKey(data.optString("remitente_id")))
+                {
+                    refrescarGrupo()
                 }
-                if (mensajes.none { it.id == nuevo.id })
+                val nuevo = withContext(Dispatchers.IO) {
+                    descifrarFila(data)
+                }
+                val optimista = nuevo.clienteId?.let { clienteId ->
+                    mensajes.find { it.id == clienteId || it.clienteId == clienteId }
+                }
+                if (optimista != null)
+                {
+                    mensajes = mensajes.map { mensaje ->
+                        if (mensaje === optimista)
+                        {
+                            nuevo.copy(respuestaTexto = optimista.respuestaTexto)
+                        }
+                        else
+                        {
+                            mensaje
+                        }
+                    }
+                    withContext(Dispatchers.IO) { guardarCache(mensajes) }
+                }
+                else if (mensajes.none { it.id == nuevo.id })
                 {
                     mensajes = mensajes + nuevo
                     withContext(Dispatchers.IO) {
@@ -661,7 +859,9 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
             val data = args.getOrNull(0) as? JSONObject ?: return@Listener
             if (data.optString("grupo_id") == grupoId)
             {
-                mensajes = mensajes.map { if (it.id == data.optString("id")) it.copy(texto = null, borrado = true) else it }
+                alcance.launch {
+                    mensajes = mensajes.map { if (it.id == data.optString("id")) it.copy(texto = null, borrado = true) else it }
+                }
             }
         }
         val alEditado = Emitter.Listener { args ->
@@ -675,8 +875,11 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                 val objetivo = mensajes.find { it.id == idMensaje } ?: return@launch
                 val clave = pubs[objetivo.remitenteId] ?: return@launch
                 val claro = withContext(Dispatchers.IO) {
-                    val priv = app.boveda.leer(ClavesSeguras.CLAVE_PRIVADA) ?: ""
-                    Cripto.descifrarTexto(data.getString("contenido_cifrado"), data.getString("nonce"), clave, priv)
+                    app.identidad.descifrarConHistoricas(
+                        data.getString("contenido_cifrado"),
+                        data.getString("nonce"),
+                        clave,
+                    )
                 }
                 mensajes = mensajes.map {
                     if (it.id == idMensaje) it.copy(texto = claro ?: it.texto, editado = true) else it
@@ -689,7 +892,9 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
             {
                 val obj = data.optJSONObject("reacciones")
                 val reacciones = obj?.keys()?.asSequence()?.associateWith { obj.optString(it) } ?: emptyMap()
-                mensajes = mensajes.map { if (it.id == data.optString("id")) it.copy(reacciones = reacciones) else it }
+                alcance.launch {
+                    mensajes = mensajes.map { if (it.id == data.optString("id")) it.copy(reacciones = reacciones) else it }
+                }
             }
         }
         val alLeido = Emitter.Listener { args ->
@@ -706,7 +911,71 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                 val lp = l.optJSONObject("leido_por") ?: continue
                 porMensaje[l.optString("id")] = lp.keys().asSequence().associateWith { lp.optString(it) }
             }
-            mensajes = mensajes.map { porMensaje[it.id]?.let { nuevo -> it.copy(leidoPor = nuevo) } ?: it }
+            alcance.launch {
+                mensajes = mensajes.map { porMensaje[it.id]?.let { nuevo -> it.copy(leidoPor = nuevo) } ?: it }
+            }
+        }
+        val alActualizado = Emitter.Listener { args ->
+            val data = args.getOrNull(0) as? JSONObject ?: return@Listener
+            if (data.optString("id") == grupoId)
+            {
+                alcance.launch {
+                    refrescarGrupo()
+                    if (miId.isNotBlank())
+                    {
+                        DrenadorOutbox.drenar(app, miId, Outbox.Tipo.GRUPO, grupoId, forzar = true)
+                    }
+                }
+            }
+        }
+        val alConectar = Emitter.Listener {
+            alcance.launch {
+                if (miId.isNotBlank())
+                {
+                    DrenadorOutbox.drenar(app, miId, Outbox.Tipo.GRUPO, grupoId, forzar = true)
+                }
+            }
+        }
+        val dejarDeObservarOutbox = DrenadorOutbox.observar { resultado ->
+            if (
+                resultado.cuentaId == miId &&
+                resultado.tipo == Outbox.Tipo.GRUPO &&
+                resultado.destinoId == grupoId
+            )
+            {
+                alcance.launch {
+                    val actualizados = mensajes.map { mensaje ->
+                        if (
+                            mensaje.id != resultado.clienteId &&
+                            mensaje.clienteId != resultado.clienteId
+                        )
+                        {
+                            mensaje
+                        }
+                        else if (resultado.exitoso)
+                        {
+                            mensaje.copy(
+                                id = resultado.idServidor ?: mensaje.id,
+                                clienteId = resultado.clienteId,
+                                estado = null,
+                            )
+                        }
+                        else if (mensaje.id == resultado.clienteId)
+                        {
+                            mensaje.copy(estado = "fallido")
+                        }
+                        else
+                        {
+                            mensaje
+                        }
+                    }
+                    mensajes = actualizados
+                    if (resultado.exitoso)
+                    {
+                        withContext(Dispatchers.IO) { guardarCache(actualizados) }
+                    }
+                }
+            }
         }
         socket?.on("grupo:mensaje", alMensaje)
         socket?.on("grupo:escribiendo", alEscribiendo)
@@ -714,6 +983,8 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
         socket?.on("grupo:editado", alEditado)
         socket?.on("grupo:reaccion", alReaccion)
         socket?.on("grupo:leido", alLeido)
+        socket?.on("grupo:actualizado", alActualizado)
+        socket?.on(Socket.EVENT_CONNECT, alConectar)
         onDispose {
             socket?.off("grupo:mensaje", alMensaje)
             socket?.off("grupo:escribiendo", alEscribiendo)
@@ -721,6 +992,9 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
             socket?.off("grupo:editado", alEditado)
             socket?.off("grupo:reaccion", alReaccion)
             socket?.off("grupo:leido", alLeido)
+            socket?.off("grupo:actualizado", alActualizado)
+            socket?.off(Socket.EVENT_CONNECT, alConectar)
+            dejarDeObservarOutbox()
         }
     }
 
@@ -798,9 +1072,12 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                         app = app,
                         alAbrirImagen = { visor = it },
                         alAbrirVideo = { visorVideo = it },
-                        cita = m.respuestaA?.let { porId[it] }?.let { Resumen.resumenMensaje(it.texto) },
+                        cita = m.respuestaTexto ?: m.respuestaA?.let { respuestaId ->
+                            porId[respuestaId]?.let { Resumen.resumenMensaje(it.texto) } ?: "Mensaje"
+                        },
+                        alReintentar = { reintentar(m) },
                         alMantener = {
-                            if (!m.borrado)
+                            if (!m.borrado && m.estado == null)
                             {
                                 vibrador.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                                 sel = AccionesDe(m, limites)
@@ -988,7 +1265,12 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
             {
                 if (subiendo)
                 {
-                    androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.size(18.dp), color = colores.muted, strokeWidth = 2.dp)
+                    androidx.compose.material3.CircularProgressIndicator(
+                        progress = { progresoSubida },
+                        modifier = Modifier.size(18.dp),
+                        color = colores.muted,
+                        strokeWidth = 2.dp,
+                    )
                 }
                 else
                 {
@@ -1246,6 +1528,7 @@ private fun BurbujaGrupo(
     alAbrirImagen: (java.io.File) -> Unit,
     alAbrirVideo: (MediaMensaje) -> Unit,
     cita: String? = null,
+    alReintentar: () -> Unit = {},
     alMantener: () -> Unit = {},
 )
 {
@@ -1273,7 +1556,7 @@ private fun BurbujaGrupo(
                     .combinedClickable(
                         indication = null,
                         interactionSource = remember { MutableInteractionSource() },
-                        onClick = {},
+                        onClick = { if (m.estado == "fallido") alReintentar() },
                         onLongClick = { alMantener() },
                     )
                     .padding(

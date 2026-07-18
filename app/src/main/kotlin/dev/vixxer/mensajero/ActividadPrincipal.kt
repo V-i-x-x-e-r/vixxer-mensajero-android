@@ -24,6 +24,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,6 +68,11 @@ import dev.vixxer.mensajero.ui.PantallaMultimedia
 import dev.vixxer.mensajero.ui.PantallaPerfil
 import dev.vixxer.mensajero.ui.PantallaRecuperar
 import dev.vixxer.mensajero.ui.PantallaRegistro
+import dev.vixxer.mensajero.nucleo.ConexionSocket
+import io.socket.client.Socket
+import io.socket.emitter.Emitter
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class ActividadPrincipal : FragmentActivity()
 {
@@ -86,17 +92,96 @@ class ActividadPrincipal : FragmentActivity()
             var pantalla by remember { mutableStateOf("arranque") }
             var chatAbierto by remember { mutableStateOf<Amigo?>(null) }
             var bloqueado by remember { mutableStateOf(false) }
+            var sesionVerificada by remember { mutableStateOf(false) }
+            var socketMensajeria by remember { mutableStateOf<Socket?>(null) }
+            var cuentaMensajeria by remember { mutableStateOf("") }
+            val alcanceMensajeria = rememberCoroutineScope()
             app.alExpirarSesion = { runOnUiThread { pantalla = "login" } }
 
             LaunchedEffect(Unit) {
-                val token = withContext(Dispatchers.IO) { app.boveda.leer(ClavesSeguras.TOKEN) }
+                val estadoSesion = withContext(Dispatchers.IO) {
+                    Triple(
+                        app.boveda.leer(ClavesSeguras.TOKEN),
+                        runCatching { app.identidad.tieneRespaldoPendiente() }.getOrElse { true },
+                        runCatching { app.identidad.codigoPendiente() != null }.getOrDefault(false),
+                    )
+                }
+                val token = estadoSesion.first
+                if (token != null && estadoSesion.second)
+                {
+                    withContext(Dispatchers.IO) { app.cerrarSesionLocal() }
+                    pantalla = "login"
+                    sesionVerificada = true
+                    return@LaunchedEffect
+                }
                 if (pantalla == "arranque")
                 {
-                    pantalla = if (token != null) "chats" else "login"
+                    pantalla = when
+                    {
+                        token == null -> "login"
+                        estadoSesion.third -> "recuperar"
+                        else -> "chats"
+                    }
                 }
                 if (Seguridad.candadoHabilitado(app.boveda, app.estado))
                 {
                     bloqueado = true
+                }
+                sesionVerificada = true
+            }
+
+            LaunchedEffect(pantalla, sesionVerificada) {
+                if (!sesionVerificada)
+                {
+                    return@LaunchedEffect
+                }
+                val sesion = withContext(Dispatchers.IO) {
+                    Pair(
+                        app.boveda.leer(ClavesSeguras.TOKEN),
+                        app.boveda.leer(ClavesSeguras.MI_ID),
+                    )
+                }
+                val token = sesion.first
+                val cuentaId = sesion.second
+                if (token == null || cuentaId.isNullOrBlank())
+                {
+                    socketMensajeria = null
+                    cuentaMensajeria = ""
+                    return@LaunchedEffect
+                }
+                val socket = withContext(Dispatchers.IO) {
+                    ConexionSocket.conectar(Config.SOCKET_URL, token)
+                }
+                socketMensajeria = socket
+                cuentaMensajeria = cuentaId
+                DrenadorOutbox.drenar(app, cuentaId)
+            }
+
+            DisposableEffect(socketMensajeria, cuentaMensajeria) {
+                val socket = socketMensajeria
+                val cuentaId = cuentaMensajeria
+                val alConectar = Emitter.Listener {
+                    if (cuentaId.isNotBlank())
+                    {
+                        alcanceMensajeria.launch {
+                            DrenadorOutbox.drenar(app, cuentaId, forzar = true)
+                        }
+                    }
+                }
+                socket?.on(Socket.EVENT_CONNECT, alConectar)
+                onDispose { socket?.off(Socket.EVENT_CONNECT, alConectar) }
+            }
+
+            LaunchedEffect(socketMensajeria, cuentaMensajeria) {
+                val cuentaId = cuentaMensajeria
+                if (cuentaId.isBlank())
+                {
+                    return@LaunchedEffect
+                }
+                while (true)
+                {
+                    DrenadorOutbox.drenar(app, cuentaId)
+                    delay(15_000L)
                 }
             }
 

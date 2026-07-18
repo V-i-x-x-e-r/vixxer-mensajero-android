@@ -2,12 +2,102 @@ package dev.vixxer.mensajero.nucleo
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.json.JSONObject
 
 class AlmacenTest
 {
+    @Test
+    fun almacenPorCuentaAislaDatosYConservaSesionGlobal()
+    {
+        val base = AlmacenEnMemoria()
+        val almacen = AlmacenPorCuenta(
+            base,
+            setOf(ClavesSeguras.TOKEN, ClavesSeguras.MI_ID, ClavesSeguras.REGISTRO_PENDIENTE),
+        )
+        almacen.escribir(ClavesSeguras.TOKEN, "token-global")
+        almacen.escribir(ClavesSeguras.REGISTRO_PENDIENTE, "registro-global")
+        almacen.cambiarCuenta("cuenta-a")
+        almacen.escribir("vixxer_chat_c1", "mensajes-a")
+        almacen.cambiarCuenta("cuenta-b")
+        assertNull(almacen.leer("vixxer_chat_c1"))
+        almacen.escribir("vixxer_chat_c1", "mensajes-b")
+        assertEquals("token-global", almacen.leer(ClavesSeguras.TOKEN))
+        assertEquals("registro-global", almacen.leer(ClavesSeguras.REGISTRO_PENDIENTE))
+        almacen.cambiarCuenta("cuenta-a")
+        assertEquals("mensajes-a", almacen.leer("vixxer_chat_c1"))
+    }
+
+    @Test
+    fun almacenPorCuentaMigraLegadoUnaVez()
+    {
+        val base = AlmacenEnMemoria()
+        base.escribir(ClavesSeguras.TOKEN, "token-global")
+        base.escribir(ClavesSeguras.REGISTRO_PENDIENTE, "registro-global")
+        base.escribir(ClavesSeguras.CLAVE_PRIVADA, "privada-legada")
+        val almacen = AlmacenPorCuenta(base, setOf(ClavesSeguras.TOKEN, ClavesSeguras.REGISTRO_PENDIENTE))
+
+        assertNull(almacen.leer(ClavesSeguras.CLAVE_PRIVADA))
+        assertEquals("privada-legada", base.leer(ClavesSeguras.CLAVE_PRIVADA))
+
+        almacen.cambiarCuenta("cuenta-a")
+
+        almacen.migrarLegado(listOf(
+            ClavesSeguras.TOKEN,
+            ClavesSeguras.REGISTRO_PENDIENTE,
+            ClavesSeguras.CLAVE_PRIVADA,
+        ))
+
+        assertEquals("token-global", almacen.leer(ClavesSeguras.TOKEN))
+        assertEquals("registro-global", base.leer(ClavesSeguras.REGISTRO_PENDIENTE))
+        assertEquals("privada-legada", almacen.leer(ClavesSeguras.CLAVE_PRIVADA))
+        val fisica = "vixxer_cuenta:cuenta-a:${ClavesSeguras.CLAVE_PRIVADA}"
+        assertEquals(setOf(ClavesSeguras.CLAVE_PRIVADA), almacen.clavesDeCuenta(listOf(fisica)))
+        assertNull(base.leer(ClavesSeguras.CLAVE_PRIVADA))
+        almacen.cambiarCuenta("cuenta-b")
+        assertNull(almacen.leer(ClavesSeguras.CLAVE_PRIVADA))
+    }
+
+    @Test
+    fun migracionNoReemplazaUnaCuentaYaConfigurada()
+    {
+        val base = AlmacenEnMemoria()
+        base.escribir(ClavesSeguras.CLAVE_PRIVADA, "privada-legada")
+        val almacen = AlmacenPorCuenta(base)
+        almacen.cambiarCuenta("cuenta-nueva")
+        almacen.escribir(ClavesSeguras.CLAVE_PRIVADA, "privada-nueva")
+
+        almacen.migrarLegado(listOf(ClavesSeguras.CLAVE_PRIVADA))
+
+        assertEquals("privada-nueva", almacen.leer(ClavesSeguras.CLAVE_PRIVADA))
+        assertNull(base.leer(ClavesSeguras.CLAVE_PRIVADA))
+        almacen.cambiarCuenta("otra-cuenta")
+        almacen.migrarLegado(listOf(ClavesSeguras.CLAVE_PRIVADA))
+        assertNull(almacen.leer(ClavesSeguras.CLAVE_PRIVADA))
+    }
+
+    @Test
+    fun legadoSinCuentaEsperaUnaLlaveRemotaCoincidente()
+    {
+        val base = AlmacenEnMemoria()
+        base.escribir(ClavesSeguras.CLAVE_PUBLICA, "publica-a")
+        base.escribir(ClavesSeguras.CLAVE_PRIVADA, "privada-a")
+        val almacen = AlmacenPorCuenta(base)
+        val claves = listOf(ClavesSeguras.CLAVE_PUBLICA, ClavesSeguras.CLAVE_PRIVADA)
+
+        almacen.cambiarCuenta("cuenta-b")
+        assertFalse(almacen.migrarLegadoSiCoincide(ClavesSeguras.CLAVE_PUBLICA, "publica-b", claves))
+        assertNull(almacen.leer(ClavesSeguras.CLAVE_PRIVADA))
+        assertEquals("privada-a", base.leer(ClavesSeguras.CLAVE_PRIVADA))
+
+        almacen.cambiarCuenta("cuenta-a")
+        assertTrue(almacen.migrarLegadoSiCoincide(ClavesSeguras.CLAVE_PUBLICA, "publica-a", claves))
+        assertEquals("privada-a", almacen.leer(ClavesSeguras.CLAVE_PRIVADA))
+        assertNull(base.leer(ClavesSeguras.CLAVE_PRIVADA))
+    }
+
     @Test
     fun borradorGuardaLeeYDescartaVacios()
     {
@@ -118,7 +208,7 @@ class AlmacenTest
     {
         val cache = CacheChats(AlmacenEnMemoria())
         val mensajes = org.json.JSONArray()
-        mensajes.put(JSONObject().put("id", "local-1").put("texto", "pendiente"))
+        mensajes.put(JSONObject().put("id", "550e8400-e29b-41d4-a716-446655440000").put("texto", "pendiente").put("estado", "fallido"))
         for (i in 1..60)
         {
             mensajes.put(JSONObject().put("id", "m$i").put("texto", "t$i"))

@@ -50,6 +50,7 @@ import dev.vixxer.mensajero.nucleo.ConexionSocket
 import dev.vixxer.mensajero.nucleo.EstadosChat
 import dev.vixxer.mensajero.nucleo.Fechas
 import io.socket.client.Socket
+import io.socket.emitter.Emitter
 import java.text.DateFormat
 import java.time.ZoneId
 import java.util.Date
@@ -134,6 +135,7 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
     var alias by remember { mutableStateOf(mapOf<String, String>()) }
     val trabajosTecleo = remember { HashMap<String, Job>() }
     val recarga = remember { arrayOf<Job?>(null) }
+    var socketActivo by remember { mutableStateOf(ConexionSocket.obtener()) }
 
     suspend fun cargar()
     {
@@ -146,7 +148,6 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
                 val lista = app.api.amigos() as JSONArray
                 val conversaciones = app.api.conversaciones() as JSONArray
                 val miId = app.boveda.leer(ClavesSeguras.MI_ID)
-                val priv = app.boveda.leer(ClavesSeguras.CLAVE_PRIVADA) ?: ""
                 val mapa = HashMap<String, Conv>()
                 for (i in 0 until conversaciones.length())
                 {
@@ -159,11 +160,19 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
                     }
                     app.llaves.sembrar(otroId, c.textoO("llave_publica").ifEmpty { null })
                     val pub = c.textoO("llave_publica").ifEmpty { app.llaves.llavePublicaDe(otroId) }
-                    var claro = dev.vixxer.mensajero.nucleo.Cripto.descifrarTexto(c.getString("ultimo_cifrado"), c.getString("ultimo_nonce"), pub, priv)
+                    var claro = app.identidad.descifrarConHistoricas(
+                        c.getString("ultimo_cifrado"),
+                        c.getString("ultimo_nonce"),
+                        pub,
+                    )
                     if (claro == null)
                     {
                         val fresca = app.llaves.llavePublicaDe(otroId, forzar = true)
-                        claro = dev.vixxer.mensajero.nucleo.Cripto.descifrarTexto(c.getString("ultimo_cifrado"), c.getString("ultimo_nonce"), fresca, priv)
+                        claro = app.identidad.descifrarConHistoricas(
+                            c.getString("ultimo_cifrado"),
+                            c.getString("ultimo_nonce"),
+                            fresca,
+                        )
                     }
                     val texto = previewDe(claro ?: "Mensaje cifrado")
                     val mio = c.optString("ultimo_remitente_id") == miId
@@ -288,22 +297,37 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
             return@LaunchedEffect
         }
         val socket = withContext(Dispatchers.IO) { ConexionSocket.conectar(Config.SOCKET_URL, token) }
+        socketActivo = socket
         estadoConexion = if (socket.connected()) "conectado" else "conectando…"
-        socket.on(Socket.EVENT_CONNECT) { estadoConexion = "conectado" }
-        socket.on(Socket.EVENT_DISCONNECT) { estadoConexion = "sin conexión" }
-        socket.on(Socket.EVENT_CONNECT_ERROR) { estadoConexion = "sin conexión" }
-        socket.on("mensaje:recibido") { args ->
-            val fila = args.getOrNull(0) as? JSONObject ?: return@on
-            socket.emit("mensaje:entregado", JSONObject().put("id", fila.opt("id")))
-            app.estadosChat.mostrar(fila.optString("remitente_id"))
-            programarCarga()
+        socket.emit("entregar:pendientes")
+        cargar()
+    }
+
+    DisposableEffect(socketActivo) {
+        val socket = socketActivo
+        val alConectar = Emitter.Listener {
+            alcance.launch { estadoConexion = "conectado" }
         }
-        socket.on("usuario:escribiendo") { args ->
-            val data = args.getOrNull(0) as? JSONObject ?: return@on
+        val alDesconectar = Emitter.Listener {
+            alcance.launch { estadoConexion = "sin conexión" }
+        }
+        val alErrorConexion = Emitter.Listener {
+            alcance.launch { estadoConexion = "sin conexión" }
+        }
+        val alMensaje = Emitter.Listener { args ->
+            val fila = args.getOrNull(0) as? JSONObject ?: return@Listener
+            socket?.emit("mensaje:entregado", JSONObject().put("id", fila.opt("id")))
+            alcance.launch {
+                app.estadosChat.mostrar(fila.optString("remitente_id"))
+                programarCarga()
+            }
+        }
+        val alEscribiendo = Emitter.Listener { args ->
+            val data = args.getOrNull(0) as? JSONObject ?: return@Listener
             val de = data.optString("de")
             if (de.isEmpty())
             {
-                return@on
+                return@Listener
             }
             alcance.launch {
                 trabajosTecleo[de]?.cancel()
@@ -321,18 +345,19 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
                 }
             }
         }
-        socket.emit("entregar:pendientes")
-        cargar()
-    }
-
-    DisposableEffect(Unit) {
+        socket?.on(Socket.EVENT_CONNECT, alConectar)
+        socket?.on(Socket.EVENT_DISCONNECT, alDesconectar)
+        socket?.on(Socket.EVENT_CONNECT_ERROR, alErrorConexion)
+        socket?.on("mensaje:recibido", alMensaje)
+        socket?.on("usuario:escribiendo", alEscribiendo)
         onDispose {
-            val socket = ConexionSocket.obtener()
-            socket?.off(Socket.EVENT_CONNECT)
-            socket?.off(Socket.EVENT_DISCONNECT)
-            socket?.off(Socket.EVENT_CONNECT_ERROR)
-            socket?.off("mensaje:recibido")
-            socket?.off("usuario:escribiendo")
+            socket?.off(Socket.EVENT_CONNECT, alConectar)
+            socket?.off(Socket.EVENT_DISCONNECT, alDesconectar)
+            socket?.off(Socket.EVENT_CONNECT_ERROR, alErrorConexion)
+            socket?.off("mensaje:recibido", alMensaje)
+            socket?.off("usuario:escribiendo", alEscribiendo)
+            recarga[0]?.cancel()
+            trabajosTecleo.values.forEach { it.cancel() }
         }
     }
 

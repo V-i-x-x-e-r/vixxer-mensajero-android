@@ -18,7 +18,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,6 +38,7 @@ import androidx.compose.ui.unit.sp
 import dev.vixxer.mensajero.AplicacionVixxer
 import dev.vixxer.mensajero.nucleo.ClavesSeguras
 import dev.vixxer.mensajero.nucleo.ErrorApi
+import dev.vixxer.mensajero.nucleo.Identidad
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -59,13 +59,58 @@ fun PantallaLogin(app: AplicacionVixxer, alNavegar: (String) -> Unit)
     suspend fun entrarTrasSesion()
     {
         val destino = withContext(Dispatchers.IO) {
+            var identidadSincronizada = false
+            val cuentaId = app.boveda.leer(ClavesSeguras.MI_ID) ?: error("Sesion incompleta")
+            val remota = app.api.llavePublica(cuentaId) as JSONObject
+            val llavePublicaRemota = remota.getString("llave_publica")
+            app.adoptarLegado(cuentaId, llavePublicaRemota)
+            val registro = app.identidad.registroPendiente()
+            if (registro == null && app.identidad.tieneRegistroPendiente())
+            {
+                app.identidad.borrarRegistroPendiente()
+            }
+            if (registro != null)
+            {
+                if (registro.usuario != Identidad.normalizarUsuario(usuario))
+                {
+                    app.identidad.borrarRegistroPendiente()
+                }
+                else
+                {
+                    if (llavePublicaRemota == registro.identidad.publicKey)
+                    {
+                        app.identidad.confirmarRegistro(registro)
+                        app.api.publicarIdentidad(
+                            registro.identidad.publicKey,
+                            registro.firma.publicKey,
+                            registro.identidad.respaldo,
+                        )
+                        app.identidad.confirmarRespaldoSubido()
+                        app.identidad.borrarRegistroPendiente()
+                        identidadSincronizada = true
+                    }
+                    else
+                    {
+                        app.identidad.borrarRegistroPendiente()
+                    }
+                }
+            }
             val priv = app.boveda.leer(ClavesSeguras.CLAVE_PRIVADA)
             if (priv != null)
             {
-                val pub = app.boveda.leer(ClavesSeguras.CLAVE_PUBLICA)
-                runCatching { app.api.actualizarLlavePublica(pub ?: "") }
-                runCatching { app.firma.publicarLlaveFirma() }
-                "chats"
+                val pub = app.boveda.leer(ClavesSeguras.CLAVE_PUBLICA) ?: error("Identidad incompleta")
+                val respaldo = app.identidad.respaldoPendiente()
+                val firma = app.identidad.prepararFirma()
+                app.identidad.confirmarFirma(firma)
+                if (!identidadSincronizada)
+                {
+                    app.api.publicarIdentidad(pub, firma.publicKey, respaldo)
+                    if (respaldo != null)
+                    {
+                        app.identidad.confirmarRespaldoSubido()
+                    }
+                }
+                if (app.identidad.codigoPendiente() == null) "chats" else "recuperar"
             }
             else
             {
@@ -85,18 +130,28 @@ fun PantallaLogin(app: AplicacionVixxer, alNavegar: (String) -> Unit)
         error = ""
         cargando = true
         alcance.launch {
+            var sesionIniciada = false
             try
             {
                 withContext(Dispatchers.IO) {
                     val data = app.api.login(usuario.trim(), contrasena) as JSONObject
-                    app.boveda.escribir(ClavesSeguras.TOKEN, data.getString("token"))
-                    app.boveda.escribir(ClavesSeguras.MI_ID, data.getJSONObject("usuario").getString("id"))
+                    val cuentaId = data.getJSONObject("usuario").getString("id")
+                    app.guardarSesion(data.getString("token"), cuentaId)
+                    sesionIniciada = true
                 }
                 entrarTrasSesion()
             }
             catch (e: Exception)
             {
-                error = if ((e as? ErrorApi)?.status == 401)
+                if (sesionIniciada)
+                {
+                    withContext(Dispatchers.IO) { app.cerrarSesionLocal() }
+                }
+                error = if (sesionIniciada)
+                {
+                    "No se pudo sincronizar tu identidad. Revisa tu conexión e intenta de nuevo."
+                }
+                else if ((e as? ErrorApi)?.status == 401)
                 {
                     "Usuario o contraseña incorrectos"
                 }

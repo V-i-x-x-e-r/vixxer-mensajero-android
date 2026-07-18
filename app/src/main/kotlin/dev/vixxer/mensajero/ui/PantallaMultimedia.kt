@@ -43,48 +43,57 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import dev.vixxer.mensajero.AplicacionVixxer
-import dev.vixxer.mensajero.nucleo.ClavesSeguras
-import dev.vixxer.mensajero.nucleo.Cripto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import java.io.File
+
+private data class PaginaMultimedia(
+    val items: List<Pair<String, MediaMensaje>>,
+    val corte: String?,
+    val hayMas: Boolean,
+)
+
+private data class EstadoScrollMultimedia(
+    val ultimo: Int,
+    val total: Int,
+    val hayMas: Boolean,
+    val cargando: Boolean,
+    val fallo: Boolean,
+    val pagina: Int,
+)
 
 @Composable
 fun PantallaMultimedia(app: AplicacionVixxer, amigoId: String, alVolver: () -> Unit)
 {
     val colores = LocalTema.current.colores
     val contexto = LocalContext.current
-    var items by remember { mutableStateOf(listOf<Pair<String, MediaMensaje>>()) }
-    var cargando by remember { mutableStateOf(true) }
-    var hayMas by remember { mutableStateOf(true) }
-    var filtro by remember { mutableStateOf("todo") }
-    var visor by remember { mutableStateOf<File?>(null) }
-    var visorVideo by remember { mutableStateOf<MediaMensaje?>(null) }
-    val corte = remember { arrayOf<String?>(null) }
-    val ocupado = remember { arrayOf(false) }
+    var items by remember(amigoId) { mutableStateOf(listOf<Pair<String, MediaMensaje>>()) }
+    var cargando by remember(amigoId) { mutableStateOf(false) }
+    var hayMas by remember(amigoId) { mutableStateOf(true) }
+    var fallo by remember(amigoId) { mutableStateOf(false) }
+    var corte by remember(amigoId) { mutableStateOf<String?>(null) }
+    var paginasCargadas by remember(amigoId) { mutableStateOf(0) }
+    var filtro by remember(amigoId) { mutableStateOf("todo") }
+    var visor by remember(amigoId) { mutableStateOf<File?>(null) }
+    var visorVideo by remember(amigoId) { mutableStateOf<MediaMensaje?>(null) }
     val estadoGrid = rememberLazyGridState()
 
     suspend fun cargarPagina()
     {
-        if (ocupado[0] || !hayMas)
+        if (cargando || !hayMas)
         {
             return
         }
-        ocupado[0] = true
-        val nuevos = withContext(Dispatchers.IO) {
-            runCatching {
-                val priv = app.boveda.leer(ClavesSeguras.CLAVE_PRIVADA) ?: return@runCatching emptyList<Pair<String, MediaMensaje>>()
+        cargando = true
+        fallo = false
+        try
+        {
+            val corteSolicitado = corte
+            val pagina = withContext(Dispatchers.IO) {
                 val pub = app.llaves.llavePublicaDe(amigoId)
-                val filas = app.api.historial(amigoId, corte[0]) as JSONArray
-                if (filas.length() < 50)
-                {
-                    hayMas = false
-                }
-                if (filas.length() > 0)
-                {
-                    corte[0] = filas.getJSONObject(0).optString("enviado_en")
-                }
+                val filas = app.api.historial(amigoId, corteSolicitado) as JSONArray
+                val nuevoCorte = filas.optJSONObject(0)?.optString("enviado_en")?.takeIf { it.isNotBlank() }
                 val salida = ArrayList<Pair<String, MediaMensaje>>()
                 for (i in 0 until filas.length())
                 {
@@ -93,22 +102,47 @@ fun PantallaMultimedia(app: AplicacionVixxer, amigoId: String, alVolver: () -> U
                     {
                         continue
                     }
-                    val claro = Cripto.descifrarTexto(f.getString("contenido_cifrado"), f.getString("nonce"), pub, priv)
+                    val claro = runCatching {
+                        app.identidad.descifrarConHistoricas(
+                            f.getString("contenido_cifrado"),
+                            f.getString("nonce"),
+                            pub,
+                        )
+                    }.getOrNull()
                     val m = leerMedia(claro)
                     if (m != null && (m.t == "img" || m.t == "video" || m.t == "file"))
                     {
-                        salida.add(f.optString("id") to m)
+                        val id = f.optString("id")
+                        if (id.isNotBlank()) salida.add(id to m)
                     }
                 }
-                salida.reversed()
-            }.getOrDefault(emptyList())
+                PaginaMultimedia(
+                    items = salida.reversed(),
+                    corte = nuevoCorte,
+                    hayMas = filas.length() == 50 && nuevoCorte != null && nuevoCorte != corteSolicitado,
+                )
+            }
+            val ids = items.asSequence().map { it.first }.toHashSet()
+            items = items + pagina.items.filter { ids.add(it.first) }
+            corte = pagina.corte ?: corte
+            hayMas = pagina.hayMas
+            paginasCargadas += 1
         }
-        items = items + nuevos
-        cargando = false
-        ocupado[0] = false
+        catch (e: kotlinx.coroutines.CancellationException)
+        {
+            throw e
+        }
+        catch (_: Exception)
+        {
+            fallo = true
+        }
+        finally
+        {
+            cargando = false
+        }
     }
 
-    LaunchedEffect(Unit) { cargarPagina() }
+    LaunchedEffect(amigoId) { cargarPagina() }
 
     val filtrados = when (filtro)
     {
@@ -119,9 +153,27 @@ fun PantallaMultimedia(app: AplicacionVixxer, amigoId: String, alVolver: () -> U
     }
     val esDocs = filtro == "docs"
 
-    LaunchedEffect(estadoGrid, filtrados.size) {
-        snapshotFlow { estadoGrid.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 }.collect { ultimo ->
-            if (hayMas && !ocupado[0] && ultimo >= filtrados.size - 4)
+    LaunchedEffect(filtro, filtrados.size, hayMas, fallo, paginasCargadas) {
+        if (!cargando && !fallo && hayMas && filtrados.size < 12)
+        {
+            cargarPagina()
+        }
+    }
+
+    LaunchedEffect(estadoGrid, filtro) {
+        snapshotFlow {
+            val info = estadoGrid.layoutInfo
+            EstadoScrollMultimedia(
+                ultimo = info.visibleItemsInfo.lastOrNull()?.index ?: -1,
+                total = info.totalItemsCount,
+                hayMas = hayMas,
+                cargando = cargando,
+                fallo = fallo,
+                pagina = paginasCargadas,
+            )
+        }.collect { estado ->
+            if (estado.hayMas && !estado.cargando && !estado.fallo &&
+                estado.total > 0 && estado.ultimo >= estado.total - 5)
             {
                 cargarPagina()
             }
@@ -204,7 +256,20 @@ fun PantallaMultimedia(app: AplicacionVixxer, amigoId: String, alVolver: () -> U
                     {
                         CircularProgressIndicator(modifier = Modifier.size(22.dp), color = colores.muted, strokeWidth = 2.dp)
                     }
-                    else if (filtrados.isEmpty())
+                    else if (fallo)
+                    {
+                        Text(
+                            "No se pudo cargar · Reintentar",
+                            fontSize = 14.sp,
+                            color = colores.muted,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.clickable(
+                                indication = null,
+                                interactionSource = remember { MutableInteractionSource() },
+                            ) { fallo = false },
+                        )
+                    }
+                    else if (filtrados.isEmpty() && !hayMas)
                     {
                         Text("Aún no hay nada aquí.", fontSize = 14.sp, color = colores.muted, textAlign = TextAlign.Center)
                     }

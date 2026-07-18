@@ -46,11 +46,24 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import dev.vixxer.mensajero.AplicacionVixxer
 import dev.vixxer.mensajero.nucleo.Medios
-import java.io.ByteArrayInputStream
+import dev.vixxer.mensajero.nucleo.RedMedia
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.FilterInputStream
+import java.io.IOException
+import java.io.InputStream
+import java.net.HttpURLConnection
 import java.net.URL
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
 import android.content.ContentValues
 import android.os.Build
@@ -72,6 +85,7 @@ data class MediaMensaje(
     val cap: String?,
     val nombre: String?,
     val peso: Long,
+    val pesoConocido: Boolean,
     val dur: Int,
     val prev: String?,
     val wf: List<Float>?,
@@ -104,6 +118,7 @@ fun leerMedia(texto: String?): MediaMensaje?
         cap = obj.textoO("cap").ifEmpty { null },
         nombre = obj.textoO("nombre").ifEmpty { null },
         peso = obj.optLong("peso"),
+        pesoConocido = obj.has("peso") && !obj.isNull("peso"),
         dur = obj.optInt("dur"),
         prev = obj.textoO("prev").ifEmpty { null },
         wf = obj.optJSONArray("wf")?.let { arreglo ->
@@ -115,6 +130,13 @@ fun leerMedia(texto: String?): MediaMensaje?
 object CacheMedia
 {
     private const val LIMITE = 150L * 1024 * 1024
+    private const val LIMITE_CIFRADO = 65L * 1024 * 1024
+    private const val TIMEOUT_CONEXION_MS = 12_000
+    private const val TIMEOUT_LECTURA_MS = 30_000
+    private data class Candado(val mutex: Mutex = Mutex(), var usuarios: Int = 0)
+    private val monitorCandados = Any()
+    private val candados = HashMap<String, Candado>()
+    private var generacion = 0L
 
     private fun carpeta(contexto: Context): File
     {
@@ -130,39 +152,203 @@ object CacheMedia
         return File(carpeta(contexto), hash)
     }
 
-    fun guardar(contexto: Context, path: String, bytes: ByteArray)
+    fun guardar(contexto: Context, path: String, pesoEsperado: Long, abrir: () -> InputStream?)
     {
-        runCatching {
-            archivoDe(contexto, path).writeBytes(bytes)
+        if (pesoEsperado !in 0..Medios.LIMITE_DESCIFRADO) return
+        val generacionInicial = generacionActual()
+        val destino = archivoDe(contexto, path)
+        val temporal = runCatching { File.createTempFile("${destino.name}-", ".tmp", destino.parentFile) }.getOrNull()
+            ?: return
+        try
+        {
+            val copiados = abrir()?.buffered()?.use { entrada ->
+                temporal.outputStream().buffered().use { salida -> copiarLimitado(entrada, salida, pesoEsperado) }
+            } ?: return
+            if (copiados != pesoEsperado || !moverSiVigente(temporal, destino, generacionInicial)) return
             podar(contexto)
+        }
+        catch (_: Exception)
+        {
+            return
+        }
+        finally
+        {
+            temporal.delete()
         }
     }
 
-    fun obtener(contexto: Context, app: AplicacionVixxer, media: MediaMensaje): File?
+    suspend fun obtener(contexto: Context, app: AplicacionVixxer, media: MediaMensaje): File?
     {
+        val candado = synchronized(monitorCandados) {
+            candados.getOrPut(media.path) { Candado() }.also { it.usuarios += 1 }
+        }
+        return try
+        {
+            candado.mutex.withLock { obtenerSinDuplicar(contexto, app, media) }
+        }
+        finally
+        {
+            synchronized(monitorCandados) {
+                candado.usuarios -= 1
+                if (candado.usuarios == 0) candados.remove(media.path, candado)
+            }
+        }
+    }
+
+    private suspend fun obtenerSinDuplicar(contexto: Context, app: AplicacionVixxer, media: MediaMensaje): File?
+    {
+        val generacionInicial = generacionActual()
         val destino = archivoDe(contexto, media.path)
-        if (destino.exists() && destino.length() > 0)
+        if (destino.isFile && if (media.pesoConocido) destino.length() == media.peso else destino.length() > 0)
         {
             destino.setLastModified(System.currentTimeMillis())
             return destino
         }
-        return runCatching {
+        if (destino.exists()) destino.delete()
+        val contextoCorrutina = currentCoroutineContext()
+        var conexion: HttpURLConnection? = null
+        var temporal: File? = null
+        var alCancelar: kotlinx.coroutines.DisposableHandle? = null
+        try
+        {
             val respuesta = app.api.urlMedia(media.path) as JSONObject
-            val url = respuesta.getString("url")
-            val temporal = File(destino.parentFile, "${destino.name}.tmp")
-            URL(url).openStream().use { entrada ->
+            contextoCorrutina.ensureActive()
+            val url = URL(respuesta.getString("url"))
+            if (url.protocol !in setOf("http", "https")) return null
+            temporal = File.createTempFile("${destino.name}-", ".tmp", destino.parentFile)
+            conexion = url.openConnection() as? HttpURLConnection ?: return null
+            conexion.connectTimeout = TIMEOUT_CONEXION_MS
+            conexion.readTimeout = TIMEOUT_LECTURA_MS
+            conexion.instanceFollowRedirects = true
+            conexion.setRequestProperty("Accept-Encoding", "identity")
+            val conexionActiva = conexion
+            alCancelar = contextoCorrutina[Job]?.invokeOnCompletion { causa ->
+                if (causa is CancellationException) conexionActiva.disconnect()
+            }
+            val codigo = conexion.responseCode
+            if (codigo !in 200..299) return null
+            val anunciada = conexion.contentLengthLong
+            if (anunciada > LIMITE_CIFRADO) return null
+            val esperado = media.peso.takeIf { media.pesoConocido }
+            conexion.inputStream.buffered().use { cruda ->
+                val entrada = EntradaLimitada(cruda, LIMITE_CIFRADO) { contextoCorrutina.ensureActive() }
                 temporal.outputStream().buffered().use { salida ->
-                    if (!Medios.descifrarFlujo(entrada, media.k, media.n, salida))
+                    if (!Medios.descifrarFlujo(entrada, media.k, media.n, salida, esperado))
                     {
-                        temporal.delete()
-                        return@runCatching null
+                        return null
                     }
                 }
             }
-            temporal.renameTo(destino)
+            contextoCorrutina.ensureActive()
+            if (!moverSiVigente(temporal, destino, generacionInicial)) return null
             podar(contexto)
-            destino
-        }.getOrNull()
+            return destino
+        }
+        catch (e: CancellationException)
+        {
+            throw e
+        }
+        catch (_: Exception)
+        {
+            return null
+        }
+        finally
+        {
+            alCancelar?.dispose()
+            conexion?.disconnect()
+            temporal?.delete()
+        }
+    }
+
+    fun limpiar(contexto: Context)
+    {
+        synchronized(monitorCandados) {
+            generacion += 1
+            carpeta(contexto).listFiles()?.forEach { it.deleteRecursively() }
+        }
+    }
+
+    private fun generacionActual(): Long = synchronized(monitorCandados) { generacion }
+
+    private fun moverSiVigente(origen: File, destino: File, generacionInicial: Long): Boolean
+    {
+        return synchronized(monitorCandados) {
+            generacion == generacionInicial && moverVerificado(origen, destino)
+        }
+    }
+
+    private fun copiarLimitado(entrada: InputStream, salida: java.io.OutputStream, limite: Long): Long
+    {
+        val bufer = ByteArray(64 * 1024)
+        var total = 0L
+        while (true)
+        {
+            val leidos = entrada.read(bufer)
+            if (leidos < 0) break
+            total += leidos
+            if (total > limite) throw IOException("El archivo cambio de tamano")
+            salida.write(bufer, 0, leidos)
+        }
+        return total
+    }
+
+    private fun moverVerificado(origen: File, destino: File): Boolean
+    {
+        val peso = origen.length()
+        return try
+        {
+            try
+            {
+                Files.move(
+                    origen.toPath(),
+                    destino.toPath(),
+                    StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING,
+                )
+            }
+            catch (_: AtomicMoveNotSupportedException)
+            {
+                Files.move(origen.toPath(), destino.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            }
+            val valido = destino.isFile && destino.length() == peso
+            if (!valido) destino.delete()
+            valido
+        }
+        catch (_: Exception)
+        {
+            false
+        }
+    }
+
+    private class EntradaLimitada(
+        entrada: InputStream,
+        private val limite: Long,
+        private val comprobarCancelacion: () -> Unit,
+    ) : FilterInputStream(entrada)
+    {
+        private var total = 0L
+
+        override fun read(): Int
+        {
+            comprobarCancelacion()
+            val valor = super.read()
+            if (valor >= 0) sumar(1)
+            return valor
+        }
+
+        override fun read(buffer: ByteArray, offset: Int, longitud: Int): Int
+        {
+            comprobarCancelacion()
+            val leidos = super.read(buffer, offset, longitud)
+            if (leidos > 0) sumar(leidos)
+            return leidos
+        }
+
+        private fun sumar(cantidad: Int)
+        {
+            total += cantidad
+            if (total > limite) throw IOException("La descarga excede el limite permitido")
+        }
     }
 
     private fun podar(contexto: Context)
@@ -194,10 +380,14 @@ data class PrevioEnvio(val uri: Uri, val imagen: ImagenLista?, val miniatura: St
 
 fun comprimirImagen(contexto: Context, uri: Uri): ImagenLista?
 {
-    return runCatching {
-        val bytes = contexto.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return null
+    var mapa: Bitmap? = null
+    return try
+    {
         val limites = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeStream(ByteArrayInputStream(bytes), null, limites)
+        contexto.contentResolver.openInputStream(uri)?.buffered()?.use {
+            BitmapFactory.decodeStream(it, null, limites)
+        } ?: return null
+        if (limites.outWidth <= 0 || limites.outHeight <= 0) return null
         var muestra = 1
         val mayor = maxOf(limites.outWidth, limites.outHeight)
         while (mayor / muestra > 1920 * 2)
@@ -205,17 +395,31 @@ fun comprimirImagen(contexto: Context, uri: Uri): ImagenLista?
             muestra *= 2
         }
         val opciones = BitmapFactory.Options().apply { inSampleSize = muestra }
-        var mapa = BitmapFactory.decodeStream(ByteArrayInputStream(bytes), null, opciones) ?: return null
-        val maxLado = maxOf(mapa.width, mapa.height)
+        var actual = contexto.contentResolver.openInputStream(uri)?.buffered()?.use {
+            BitmapFactory.decodeStream(it, null, opciones)
+        } ?: return null
+        mapa = actual
+        val maxLado = maxOf(actual.width, actual.height)
         if (maxLado > 1920)
         {
             val factor = 1920f / maxLado
-            mapa = Bitmap.createScaledBitmap(mapa, (mapa.width * factor).toInt(), (mapa.height * factor).toInt(), true)
+            val original = actual
+            actual = Bitmap.createScaledBitmap(original, (original.width * factor).toInt(), (original.height * factor).toInt(), true)
+            mapa = actual
+            if (actual !== original) original.recycle()
         }
         val salida = ByteArrayOutputStream()
-        mapa.compress(Bitmap.CompressFormat.JPEG, 82, salida)
-        ImagenLista(salida.toByteArray(), mapa.width, mapa.height)
-    }.getOrNull()
+        if (!actual.compress(Bitmap.CompressFormat.JPEG, 82, salida)) return null
+        ImagenLista(salida.toByteArray(), actual.width, actual.height)
+    }
+    catch (_: Exception)
+    {
+        null
+    }
+    finally
+    {
+        mapa?.takeIf { !it.isRecycled }?.recycle()
+    }
 }
 
 @Composable
@@ -318,7 +522,7 @@ fun VisorImagen(archivo: File?, alCerrar: () -> Unit)
 }
 
 
-data class ArchivoElegido(val nombre: String, val peso: Long, val mime: String, val bytes: ByteArray)
+data class ArchivoElegido(val nombre: String, val peso: Long, val mime: String)
 
 fun leerArchivo(contexto: Context, uri: Uri): ArchivoElegido?
 {
@@ -341,8 +545,7 @@ fun leerArchivo(contexto: Context, uri: Uri): ArchivoElegido?
             }
         }
         val mime = contexto.contentResolver.getType(uri) ?: "application/octet-stream"
-        val bytes = contexto.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return null
-        ArchivoElegido(nombre, if (peso > 0) peso else bytes.size.toLong(), mime, bytes)
+        ArchivoElegido(nombre, peso.coerceAtLeast(0), mime)
     }.getOrNull()
 }
 
@@ -443,24 +646,36 @@ fun AdjuntoArchivo(app: AplicacionVixxer, media: MediaMensaje, mio: Boolean, col
 
 fun miniaturaVideo(contexto: Context, uri: Uri): Triple<String?, Pair<Int, Int>, Int>
 {
-    return runCatching {
-        val lector = android.media.MediaMetadataRetriever()
+    val lector = android.media.MediaMetadataRetriever()
+    var cuadro: Bitmap? = null
+    var chico: Bitmap? = null
+    return try
+    {
         lector.setDataSource(contexto, uri)
         val dur = (lector.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L) / 1000
-        val cuadro = lector.getFrameAtTime(0)
-        lector.release()
-        if (cuadro == null)
-        {
-            return Triple(null, Pair(0, 0), dur.toInt())
-        }
-        val maxLado = maxOf(cuadro.width, cuadro.height)
+        val original = lector.getFrameAtTime(0) ?: return Triple(null, Pair(0, 0), dur.toInt())
+        cuadro = original
+        val ancho = original.width
+        val alto = original.height
+        val maxLado = maxOf(ancho, alto)
         val factor = if (maxLado > 480) 480f / maxLado else 1f
-        val chico = Bitmap.createScaledBitmap(cuadro, (cuadro.width * factor).toInt(), (cuadro.height * factor).toInt(), true)
+        val reducido = Bitmap.createScaledBitmap(original, (ancho * factor).toInt(), (alto * factor).toInt(), true)
+        chico = reducido
         val salida = ByteArrayOutputStream()
-        chico.compress(Bitmap.CompressFormat.JPEG, 60, salida)
+        if (!reducido.compress(Bitmap.CompressFormat.JPEG, 60, salida)) return Triple(null, Pair(ancho, alto), dur.toInt())
         val b64 = android.util.Base64.encodeToString(salida.toByteArray(), android.util.Base64.NO_WRAP)
-        Triple("data:image/jpeg;base64,$b64", Pair(cuadro.width, cuadro.height), dur.toInt())
-    }.getOrDefault(Triple(null, Pair(0, 0), 0))
+        Triple("data:image/jpeg;base64,$b64", Pair(ancho, alto), dur.toInt())
+    }
+    catch (_: Exception)
+    {
+        Triple(null, Pair(0, 0), 0)
+    }
+    finally
+    {
+        if (chico !== cuadro) chico?.takeIf { !it.isRecycled }?.recycle()
+        cuadro?.takeIf { !it.isRecycled }?.recycle()
+        runCatching { lector.release() }
+    }
 }
 
 private fun duracionLegible(segundos: Int): String
@@ -907,9 +1122,10 @@ class Grabadora(private val contexto: Context)
 
     fun iniciar(): Boolean
     {
-        return runCatching {
-            val destino = File(contexto.cacheDir, "nota-${System.currentTimeMillis()}.m4a")
-            val mr = android.media.MediaRecorder()
+        val destino = File(contexto.cacheDir, "nota-${System.currentTimeMillis()}.m4a")
+        val mr = android.media.MediaRecorder()
+        return try
+        {
             mr.setAudioSource(android.media.MediaRecorder.AudioSource.MIC)
             mr.setOutputFormat(android.media.MediaRecorder.OutputFormat.MPEG_4)
             mr.setAudioEncoder(android.media.MediaRecorder.AudioEncoder.AAC)
@@ -922,7 +1138,13 @@ class Grabadora(private val contexto: Context)
             archivo = destino
             muestras.clear()
             true
-        }.getOrDefault(false)
+        }
+        catch (_: Exception)
+        {
+            runCatching { mr.release() }
+            destino.delete()
+            false
+        }
     }
 
     fun muestrear()
@@ -938,12 +1160,19 @@ class Grabadora(private val contexto: Context)
     fun terminar(): File?
     {
         val destino = archivo
-        runCatching {
-            grabador?.stop()
-            grabador?.release()
-        }
+        val actual = grabador
+        val completa = runCatching {
+            actual?.stop()
+            actual != null
+        }.getOrDefault(false)
+        runCatching { actual?.release() }
         grabador = null
         archivo = null
+        if (!completa)
+        {
+            destino?.delete()
+            return null
+        }
         return destino
     }
 
@@ -1024,55 +1253,64 @@ fun VistaPrevio(previo: PrevioEnvio, modifier: Modifier = Modifier)
     }
 }
 
-private val previewsEnlace = HashMap<String, dev.vixxer.mensajero.nucleo.Enlaces.Preview?>()
+private object CachePreviewsEnlace
+{
+    private const val MAXIMO = 16
+    private val valores = object : LinkedHashMap<String, RedMedia.VistaPrevia>(MAXIMO, 0.75f, true)
+    {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, RedMedia.VistaPrevia>?): Boolean = size > MAXIMO
+    }
+
+    @Synchronized
+    fun obtener(url: String): RedMedia.VistaPrevia? = valores[url]
+
+    @Synchronized
+    fun guardar(url: String, preview: RedMedia.VistaPrevia)
+    {
+        valores[url] = preview
+    }
+}
 
 @Composable
 fun TarjetaEnlace(url: String, mio: Boolean, colores: Paleta)
 {
-    var datos by remember(url) { mutableStateOf(previewsEnlace[url]) }
-    var buscado by remember(url) { mutableStateOf(previewsEnlace.containsKey(url)) }
+    var datos by remember(url) { mutableStateOf(CachePreviewsEnlace.obtener(url)) }
+    var estado by remember(url) { mutableStateOf(if (datos != null) "listo" else "espera") }
 
-    LaunchedEffect(url) {
-        if (!buscado)
+    LaunchedEffect(url, estado) {
+        if (estado == "cargando")
         {
             val preview = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                runCatching {
-                    val conexion = URL(url).openConnection()
-                    conexion.connectTimeout = 5000
-                    conexion.readTimeout = 5000
-                    val html = conexion.getInputStream().use { flujo ->
-                        val bufer = ByteArray(65536)
-                        var pos = 0
-                        while (pos < bufer.size)
-                        {
-                            val leidos = flujo.read(bufer, pos, bufer.size - pos)
-                            if (leidos < 0)
-                            {
-                                break
-                            }
-                            pos += leidos
-                        }
-                        String(bufer, 0, pos, Charsets.UTF_8)
-                    }
-                    dev.vixxer.mensajero.nucleo.Enlaces.previewDeHtml(url, html)
-                }.getOrNull()
+                RedMedia.cargarVistaPrevia(url)
             }
-            previewsEnlace[url] = preview
-            datos = preview
-            buscado = true
+            if (preview != null)
+            {
+                CachePreviewsEnlace.guardar(url, preview)
+                datos = preview
+                estado = "listo"
+            }
+            else
+            {
+                estado = "fallo"
+            }
         }
     }
 
-    val preview = datos ?: return
     val colorTexto = if (mio) colores.botonTexto else colores.texto
+    val preview = datos
     Column(
         modifier = Modifier
             .padding(top = 6.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(colorTexto.copy(alpha = 0.08f)),
+            .background(colorTexto.copy(alpha = 0.08f))
+            .clickable(
+                enabled = estado != "cargando" && preview == null,
+                indication = null,
+                interactionSource = remember { MutableInteractionSource() },
+            ) { estado = "cargando" },
     )
     {
-        if (preview.imagen != null)
+        if (preview?.imagen != null)
         {
             AsyncImage(
                 model = preview.imagen,
@@ -1083,16 +1321,16 @@ fun TarjetaEnlace(url: String, mio: Boolean, colores: Paleta)
         }
         Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
             Text(
-                preview.titulo,
+                preview?.datos?.titulo ?: dev.vixxer.mensajero.nucleo.Enlaces.dominioDe(url),
                 fontSize = 13.sp,
                 color = colorTexto,
                 maxLines = 2,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             )
-            if (preview.desc != null)
+            if (preview?.datos?.desc != null)
             {
                 Text(
-                    preview.desc!!,
+                    preview.datos.desc!!,
                     fontSize = 11.sp,
                     color = colorTexto.copy(alpha = 0.75f),
                     maxLines = 2,
@@ -1100,7 +1338,13 @@ fun TarjetaEnlace(url: String, mio: Boolean, colores: Paleta)
                 )
             }
             Text(
-                dev.vixxer.mensajero.nucleo.Enlaces.dominioDe(url),
+                when
+                {
+                    preview != null -> dev.vixxer.mensajero.nucleo.Enlaces.dominioDe(preview.datos.url)
+                    estado == "cargando" -> "Cargando…"
+                    estado == "fallo" -> "Vista previa no disponible · Reintentar"
+                    else -> "Cargar vista previa"
+                },
                 fontSize = 10.sp,
                 color = colorTexto.copy(alpha = 0.6f),
             )

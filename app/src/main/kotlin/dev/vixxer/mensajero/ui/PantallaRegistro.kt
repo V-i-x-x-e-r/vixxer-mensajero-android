@@ -32,7 +32,6 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.vixxer.mensajero.AplicacionVixxer
-import dev.vixxer.mensajero.nucleo.ClavesSeguras
 import dev.vixxer.mensajero.nucleo.ErrorApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -67,23 +66,43 @@ fun PantallaRegistro(app: AplicacionVixxer, alNavegar: (String) -> Unit)
         error = ""
         cargando = true
         alcance.launch {
+            var cuentaCreada = false
             try
             {
                 val nuevoCodigo = withContext(Dispatchers.IO) {
-                    val identidad = app.identidad.crearIdentidad()
-                    val llaveFirma = app.firma.asegurarLlaveFirma()
-                    app.api.registrar(u, contrasena, identidad.publicKey, llaveFirma)
+                    val pendiente = app.identidad.prepararRegistro(u)
+                    val registro = app.api.registrar(
+                        u,
+                        contrasena,
+                        pendiente.identidad.publicKey,
+                        pendiente.firma.publicKey,
+                        pendiente.identidad.respaldo,
+                    ) as JSONObject
+                    val cuentaId = registro.getString("id")
+                    cuentaCreada = true
+                    app.activarCuenta(cuentaId)
+                    app.identidad.confirmarRegistro(pendiente)
+                    app.identidad.confirmarRespaldoSubido()
+                    app.identidad.borrarRegistroPendiente()
                     val data = app.api.login(u, contrasena) as JSONObject
-                    app.boveda.escribir(ClavesSeguras.TOKEN, data.getString("token"))
-                    app.boveda.escribir(ClavesSeguras.MI_ID, data.getJSONObject("usuario").getString("id"))
-                    runCatching { app.api.subirRespaldo(identidad.respaldo) }
-                    identidad.codigo
+                    val sesionId = data.getJSONObject("usuario").getString("id")
+                    check(sesionId == cuentaId)
+                    app.guardarSesion(data.getString("token"), cuentaId)
+                    pendiente.identidad.codigo
                 }
                 codigo = nuevoCodigo
             }
             catch (e: Exception)
             {
-                error = when ((e as? ErrorApi)?.status)
+                if (cuentaCreada)
+                {
+                    withContext(Dispatchers.IO) { app.cerrarSesionLocal() }
+                }
+                error = if (cuentaCreada)
+                {
+                    "La cuenta se creó, pero no terminó de configurarse. Inicia sesión para continuar."
+                }
+                else when ((e as? ErrorApi)?.status)
                 {
                     409 -> "Ese usuario ya existe"
                     422 -> "Usuario (3-20) y contraseña (mín. 6)"
@@ -169,7 +188,12 @@ fun PantallaRegistro(app: AplicacionVixxer, alNavegar: (String) -> Unit)
         RespaldoCodigo(
             visible = codigo.isNotEmpty(),
             codigo = codigo,
-            alCerrar = { alNavegar("chats") },
+            alCerrar = {
+                alcance.launch {
+                    withContext(Dispatchers.IO) { app.identidad.confirmarCodigoGuardado() }
+                    alNavegar("chats")
+                }
+            },
         )
     }
 }

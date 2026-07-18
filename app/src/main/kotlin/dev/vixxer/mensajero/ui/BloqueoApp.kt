@@ -26,6 +26,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,6 +42,9 @@ import dev.vixxer.mensajero.AplicacionVixxer
 import dev.vixxer.mensajero.nucleo.Almacen
 import java.security.MessageDigest
 import java.security.SecureRandom
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 object Seguridad
 {
@@ -208,13 +212,16 @@ fun PantallaBloqueo(app: AplicacionVixxer, alDesbloquear: () -> Unit)
 fun ConfigurarPin(app: AplicacionVixxer, alTerminar: (Boolean) -> Unit)
 {
     val colores = LocalTema.current.colores
+    val alcance = rememberCoroutineScope()
     var fase by remember { mutableStateOf("crear") }
     var primero by remember { mutableStateOf("") }
     var pin by remember { mutableStateOf("") }
     var error by remember { mutableStateOf(false) }
+    var guardando by remember { mutableStateOf(false) }
 
     fun agregar(digito: String)
     {
+        if (guardando) return
         if (pin.length >= Seguridad.LARGO_PIN)
         {
             return
@@ -234,9 +241,25 @@ fun ConfigurarPin(app: AplicacionVixxer, alTerminar: (Boolean) -> Unit)
         }
         else if (nuevo == primero)
         {
-            Seguridad.guardarPin(app.boveda, nuevo)
-            Seguridad.ponerBloqueoActivo(app.estado, true)
-            alTerminar(true)
+            guardando = true
+            alcance.launch {
+                val guardado = withContext(Dispatchers.IO) {
+                    runCatching { Seguridad.guardarPin(app.boveda, nuevo) }.isSuccess
+                }
+                if (guardado)
+                {
+                    Seguridad.ponerBloqueoActivo(app.estado, true)
+                    alTerminar(true)
+                }
+                else
+                {
+                    guardando = false
+                    error = true
+                    pin = ""
+                    primero = ""
+                    fase = "crear"
+                }
+            }
         }
         else
         {
@@ -247,7 +270,7 @@ fun ConfigurarPin(app: AplicacionVixxer, alTerminar: (Boolean) -> Unit)
         }
     }
 
-    BackHandler(enabled = true) { alTerminar(false) }
+    BackHandler(enabled = !guardando) { alTerminar(false) }
 
     LienzoBloqueo(
         colores = colores,
@@ -264,7 +287,7 @@ fun ConfigurarPin(app: AplicacionVixxer, alTerminar: (Boolean) -> Unit)
         alDigito = { agregar(it) },
         alBorrar = { if (pin.isNotEmpty()) pin = pin.dropLast(1) },
         alBiometrico = {},
-        alCancelar = { alTerminar(false) },
+        alCancelar = { if (!guardando) alTerminar(false) },
     )
 }
 

@@ -38,8 +38,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.vixxer.mensajero.AplicacionVixxer
-import dev.vixxer.mensajero.nucleo.ClavesSeguras
-import dev.vixxer.mensajero.nucleo.ConexionSocket
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -57,6 +55,8 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
     var avatar by remember { mutableStateOf<String?>(null) }
     var copiado by remember { mutableStateOf(false) }
     var prefs by remember { mutableStateOf<JSONObject?>(null) }
+    var errorPreferencias by remember { mutableStateOf("") }
+    var guardandoPreferencia by remember { mutableStateOf(false) }
     var confirmarSalir by remember { mutableStateOf(false) }
     var mostrarQr by remember { mutableStateOf(false) }
     var subiendoFoto by remember { mutableStateOf(false) }
@@ -65,6 +65,7 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
     var pinPuesto by remember { mutableStateOf(Seguridad.pinConfigurado(app.boveda)) }
     var biometrico by remember { mutableStateOf(Seguridad.biometricoActivo(app.estado)) }
     var configurandoPin by remember { mutableStateOf(false) }
+    var cambiandoPin by remember { mutableStateOf(false) }
     val hayBiometrico = remember { biometricoDisponible(contexto) }
 
     val selectorFoto = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -120,10 +121,23 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
 
     fun cambiarPreferencia(clave: String, valor: Boolean)
     {
+        if (guardandoPreferencia) return
         val nuevas = JSONObject(prefs?.toString() ?: "{}").put(clave, valor)
-        prefs = nuevas
-        alcance.launch(Dispatchers.IO) {
-            runCatching { app.api.actualizarPreferencias(nuevas) }
+        guardandoPreferencia = true
+        errorPreferencias = ""
+        alcance.launch {
+            val guardada = withContext(Dispatchers.IO) {
+                runCatching { app.api.actualizarPreferencias(nuevas) }.isSuccess
+            }
+            if (guardada)
+            {
+                prefs = nuevas
+            }
+            else
+            {
+                errorPreferencias = "No se pudo guardar la preferencia. Revisa tu conexión."
+            }
+            guardandoPreferencia = false
         }
     }
 
@@ -253,15 +267,19 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
 
         Seccion("PRIVACIDAD", colores)
         Tarjeta {
-            FilaSwitch("Mostrar mi conexión", prefs?.optBoolean("mostrar_conexion", true) ?: true, colores) {
+            FilaSwitch("Mostrar mi conexión", prefs?.optBoolean("mostrar_conexion", true) ?: true, colores, !guardandoPreferencia) {
                 cambiarPreferencia("mostrar_conexion", it)
             }
             Separador(colores)
-            FilaSwitch("Acuses de lectura", prefs?.optBoolean("mostrar_acuses", true) ?: true, colores) {
+            FilaSwitch("Acuses de lectura", prefs?.optBoolean("mostrar_acuses", true) ?: true, colores, !guardandoPreferencia) {
                 cambiarPreferencia("mostrar_acuses", it)
             }
             Separador(colores)
             FilaNav("Usuarios bloqueados", colores) { alNavegar("bloqueados") }
+        }
+        if (errorPreferencias.isNotEmpty())
+        {
+            Text(errorPreferencias, fontSize = 13.sp, color = colores.error)
         }
 
         Seccion("SEGURIDAD", colores)
@@ -272,16 +290,25 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
                 (contexto as? android.app.Activity)?.let { aplicarCapturas(it, activo) }
             }
             Separador(colores)
-            FilaSwitch("Bloqueo con PIN", pinPuesto, colores) { activo ->
+            FilaSwitch("Bloqueo con PIN", pinPuesto, colores, !cambiandoPin) { activo ->
                 if (activo)
                 {
                     configurandoPin = true
                 }
                 else
                 {
-                    Seguridad.quitarPin(app.boveda, app.estado)
-                    pinPuesto = false
-                    biometrico = false
+                    cambiandoPin = true
+                    alcance.launch {
+                        val quitado = withContext(Dispatchers.IO) {
+                            runCatching { Seguridad.quitarPin(app.boveda, app.estado) }.isSuccess
+                        }
+                        if (quitado)
+                        {
+                            pinPuesto = false
+                            biometrico = false
+                        }
+                        cambiandoPin = false
+                    }
                 }
             }
             if (pinPuesto && hayBiometrico)
@@ -343,11 +370,7 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
         alConfirmar = {
             confirmarSalir = false
             alcance.launch {
-                withContext(Dispatchers.IO) {
-                    app.boveda.borrar(ClavesSeguras.TOKEN)
-                    app.boveda.borrar(ClavesSeguras.MI_ID)
-                    ConexionSocket.desconectar()
-                }
+                withContext(Dispatchers.IO) { app.cerrarSesionLocal() }
                 alNavegar("login")
             }
         },
@@ -400,7 +423,13 @@ private fun FilaNav(etiqueta: String, colores: Paleta, alPulsar: () -> Unit)
 }
 
 @Composable
-private fun FilaSwitch(etiqueta: String, valor: Boolean, colores: Paleta, alCambio: (Boolean) -> Unit)
+private fun FilaSwitch(
+    etiqueta: String,
+    valor: Boolean,
+    colores: Paleta,
+    habilitado: Boolean = true,
+    alCambio: (Boolean) -> Unit,
+)
 {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
@@ -412,6 +441,7 @@ private fun FilaSwitch(etiqueta: String, valor: Boolean, colores: Paleta, alCamb
         Switch(
             checked = valor,
             onCheckedChange = alCambio,
+            enabled = habilitado,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = colores.botonTexto,
                 checkedTrackColor = colores.botonFondo,

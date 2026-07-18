@@ -3,6 +3,8 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <application
         android:name=".AplicacionVixxer"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
         android:label="Vixxer Nativo"
         android:icon="@mipmap/ic_lanzador"
         android:theme="@android:style/Theme.Material.NoActionBar">

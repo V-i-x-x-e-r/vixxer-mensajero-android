@@ -34,6 +34,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.vixxer.mensajero.AplicacionVixxer
+import dev.vixxer.mensajero.nucleo.Identidad
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -49,9 +50,18 @@ fun PantallaRecuperar(app: AplicacionVixxer, alNavegar: (String) -> Unit)
     var codigo by remember { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
     var cargando by remember { mutableStateOf(false) }
-    var nuevoCodigo by remember { mutableStateOf("") }
+    var nuevoCodigo by remember { mutableStateOf(app.identidad.codigoPendiente().orEmpty()) }
     var confirmarNuevo by remember { mutableStateOf(false) }
     var archivo by remember { mutableStateOf<JSONObject?>(null) }
+
+    suspend fun publicarIdentidad(identidad: Identidad.Nueva)
+    {
+        val firma = app.identidad.prepararFirma()
+        app.identidad.confirmarIdentidad(identidad)
+        app.identidad.confirmarFirma(firma)
+        app.api.publicarIdentidad(identidad.publicKey, firma.publicKey, identidad.respaldo)
+        app.identidad.confirmarRespaldoSubido()
+    }
 
     val selectorArchivo = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         if (uri != null)
@@ -85,23 +95,29 @@ fun PantallaRecuperar(app: AplicacionVixxer, alNavegar: (String) -> Unit)
         alcance.launch {
             try
             {
-                val pub = withContext(Dispatchers.IO) {
+                val restaurada = withContext(Dispatchers.IO) {
                     val respaldo = archivo ?: app.api.obtenerRespaldo() as? JSONObject
-                    app.identidad.restaurarDeRespaldo(respaldo, codigo)
+                    app.identidad.prepararRestauracion(respaldo, codigo)
                 }
-                if (pub == null)
+                if (restaurada == null)
                 {
                     error = "Código incorrecto. Revísalo e intenta de nuevo."
                     return@launch
                 }
                 withContext(Dispatchers.IO) {
-                    runCatching { app.api.actualizarLlavePublica(pub) }
-                    runCatching { app.firma.publicarLlaveFirma() }
+                    publicarIdentidad(restaurada)
+                    app.identidad.confirmarCodigoGuardado()
                 }
                 alNavegar("chats")
             }
             catch (e: Exception)
             {
+                if (app.identidad.respaldoPendiente() != null)
+                {
+                    withContext(Dispatchers.IO) { app.cerrarSesionLocal() }
+                    alNavegar("login")
+                    return@launch
+                }
                 error = "No se pudo recuperar. Revisa tu conexión."
             }
             finally
@@ -120,16 +136,20 @@ fun PantallaRecuperar(app: AplicacionVixxer, alNavegar: (String) -> Unit)
             try
             {
                 val creado = withContext(Dispatchers.IO) {
-                    val identidad = app.identidad.crearIdentidad()
-                    runCatching { app.api.actualizarLlavePublica(identidad.publicKey) }
-                    runCatching { app.firma.publicarLlaveFirma() }
-                    runCatching { app.api.subirRespaldo(identidad.respaldo) }
+                    val identidad = app.identidad.prepararIdentidad()
+                    publicarIdentidad(identidad)
                     identidad.codigo
                 }
                 nuevoCodigo = creado
             }
             catch (e: Exception)
             {
+                if (app.identidad.respaldoPendiente() != null)
+                {
+                    withContext(Dispatchers.IO) { app.cerrarSesionLocal() }
+                    alNavegar("login")
+                    return@launch
+                }
                 error = "No se pudo crear una identidad nueva."
             }
             finally
@@ -217,7 +237,12 @@ fun PantallaRecuperar(app: AplicacionVixxer, alNavegar: (String) -> Unit)
         RespaldoCodigo(
             visible = nuevoCodigo.isNotEmpty(),
             codigo = nuevoCodigo,
-            alCerrar = { alNavegar("chats") },
+            alCerrar = {
+                alcance.launch {
+                    withContext(Dispatchers.IO) { app.identidad.confirmarCodigoGuardado() }
+                    alNavegar("chats")
+                }
+            },
         )
 
         Confirmacion(
