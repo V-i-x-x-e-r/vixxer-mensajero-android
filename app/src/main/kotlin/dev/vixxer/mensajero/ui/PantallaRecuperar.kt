@@ -21,6 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,7 +42,12 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 @Composable
-fun PantallaRecuperar(app: AplicacionVixxer, alNavegar: (String) -> Unit)
+fun PantallaRecuperar(
+    app: AplicacionVixxer,
+    codigoLeido: String? = null,
+    alEscanear: () -> Unit = {},
+    alNavegar: (String) -> Unit,
+)
 {
     val tema = LocalTema.current
     val colores = tema.coloresAuth
@@ -83,9 +89,10 @@ fun PantallaRecuperar(app: AplicacionVixxer, alNavegar: (String) -> Unit)
         }
     }
 
-    fun recuperar()
+    fun recuperar(codigoQR: String? = null)
     {
-        if (codigo.trim().isEmpty())
+        val cod = (codigoQR ?: codigo).trim()
+        if (cod.isEmpty())
         {
             error = "Escribe tu código de recuperación"
             return
@@ -97,7 +104,7 @@ fun PantallaRecuperar(app: AplicacionVixxer, alNavegar: (String) -> Unit)
             {
                 val restaurada = withContext(Dispatchers.IO) {
                     val respaldo = archivo ?: app.api.obtenerRespaldo() as? JSONObject
-                    app.identidad.prepararRestauracion(respaldo, codigo)
+                    app.identidad.prepararRestauracion(respaldo, cod)
                 }
                 if (restaurada == null)
                 {
@@ -159,6 +166,23 @@ fun PantallaRecuperar(app: AplicacionVixxer, alNavegar: (String) -> Unit)
         }
     }
 
+    LaunchedEffect(codigoLeido)
+    {
+        if (!codigoLeido.isNullOrBlank())
+        {
+            if (!codigoLeido.startsWith(PREFIJO_VINCULO))
+            {
+                error = "Ese QR no es de vincular dispositivo"
+            }
+            else
+            {
+                val leido = codigoLeido.removePrefix(PREFIJO_VINCULO)
+                codigo = leido
+                recuperar(leido)
+            }
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -213,6 +237,11 @@ fun PantallaRecuperar(app: AplicacionVixxer, alNavegar: (String) -> Unit)
                 }
                 Boton(titulo = "Recuperar", alPulsar = { recuperar() }, cargando = cargando)
                 Column(modifier = Modifier.padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Opcion(
+                        texto = "Escanear desde tu otro teléfono",
+                        color = colores.texto,
+                        borde = colores.borde,
+                    ) { alEscanear() }
                     Opcion(
                         texto = if (archivo != null) "Archivo cargado ✓ — escribe tu código" else "Restaurar desde un archivo",
                         color = if (archivo != null) colores.botonFondo else colores.texto,
