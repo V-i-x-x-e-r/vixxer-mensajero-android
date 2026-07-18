@@ -52,7 +52,7 @@ private val entradaCubica = Easing { t -> t * t * t }
 private val salidaCuadrada = Easing { t -> 1f - (1f - t) * (1f - t) }
 private val entradaCuadrada = Easing { t -> t * t }
 
-private fun DrawScope.vCincelada(cx: Float, cy: Float, r: Float)
+internal fun DrawScope.vCincelada(cx: Float, cy: Float, r: Float)
 {
     val w = r * 0.74f
     val top = cy - r * 0.55f
@@ -99,7 +99,7 @@ private fun DrawScope.vCincelada(cx: Float, cy: Float, r: Float)
     }
 }
 
-private fun DrawScope.bola(x: Float, y: Float, r: Float, central: Boolean = false, mini: Boolean = false)
+internal fun DrawScope.bola(x: Float, y: Float, r: Float, central: Boolean = false, mini: Boolean = false)
 {
     val fx = if (central) 0.38f else 0.36f
     val fy = if (central) 0.26f else 0.28f
