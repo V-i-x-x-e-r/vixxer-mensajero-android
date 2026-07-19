@@ -301,6 +301,7 @@ class RadioBle(private val contexto: Context)
         private var exito = false
         private val bytes = (texto + "\n").toByteArray(Charsets.UTF_8)
         private var cursor = 0
+        private var trozoSesion = trozo
         private var caracteristica: BluetoothGattCharacteristic? = null
 
         val callback = object : BluetoothGattCallback()
@@ -326,6 +327,10 @@ class RadioBle(private val contexto: Context)
 
             override fun onMtuChanged(g: BluetoothGatt, mtu: Int, estado: Int)
             {
+                if (estado == BluetoothGatt.GATT_SUCCESS)
+                {
+                    trozoSesion = (mtu - 3).coerceAtLeast(trozo)
+                }
                 try
                 {
                     g.discoverServices()
@@ -381,12 +386,12 @@ class RadioBle(private val contexto: Context)
                 }
                 return
             }
-            val fin = minOf(cursor + trozo, bytes.size)
+            val fin = minOf(cursor + trozoSesion, bytes.size)
             val pedazo = bytes.copyOfRange(cursor, fin)
             cursor = fin
             val ok = try
             {
-                escribirTrozo(g, car, pedazo)
+                escribirTrozo(g, car, pedazo, fin >= bytes.size)
             }
             catch (_: Exception)
             {
@@ -399,13 +404,20 @@ class RadioBle(private val contexto: Context)
         }
 
         @Suppress("DEPRECATION")
-        private fun escribirTrozo(g: BluetoothGatt, car: BluetoothGattCharacteristic, pedazo: ByteArray): Boolean
+        private fun escribirTrozo(g: BluetoothGatt, car: BluetoothGattCharacteristic, pedazo: ByteArray, ultimo: Boolean): Boolean
         {
-            car.writeType = BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+            val tipo = if (ultimo)
+            {
+                BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+            }
+            else
+            {
+                BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
+            }
+            car.writeType = tipo
             if (android.os.Build.VERSION.SDK_INT >= 33)
             {
-                return g.writeCharacteristic(car, pedazo, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT) ==
-                    BluetoothGatt.GATT_SUCCESS
+                return g.writeCharacteristic(car, pedazo, tipo) == BluetoothGatt.GATT_SUCCESS
             }
             car.value = pedazo
             return g.writeCharacteristic(car)
