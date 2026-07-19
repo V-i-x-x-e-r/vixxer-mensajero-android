@@ -16,6 +16,14 @@ android {
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
         }
+        val turnUsuario = (project.findProperty("VIXXER_TURN_USUARIO") as String?)
+            ?: System.getenv("VIXXER_TURN_USUARIO")
+            ?: "openrelayproject"
+        val turnCredencial = (project.findProperty("VIXXER_TURN_CREDENCIAL") as String?)
+            ?: System.getenv("VIXXER_TURN_CREDENCIAL")
+            ?: "openrelayproject"
+        buildConfigField("String", "TURN_USUARIO", "\"$turnUsuario\"")
+        buildConfigField("String", "TURN_CREDENCIAL", "\"$turnCredencial\"")
     }
 
     compileOptions {
@@ -25,6 +33,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     packaging {
@@ -57,4 +66,5 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:1.4.1")
     implementation("androidx.camera:camera-view:1.4.1")
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
+    implementation("io.getstream:stream-webrtc-android:1.3.8")
 }

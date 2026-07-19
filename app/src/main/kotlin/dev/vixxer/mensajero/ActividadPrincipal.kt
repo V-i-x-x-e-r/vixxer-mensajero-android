@@ -72,6 +72,9 @@ import dev.vixxer.mensajero.ui.PantallaRecuperar
 import dev.vixxer.mensajero.ui.PantallaRegistro
 import dev.vixxer.mensajero.ui.SplashOrbita
 import dev.vixxer.mensajero.nucleo.ConexionSocket
+import dev.vixxer.mensajero.llamadas.EscuchaLlamadas
+import dev.vixxer.mensajero.llamadas.GestorLlamadas
+import dev.vixxer.mensajero.ui.PantallaLlamada
 import io.socket.client.Socket
 import io.socket.emitter.Emitter
 import kotlinx.coroutines.delay
@@ -85,6 +88,7 @@ class ActividadPrincipal : FragmentActivity()
         super.onCreate(estado)
         enableEdgeToEdge()
         val app = application as AplicacionVixxer
+        GestorLlamadas.preparar(app)
         if (Seguridad.capturasBloqueadas(app.estado))
         {
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
@@ -179,6 +183,17 @@ class ActividadPrincipal : FragmentActivity()
                 onDispose { socket?.off(Socket.EVENT_CONNECT, alConectar) }
             }
 
+            DisposableEffect(socketMensajeria) {
+                val socket = socketMensajeria
+                if (socket != null)
+                {
+                    EscuchaLlamadas.enganchar(socket) {
+                        runOnUiThread { pantalla = "llamada" }
+                    }
+                }
+                onDispose { }
+            }
+
             LaunchedEffect(socketMensajeria, cuentaMensajeria) {
                 val cuentaId = cuentaMensajeria
                 if (cuentaId.isBlank())
@@ -223,6 +238,7 @@ class ActividadPrincipal : FragmentActivity()
                 BackHandler(enabled = pantalla.startsWith("grupo/")) { pantalla = "grupos" }
                 BackHandler(enabled = pantalla.startsWith("grupo-info/")) { pantalla = "grupo/${pantalla.removePrefix("grupo-info/")}" }
                 BackHandler(enabled = pantalla.startsWith("multimedia/")) { pantalla = "perfil" }
+                BackHandler(enabled = pantalla == "llamada" || pantalla.startsWith("llamada/")) { GestorLlamadas.colgar() }
                 Box(modifier = Modifier.fillMaxSize()) {
                     AnimatedContent(
                         targetState = pantalla,
@@ -313,11 +329,13 @@ class ActividadPrincipal : FragmentActivity()
                                 pantalla = "chats"
                             }
                         }
+                        "llamada" -> PantallaLlamada(app, "llamada") { pantalla = "chats" }
                         else -> when
                         {
                             destino.startsWith("grupo/") -> PantallaChatGrupo(app, destino.removePrefix("grupo/"), "") { pantalla = it }
                             destino.startsWith("grupo-info/") -> PantallaInfoGrupo(app, destino.removePrefix("grupo-info/")) { pantalla = it }
                             destino.startsWith("multimedia/") -> PantallaMultimedia(app, destino.removePrefix("multimedia/")) { pantalla = "perfil" }
+                            destino.startsWith("llamada/") -> PantallaLlamada(app, destino) { pantalla = "chat" }
                             else -> PantallaPendiente(destino)
                         }
                     }

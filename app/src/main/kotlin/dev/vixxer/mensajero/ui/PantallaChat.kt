@@ -59,6 +59,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import java.io.File
 import dev.vixxer.mensajero.AplicacionVixxer
 import dev.vixxer.mensajero.DrenadorOutbox
+import dev.vixxer.mensajero.llamadas.GestorLlamadas
 import dev.vixxer.mensajero.nucleo.ClavesSeguras
 import dev.vixxer.mensajero.nucleo.ConexionSocket
 import dev.vixxer.mensajero.nucleo.Cripto
@@ -1126,6 +1127,15 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                         if (sub != null)
                         {
                             Text(sub, fontSize = 12.sp, color = colores.muted)
+                        }
+                    }
+                    if (GestorLlamadas.llamadasDisponibles())
+                    {
+                        Box(modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alNavegar("llamada/$otroId|$nombre|0|0") }) {
+                            Telefono(color = colores.texto, tamano = 20.dp)
+                        }
+                        Box(modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alNavegar("llamada/$otroId|$nombre|1|0") }) {
+                            IconoVideo(color = colores.texto, tamano = 20.dp)
                         }
                     }
                     Box(modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { buscando = true }) {
