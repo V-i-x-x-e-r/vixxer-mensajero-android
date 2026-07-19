@@ -13,7 +13,10 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -175,6 +178,7 @@ private fun reaccionesDe(data: JSONObject): Map<String, String>
     return obj.keys().asSequence().associateWith { obj.optString(it) }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Unit = {}, alVolver: () -> Unit)
 {
@@ -260,6 +264,15 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
     }
     LaunchedEffect(indiceCoincidencia, coincidencias) {
         coincidencias.getOrNull(indiceCoincidencia)?.let { listaEstado.animateScrollToItem(it) }
+    }
+    val tecladoVisible = WindowInsets.isImeVisible
+    LaunchedEffect(tecladoVisible) {
+        if (tecladoVisible && !buscando && visibles.isNotEmpty())
+        {
+            listaEstado.animateScrollToItem(visibles.size)
+            delay(260)
+            listaEstado.animateScrollToItem(visibles.size)
+        }
     }
 
     fun guardarCache(lista: List<Mensaje>)

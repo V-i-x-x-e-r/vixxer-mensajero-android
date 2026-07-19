@@ -13,7 +13,10 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -106,6 +109,7 @@ private data class DatosGrupo(
     val publicas: Map<String, String>,
 )
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: String, alNavegar: (String) -> Unit)
 {
@@ -155,6 +159,15 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
     val nombres = remember { ConcurrentHashMap<String, String>() }
     val marcados = remember { HashSet<String>() }
     val listaEstado = rememberLazyListState()
+    val tecladoVisible = WindowInsets.isImeVisible
+    LaunchedEffect(tecladoVisible) {
+        if (tecladoVisible && mensajes.isNotEmpty())
+        {
+            listaEstado.animateScrollToItem(mensajes.size)
+            delay(260)
+            listaEstado.animateScrollToItem(mensajes.size)
+        }
+    }
     val tecleandoJob = remember { arrayOf<Job?>(null) }
     val apagarEscribiendo = remember { arrayOf<Job?>(null) }
     val claveBorrador = "grupo-$grupoId"
