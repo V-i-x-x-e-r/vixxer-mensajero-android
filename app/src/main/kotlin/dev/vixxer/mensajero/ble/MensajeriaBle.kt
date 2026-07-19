@@ -8,6 +8,8 @@ import dev.vixxer.mensajero.nucleo.Firma
 import dev.vixxer.mensajero.nucleo.MeshCercania
 import dev.vixxer.mensajero.nucleo.Sobre
 import dev.vixxer.mensajero.nucleo.Vistos
+import io.socket.client.Socket
+import io.socket.emitter.Emitter
 import java.time.Instant
 import java.util.concurrent.CopyOnWriteArraySet
 import org.json.JSONArray
@@ -49,6 +51,9 @@ class MensajeriaBle(
 
     @Volatile
     private var puenteActivo = false
+
+    private val CLAVE_COLA = "vixxer_cola_relay"
+    private val alConectar = Emitter.Listener { drenarCola() }
 
     fun estadisticas(): EstadisticasMesh =
         EstadisticasMesh(enviados, recibidos, reenviados, puente, ultimaRuta)
@@ -114,6 +119,11 @@ class MensajeriaBle(
         }
         puenteActivo = true
         val miId = app.boveda.leer(ClavesSeguras.MI_ID) ?: ""
+        ConexionSocket.obtener()?.let { socket ->
+            socket.off(Socket.EVENT_CONNECT, alConectar)
+            socket.on(Socket.EVENT_CONNECT, alConectar)
+        }
+        drenarCola()
         radio.alRecibir { texto ->
             if (!puenteActivo)
             {
@@ -136,6 +146,11 @@ class MensajeriaBle(
                     {
                         puente += 1
                         subirComoPuente(reenviar)
+                        drenarCola()
+                    }
+                    else
+                    {
+                        encolar(reenviar)
                     }
                     reenviados += 1
                     difundir(reenviar, null)
@@ -150,12 +165,11 @@ class MensajeriaBle(
     fun detenerPuente()
     {
         puenteActivo = false
+        ConexionSocket.obtener()?.off(Socket.EVENT_CONNECT, alConectar)
     }
 
-    private fun subirComoPuente(sobre: MeshCercania.Sobre)
-    {
-        try
-        {
+    private fun subirComoPuente(sobre: MeshCercania.Sobre): Boolean =
+        runCatching {
             app.api.relayMensaje(
                 Sobre(
                     remitenteId = sobre.remitenteId,
@@ -166,10 +180,63 @@ class MensajeriaBle(
                     firma = sobre.firma,
                 ),
             )
+        }.isSuccess
+
+    private fun encolar(sobre: MeshCercania.Sobre)
+    {
+        try
+        {
+            val cola = JSONArray(app.estado.leer(CLAVE_COLA) ?: "[]")
+            for (i in 0 until cola.length())
+            {
+                if (MeshCercania.deJson(cola.optString(i))?.id == sobre.id)
+                {
+                    return
+                }
+            }
+            cola.put(MeshCercania.aJson(sobre))
+            while (cola.length() > 200)
+            {
+                cola.remove(0)
+            }
+            app.estado.escribir(CLAVE_COLA, cola.toString())
         }
         catch (_: Exception)
         {
         }
+    }
+
+    fun drenarCola()
+    {
+        val socket = ConexionSocket.obtener()
+        if (socket == null || !socket.connected())
+        {
+            return
+        }
+        val cola = runCatching { JSONArray(app.estado.leer(CLAVE_COLA) ?: "[]") }.getOrNull() ?: return
+        if (cola.length() == 0)
+        {
+            return
+        }
+        val pendientes = JSONArray()
+        for (i in 0 until cola.length())
+        {
+            val crudo = cola.optString(i)
+            val sobre = MeshCercania.deJson(crudo)
+            if (sobre == null)
+            {
+                continue
+            }
+            if (subirComoPuente(sobre))
+            {
+                puente += 1
+            }
+            else
+            {
+                pendientes.put(crudo)
+            }
+        }
+        app.estado.escribir(CLAVE_COLA, pendientes.toString())
     }
 
     private fun entregarLocal(sobre: MeshCercania.Sobre)
