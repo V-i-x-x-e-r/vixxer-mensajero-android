@@ -7,6 +7,7 @@ object MeshCercania
 {
     const val SERVICIO_UUID = "6f1d0001-5b3c-4a7e-9f21-7c9a1b2c3d4e"
     const val CARACTERISTICA_UUID = "6f1d0002-5b3c-4a7e-9f21-7c9a1b2c3d4e"
+    const val DATO_CERCANIA_UUID = "0000a55a-0000-1000-8000-00805f9b34fb"
 
     enum class Accion
     {

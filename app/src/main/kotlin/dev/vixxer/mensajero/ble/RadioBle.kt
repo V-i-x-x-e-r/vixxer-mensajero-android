@@ -21,19 +21,21 @@ import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.os.ParcelUuid
+import dev.vixxer.mensajero.nucleo.Cripto
 import dev.vixxer.mensajero.nucleo.MeshCercania
 import java.io.ByteArrayOutputStream
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
-data class Cercano(val id: String, val nombre: String, val rssi: Int)
+data class Cercano(val id: String, val nombre: String, val rssi: Int, val token: String? = null)
 
 @SuppressLint("MissingPermission")
 class RadioBle(private val contexto: Context)
 {
     private val servicioUuid = UUID.fromString(MeshCercania.SERVICIO_UUID)
     private val caracteristicaUuid = UUID.fromString(MeshCercania.CARACTERISTICA_UUID)
+    private val datoCercaniaUuid = ParcelUuid.fromString(MeshCercania.DATO_CERCANIA_UUID)
     private val trozo = 180
 
     private var anunciante: BluetoothLeAdvertiser? = null
@@ -52,7 +54,7 @@ class RadioBle(private val contexto: Context)
         alMensaje = cb
     }
 
-    fun anunciar(): String
+    fun anunciar(tokenCercania: ByteArray? = null): String
     {
         return try
         {
@@ -77,7 +79,20 @@ class RadioBle(private val contexto: Context)
                 .build()
             val cb = object : AdvertiseCallback() {}
             callbackAnuncio = cb
-            adv.startAdvertising(ajustes, datos, cb)
+            val respuesta = tokenCercania?.let {
+                AdvertiseData.Builder()
+                    .setIncludeDeviceName(false)
+                    .addServiceData(datoCercaniaUuid, it)
+                    .build()
+            }
+            if (respuesta != null)
+            {
+                adv.startAdvertising(ajustes, datos, respuesta, cb)
+            }
+            else
+            {
+                adv.startAdvertising(ajustes, datos, cb)
+            }
             "ok"
         }
         catch (e: Exception)
@@ -147,7 +162,10 @@ class RadioBle(private val contexto: Context)
                 val nombre = dispositivo.name
                     ?: resultado.scanRecord?.deviceName
                     ?: "Vixxer"
-                alEncontrar(Cercano(dispositivo.address, nombre, resultado.rssi))
+                val token = resultado.scanRecord?.getServiceData(datoCercaniaUuid)
+                    ?.takeIf { it.isNotEmpty() }
+                    ?.let { Cripto.aBase64(it) }
+                alEncontrar(Cercano(dispositivo.address, nombre, resultado.rssi, token))
             }
 
             override fun onScanFailed(codigo: Int)
@@ -214,7 +232,10 @@ class RadioBle(private val contexto: Context)
 
     private fun abrirServidor(gestorBt: BluetoothManager)
     {
-        servidor?.close()
+        if (servidor != null)
+        {
+            return
+        }
         val cb = object : BluetoothGattServerCallback()
         {
             override fun onCharacteristicWriteRequest(

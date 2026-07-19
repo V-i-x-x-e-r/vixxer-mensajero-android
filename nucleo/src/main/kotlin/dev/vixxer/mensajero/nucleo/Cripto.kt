@@ -119,6 +119,13 @@ object Cripto
         return sodio.crypto_sign_verify_detached(firma, mensaje, mensaje.size.toLong(), publicaFirma) == 0
     }
 
+    fun secretoCompartido(publicaOtro: ByteArray, secretaPropia: ByteArray): ByteArray
+    {
+        val punto = ByteArray(TAMANO_CLAVE)
+        exigir(sodio.crypto_scalarmult(punto, secretaPropia, publicaOtro))
+        return hash("vixxer-cercania".toByteArray(Charsets.UTF_8) + punto).copyOfRange(0, TAMANO_CLAVE)
+    }
+
     fun hash(bytes: ByteArray): ByteArray
     {
         val salida = ByteArray(64)

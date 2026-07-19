@@ -206,8 +206,14 @@ fun PantallaCercania(app: AplicacionVixxer, alVolver: () -> Unit)
         )
         {
             RadarLienzo(corriendo, salida.color, peers, colores) { alternar() }
+            val amigosCerca = peers.count { it.amigoId != null }
             Text(
-                if (corriendo) "${peers.size} vixxer${if (peers.size == 1) "" else "s"} cerca" else "radar apagado",
+                when
+                {
+                    !corriendo -> "radar apagado"
+                    amigosCerca > 0 -> "${peers.size} vixxer${if (peers.size == 1) "" else "s"} cerca · $amigosCerca amigo${if (amigosCerca == 1) "" else "s"}"
+                    else -> "${peers.size} vixxer${if (peers.size == 1) "" else "s"} cerca"
+                },
                 fontSize = 15.sp,
                 fontFamily = FuenteOutfit,
                 fontWeight = FontWeight.SemiBold,
@@ -308,7 +314,7 @@ private fun RadarLienzo(corriendo: Boolean, color: Color, peers: List<dev.vixxer
                 modifier = Modifier
                     .offset((x - 7f).dp, (y - 7f).dp)
                     .size(14.dp)
-                    .background(AZUL, CircleShape),
+                    .background(if (p.amigoId != null) VERDE else AZUL, CircleShape),
                 contentAlignment = Alignment.Center,
             )
             {
@@ -418,7 +424,7 @@ private fun ListaPeers(peers: List<dev.vixxer.mensajero.ble.PeerCercano>, colore
                     }
                 }
                 Text(
-                    "Vixxer ${etiquetaPeer(p.id, 6)}",
+                    p.nombre?.takeIf { it.isNotEmpty() } ?: "Vixxer ${etiquetaPeer(p.id, 6)}",
                     fontSize = 14.sp,
                     fontFamily = FuenteOutfit,
                     fontWeight = FontWeight.Medium,
@@ -427,6 +433,10 @@ private fun ListaPeers(peers: List<dev.vixxer.mensajero.ble.PeerCercano>, colore
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
+                if (p.amigoId != null)
+                {
+                    Text("amigo", fontSize = 11.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.SemiBold, color = VERDE)
+                }
                 Text("${p.rssi} dBm", fontSize = 12.sp, color = colores.muted)
             }
         }

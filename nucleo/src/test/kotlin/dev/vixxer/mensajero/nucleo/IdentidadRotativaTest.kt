@@ -79,4 +79,41 @@ class IdentidadRotativaTest
         val esperado = IdentidadRotativa.token("u-ana", secretoAna, epoch / 600L)
         assertEquals(esperado, IdentidadRotativa.tokenActual("u-ana", secretoAna, epoch))
     }
+
+    @Test
+    fun elSecretoCompartidoEsSimetrico()
+    {
+        val secretaAna = ByteArray(Cripto.TAMANO_CLAVE) { (it + 7).toByte() }
+        val secretaBeto = ByteArray(Cripto.TAMANO_CLAVE) { (it + 40).toByte() }
+        val publicaAna = Cripto.publicaDeSecreta(secretaAna)
+        val publicaBeto = Cripto.publicaDeSecreta(secretaBeto)
+        val ladoAna = Cripto.secretoCompartido(publicaBeto, secretaAna)
+        val ladoBeto = Cripto.secretoCompartido(publicaAna, secretaBeto)
+        assertEquals(Cripto.aBase64(ladoAna), Cripto.aBase64(ladoBeto))
+        assertEquals(Cripto.TAMANO_CLAVE, ladoAna.size)
+    }
+
+    @Test
+    fun elSecretoCompartidoCambiaPorPar()
+    {
+        val secretaAna = ByteArray(Cripto.TAMANO_CLAVE) { (it + 7).toByte() }
+        val secretaBeto = ByteArray(Cripto.TAMANO_CLAVE) { (it + 40).toByte() }
+        val secretaCarla = ByteArray(Cripto.TAMANO_CLAVE) { (it + 81).toByte() }
+        val conBeto = Cripto.secretoCompartido(Cripto.publicaDeSecreta(secretaBeto), secretaAna)
+        val conCarla = Cripto.secretoCompartido(Cripto.publicaDeSecreta(secretaCarla), secretaAna)
+        assertNotEquals(Cripto.aBase64(conBeto), Cripto.aBase64(conCarla))
+    }
+
+    @Test
+    fun elAnuncioDeAnaSeReconoceConElSecretoDerivadoPorBeto()
+    {
+        val epoch = 1_700_000_000L
+        val secretaAna = ByteArray(Cripto.TAMANO_CLAVE) { (it + 7).toByte() }
+        val secretaBeto = ByteArray(Cripto.TAMANO_CLAVE) { (it + 40).toByte() }
+        val publicaAna = Cripto.publicaDeSecreta(secretaAna)
+        val publicaBeto = Cripto.publicaDeSecreta(secretaBeto)
+        val anunciado = IdentidadRotativa.tokenActual("u-ana", Cripto.secretoCompartido(publicaBeto, secretaAna), epoch)
+        val amigosDeBeto = mapOf("u-ana" to Cripto.secretoCompartido(publicaAna, secretaBeto), "u-carla" to secretoAna)
+        assertEquals("u-ana", IdentidadRotativa.coincidir(anunciado, amigosDeBeto, epoch))
+    }
 }
