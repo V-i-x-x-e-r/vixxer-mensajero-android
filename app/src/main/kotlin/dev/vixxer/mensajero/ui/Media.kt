@@ -999,6 +999,8 @@ fun AdjuntoAudio(app: AplicacionVixxer, media: MediaMensaje, mio: Boolean, color
     var reproduciendo by remember(media.path) { mutableStateOf(false) }
     var cargando by remember(media.path) { mutableStateOf(false) }
     var progreso by remember(media.path) { mutableStateOf(0f) }
+    var velocidad by remember(media.path) { mutableStateOf(0) }
+    val ritmos = remember { listOf(1f, 1.5f, 2f) }
     val reproductor = remember(media.path) { arrayOf<android.media.MediaPlayer?>(null) }
     val colorTexto = if (mio) colores.botonTexto else colores.texto
 
@@ -1007,6 +1009,11 @@ fun AdjuntoAudio(app: AplicacionVixxer, media: MediaMensaje, mio: Boolean, color
             reproductor[0]?.release()
             reproductor[0] = null
         }
+    }
+
+    fun aplicarVelocidad(mp: android.media.MediaPlayer)
+    {
+        runCatching { mp.playbackParams = mp.playbackParams.setSpeed(ritmos[velocidad]) }
     }
 
     fun alternar()
@@ -1022,11 +1029,23 @@ fun AdjuntoAudio(app: AplicacionVixxer, media: MediaMensaje, mio: Boolean, color
             else
             {
                 actual.start()
+                aplicarVelocidad(actual)
                 reproduciendo = true
             }
             return
         }
         cargando = true
+    }
+
+    fun cambiarVelocidad()
+    {
+        velocidad = (velocidad + 1) % ritmos.size
+        reproductor[0]?.let {
+            if (it.isPlaying)
+            {
+                aplicarVelocidad(it)
+            }
+        }
     }
 
     LaunchedEffect(cargando) {
@@ -1048,6 +1067,7 @@ fun AdjuntoAudio(app: AplicacionVixxer, media: MediaMensaje, mio: Boolean, color
                 }
                 reproductor[0] = mp
                 mp.start()
+                aplicarVelocidad(mp)
                 reproduciendo = true
             }
         }
@@ -1087,24 +1107,57 @@ fun AdjuntoAudio(app: AplicacionVixxer, media: MediaMensaje, mio: Boolean, color
             }
         }
         val barras = media.wf ?: List(28) { 0.4f }
-        androidx.compose.foundation.Canvas(modifier = Modifier.size(width = 130.dp, height = 28.dp)) {
-            val n = barras.size
-            val paso = size.width / n
-            for (i in 0 until n)
+        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            androidx.compose.foundation.Canvas(
+                modifier = Modifier
+                    .size(width = 130.dp, height = 26.dp)
+                    .pointerInput(media.path) {
+                        detectTapGestures { toque ->
+                            val mp = reproductor[0] ?: return@detectTapGestures
+                            if (mp.duration <= 0)
+                            {
+                                return@detectTapGestures
+                            }
+                            val fraccion = (toque.x / size.width).coerceIn(0f, 1f)
+                            runCatching { mp.seekTo((fraccion * mp.duration).toInt()) }
+                            progreso = fraccion
+                        }
+                    },
+            ) {
+                val n = barras.size
+                val paso = size.width / n
+                for (i in 0 until n)
+                {
+                    val alto = (barras[i].coerceIn(0.08f, 1f)) * size.height
+                    val pasado = (i + 1).toFloat() / n <= progreso
+                    drawRoundRect(
+                        color = colorTexto.copy(alpha = if (pasado) 1f else 0.38f),
+                        topLeft = androidx.compose.ui.geometry.Offset(i * paso + paso * 0.2f, (size.height - alto) / 2f),
+                        size = androidx.compose.ui.geometry.Size(paso * 0.6f, alto),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(2f),
+                    )
+                }
+            }
+            if (media.dur > 0)
             {
-                val alto = (barras[i].coerceIn(0.08f, 1f)) * size.height
-                val pasado = (i + 1).toFloat() / n <= progreso
-                drawRoundRect(
-                    color = colorTexto.copy(alpha = if (pasado) 1f else 0.38f),
-                    topLeft = androidx.compose.ui.geometry.Offset(i * paso + paso * 0.2f, (size.height - alto) / 2f),
-                    size = androidx.compose.ui.geometry.Size(paso * 0.6f, alto),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(2f),
-                )
+                val restante = if (reproduciendo || progreso > 0f) (media.dur * (1f - progreso)).toInt().coerceAtLeast(0) else media.dur
+                Text(duracionLegible(restante), fontSize = 11.sp, color = colorTexto.copy(alpha = 0.8f))
             }
         }
-        if (media.dur > 0)
+        Box(
+            modifier = Modifier
+                .border(1.dp, colorTexto.copy(alpha = 0.55f), RoundedCornerShape(10.dp))
+                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { cambiarVelocidad() }
+                .padding(horizontal = 8.dp, vertical = 3.dp),
+        )
         {
-            Text(duracionLegible(media.dur), fontSize = 11.sp, color = colorTexto.copy(alpha = 0.8f))
+            Text(
+                if (ritmos[velocidad] == ritmos[velocidad].toInt().toFloat()) "${ritmos[velocidad].toInt()}x" else "${ritmos[velocidad]}x",
+                fontSize = 11.sp,
+                fontFamily = FuenteOutfit,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                color = colorTexto,
+            )
         }
     }
 }
