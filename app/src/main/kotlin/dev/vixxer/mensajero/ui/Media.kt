@@ -395,19 +395,19 @@ fun comprimirImagen(contexto: Context, uri: Uri): ImagenLista?
             muestra *= 2
         }
         var actual: Bitmap? = null
-        while (actual == null && muestra <= 32)
+        while (muestra <= 32)
         {
-            actual = try
+            try
             {
                 val opciones = BitmapFactory.Options().apply { inSampleSize = muestra }
-                contexto.contentResolver.openInputStream(uri)?.buffered()?.use {
+                actual = contexto.contentResolver.openInputStream(uri)?.buffered()?.use {
                     BitmapFactory.decodeStream(it, null, opciones)
                 }
+                break
             }
             catch (_: OutOfMemoryError)
             {
                 muestra *= 2
-                null
             }
         }
         if (actual == null) return null
