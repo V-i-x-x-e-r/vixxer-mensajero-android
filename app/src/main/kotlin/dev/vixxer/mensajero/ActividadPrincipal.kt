@@ -57,6 +57,7 @@ import dev.vixxer.mensajero.ui.PantallaAmigos
 import dev.vixxer.mensajero.ui.PantallaBloqueados
 import dev.vixxer.mensajero.ui.PantallaCambiarContrasena
 import dev.vixxer.mensajero.ui.PantallaCrearGrupo
+import dev.vixxer.mensajero.ui.PantallaEscaner
 import dev.vixxer.mensajero.ui.PantallaSolicitudes
 import dev.vixxer.mensajero.ui.PantallaChat
 import dev.vixxer.mensajero.ui.PantallaChatGrupo
@@ -77,6 +78,7 @@ import kotlinx.coroutines.launch
 
 class ActividadPrincipal : FragmentActivity()
 {
+    @androidx.camera.core.ExperimentalGetImage
     override fun onCreate(estado: Bundle?)
     {
         super.onCreate(estado)
@@ -92,6 +94,8 @@ class ActividadPrincipal : FragmentActivity()
             val haze = recordarHaze()
             var pantalla by remember { mutableStateOf("arranque") }
             var chatAbierto by remember { mutableStateOf<Amigo?>(null) }
+            var origenEscaner by remember { mutableStateOf("agregar") }
+            var codigoEscaneado by remember { mutableStateOf<String?>(null) }
             var bloqueado by remember { mutableStateOf(false) }
             var sesionVerificada by remember { mutableStateOf(false) }
             var animacionSplashLista by remember { mutableStateOf(false) }
@@ -212,6 +216,7 @@ class ActividadPrincipal : FragmentActivity()
                 BackHandler(enabled = pantalla == "perfil") { pantalla = "chat" }
                 BackHandler(enabled = esPestana && pantalla != "chats") { pantalla = "chats" }
                 BackHandler(enabled = pantalla == "agregar" || pantalla == "solicitudes") { pantalla = "amigos" }
+                BackHandler(enabled = pantalla == "escaner") { pantalla = origenEscaner }
                 BackHandler(enabled = pantalla == "bloqueados" || pantalla == "cambiar-contrasena") { pantalla = "ajustes" }
                 BackHandler(enabled = pantalla == "grupo-crear") { pantalla = "grupos" }
                 BackHandler(enabled = pantalla.startsWith("grupo/")) { pantalla = "grupos" }
@@ -236,7 +241,16 @@ class ActividadPrincipal : FragmentActivity()
                         )
                         "login" -> PantallaLogin(app) { pantalla = it }
                         "registro" -> PantallaRegistro(app) { pantalla = it }
-                        "recuperar" -> PantallaRecuperar(app) { pantalla = it }
+                        "recuperar" -> PantallaRecuperar(
+                            app,
+                            codigoLeido = if (origenEscaner == "recuperar") codigoEscaneado else null,
+                            alEscanear = {
+                                origenEscaner = "recuperar"
+                                codigoEscaneado = null
+                                pantalla = "escaner"
+                            },
+                            alNavegar = { pantalla = it },
+                        )
                         "amigos" -> PantallaAmigos(
                             app,
                             alNavegar = { pantalla = it },
@@ -255,7 +269,24 @@ class ActividadPrincipal : FragmentActivity()
                         )
                         "grupos" -> PantallaGrupos(app) { pantalla = it }
                         "ajustes" -> PantallaAjustes(app) { pantalla = it }
-                        "agregar" -> PantallaAgregar(app) { pantalla = "amigos" }
+                        "agregar" -> PantallaAgregar(
+                            app,
+                            codigoLeido = if (origenEscaner == "agregar") codigoEscaneado else null,
+                            alEscanear = {
+                                origenEscaner = "agregar"
+                                codigoEscaneado = null
+                                pantalla = "escaner"
+                            },
+                            alVolver = { pantalla = "amigos" },
+                        )
+                        "escaner" -> PantallaEscaner(
+                            app,
+                            alLeer = { valor ->
+                                codigoEscaneado = valor
+                                pantalla = origenEscaner
+                            },
+                            alCerrar = { pantalla = origenEscaner },
+                        )
                         "solicitudes" -> PantallaSolicitudes(app) { pantalla = "amigos" }
                         "bloqueados" -> PantallaBloqueados(app) { pantalla = "ajustes" }
                         "cambiar-contrasena" -> PantallaCambiarContrasena(app) { pantalla = "ajustes" }

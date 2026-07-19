@@ -1,17 +1,21 @@
 package dev.vixxer.mensajero.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,7 +33,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
-fun PantallaAgregar(app: AplicacionVixxer, alVolver: () -> Unit)
+fun PantallaAgregar(
+    app: AplicacionVixxer,
+    codigoLeido: String? = null,
+    alEscanear: () -> Unit = {},
+    alVolver: () -> Unit,
+)
 {
     val colores = LocalTema.current.colores
     val alcance = rememberCoroutineScope()
@@ -37,9 +46,9 @@ fun PantallaAgregar(app: AplicacionVixxer, alVolver: () -> Unit)
     var estado by remember { mutableStateOf("") }
     var cargando by remember { mutableStateOf(false) }
 
-    fun enviar()
+    fun enviar(valor: String? = null)
     {
-        val codigoFinal = codigo.trim()
+        val codigoFinal = (valor ?: codigo).trim()
         if (codigoFinal.isEmpty())
         {
             return
@@ -70,6 +79,15 @@ fun PantallaAgregar(app: AplicacionVixxer, alVolver: () -> Unit)
         }
     }
 
+    LaunchedEffect(codigoLeido)
+    {
+        if (!codigoLeido.isNullOrBlank())
+        {
+            codigo = codigoLeido
+            enviar(codigoLeido)
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -89,7 +107,7 @@ fun PantallaAgregar(app: AplicacionVixxer, alVolver: () -> Unit)
             Text("Agregar amigo", fontSize = 18.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.SemiBold, color = colores.texto)
         }
         Text(
-            "Pide a tu contacto su código de amigo y escríbelo.",
+            "Pide a tu contacto su código de amigo y escríbelo, o escanea su código QR.",
             fontSize = 14.sp,
             lineHeight = 20.sp,
             color = colores.muted,
@@ -100,5 +118,17 @@ fun PantallaAgregar(app: AplicacionVixxer, alVolver: () -> Unit)
             Text(estado, fontSize = 14.sp, color = if (estado == "Solicitud enviada") colores.texto else colores.error)
         }
         Boton(titulo = "Enviar solicitud", alPulsar = { enviar() }, cargando = cargando)
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, colores.borde, RoundedCornerShape(12.dp))
+                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alEscanear() }
+                .padding(vertical = 14.dp),
+            contentAlignment = Alignment.Center,
+        )
+        {
+            Text("Escanear código QR", fontSize = 15.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.Medium, color = colores.texto)
+        }
     }
 }
