@@ -155,5 +155,5 @@ fun colorPestanaInactiva(): Color
 fun colorBrilloPestana(): Color
 {
     val tema = LocalTema.current
-    return if (tema.oscuro) Vidrio.brillo else tema.colores.borde
+    return if (tema.oscuro) Vidrio.brillo else tema.colores.texto.copy(alpha = 0.12f)
 }
