@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -1805,14 +1806,14 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                 modifier = Modifier
                     .fillMaxSize()
                     .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { menu = false },
+                contentAlignment = Alignment.TopEnd,
             )
             {
                 Column(
                     modifier = Modifier
-                        .align(Alignment.TopEnd)
                         .statusBarsPadding()
                         .padding(top = 46.dp, end = 10.dp)
-                        .widthIn(min = 214.dp)
+                        .width(230.dp)
                         .panelVidrio(radio = 14.dp, desenfocar = true)
                         .padding(vertical = 6.dp),
                 )
