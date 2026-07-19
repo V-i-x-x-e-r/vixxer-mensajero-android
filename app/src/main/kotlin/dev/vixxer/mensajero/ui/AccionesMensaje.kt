@@ -134,7 +134,7 @@ fun <T> AccionesMensaje(
             modifier = Modifier
                 .offset { IntOffset(izquierda.coerceAtLeast(maxIzq).roundToInt(), top.roundToInt()) }
                 .width(ancho)
-                .panelVidrio(radio = 16.dp)
+                .panelVidrio(radio = 16.dp, desenfocar = true)
                 .padding(4.dp),
         )
         {
@@ -220,7 +220,7 @@ fun SelectorContacto(app: AplicacionVixxer, visible: Boolean, titulo: String, al
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(max = 480.dp)
-                .panelVidrio(radio = 20.dp, fuerte = true)
+                .panelVidrio(radio = 20.dp, fuerte = true, desenfocar = true)
                 .padding(bottom = 24.dp),
         )
         {

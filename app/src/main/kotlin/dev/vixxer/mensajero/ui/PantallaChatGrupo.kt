@@ -1033,7 +1033,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp)
-                    .panelVidrio(radio = 12.dp)
+                    .panelVidrio(radio = 12.dp, desenfocar = true)
                     .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { irAFijado() }
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -1095,7 +1095,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp)
-                    .panelVidrio(radio = 12.dp)
+                    .panelVidrio(radio = 12.dp, desenfocar = true)
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1123,7 +1123,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp)
-                    .panelVidrio(radio = 12.dp)
+                    .panelVidrio(radio = 12.dp, desenfocar = true)
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
@@ -1222,7 +1222,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp, vertical = 4.dp)
-                    .panelVidrio(radio = 12.dp),
+                    .panelVidrio(radio = 12.dp, desenfocar = true),
             )
             {
                 for (mb in sugerencias)

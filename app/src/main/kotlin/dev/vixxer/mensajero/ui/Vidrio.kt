@@ -10,6 +10,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.chrisbanes.haze.HazeState
@@ -60,14 +61,14 @@ fun Modifier.panelVidrio(radio: Dp = Vidrio.radioPanel, fuerte: Boolean = false,
     {
         return this
             .background(if (fuerte) Vidrio.fondoFuerte else Vidrio.fondoPanel, forma)
-            .background(brilloVidrio(), forma)
+            .brilloTope(forma)
             .border(Vidrio.anchoBorde, Vidrio.borde, forma)
     }
     val colores = tema.colores
     return this
         .shadow(if (fuerte) 5.dp else 3.dp, forma, ambientColor = Vidrio.sombra, spotColor = Vidrio.sombra)
-        .background(colores.surface.copy(alpha = if (fuerte) 0.62f else 0.68f), forma)
-        .background(brilloVidrioClaro(), forma)
+        .background(colores.surface, forma)
+        .brilloTope(forma)
         .border(Vidrio.anchoBorde, colores.borde, forma)
 }
 
@@ -87,14 +88,14 @@ fun Modifier.pildoraVidrio(): Modifier
     {
         return this
             .background(Vidrio.fondoOsd, forma)
-            .background(brilloVidrio(), forma)
+            .brilloTope(forma)
             .border(Vidrio.anchoBorde, Vidrio.borde, forma)
     }
     val colores = tema.colores
     return this
         .shadow(6.dp, forma, ambientColor = Vidrio.sombra, spotColor = Vidrio.sombra)
         .background(colores.surface.copy(alpha = 0.7f), forma)
-        .background(brilloVidrioClaro(), forma)
+        .brilloTope(forma)
         .border(Vidrio.anchoBorde, colores.borde, forma)
 }
 
@@ -114,27 +115,27 @@ fun Modifier.vidrioFlotante(radio: Dp = 22.dp): Modifier
     {
         return this
             .background(Vidrio.fondoFuerte, forma)
-            .background(brilloVidrio(), forma)
+            .brilloTope(forma)
             .border(Vidrio.anchoBorde, Vidrio.borde, forma)
     }
     val colores = tema.colores
     return this
         .background(colores.surface.copy(alpha = 0.62f), forma)
-        .background(brilloVidrioClaro(), forma)
+        .brilloTope(forma)
         .border(Vidrio.anchoBorde, colores.borde, forma)
 }
 
-private fun brilloVidrio(): Brush =
-    Brush.verticalGradient(
-        0f to Color.White.copy(alpha = 0.07f),
-        0.28f to Color.Transparent,
+@Composable
+private fun Modifier.brilloTope(forma: Shape): Modifier
+{
+    val oscuro = LocalTema.current.oscuro
+    val alto = with(LocalDensity.current) { 2.dp.toPx() }
+    val color = if (oscuro) Color.White.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.55f)
+    return this.background(
+        Brush.verticalGradient(0f to color, 1f to Color.Transparent, startY = 0f, endY = alto),
+        forma,
     )
-
-private fun brilloVidrioClaro(): Brush =
-    Brush.verticalGradient(
-        0f to Color.White.copy(alpha = 0.55f),
-        0.32f to Color.Transparent,
-    )
+}
 
 @Composable
 fun colorPestanaActiva(): Color
@@ -154,5 +155,5 @@ fun colorPestanaInactiva(): Color
 fun colorBrilloPestana(): Color
 {
     val tema = LocalTema.current
-    return if (tema.oscuro) Vidrio.brillo else tema.colores.borde
+    return if (tema.oscuro) Vidrio.brillo else tema.colores.texto.copy(alpha = 0.12f)
 }
