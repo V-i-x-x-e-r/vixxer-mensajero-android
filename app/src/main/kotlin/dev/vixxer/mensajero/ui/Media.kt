@@ -394,10 +394,23 @@ fun comprimirImagen(contexto: Context, uri: Uri): ImagenLista?
         {
             muestra *= 2
         }
-        val opciones = BitmapFactory.Options().apply { inSampleSize = muestra }
-        var actual = contexto.contentResolver.openInputStream(uri)?.buffered()?.use {
-            BitmapFactory.decodeStream(it, null, opciones)
-        } ?: return null
+        var actual: Bitmap? = null
+        while (actual == null && muestra <= 32)
+        {
+            actual = try
+            {
+                val opciones = BitmapFactory.Options().apply { inSampleSize = muestra }
+                contexto.contentResolver.openInputStream(uri)?.buffered()?.use {
+                    BitmapFactory.decodeStream(it, null, opciones)
+                }
+            }
+            catch (_: OutOfMemoryError)
+            {
+                muestra *= 2
+                null
+            }
+        }
+        if (actual == null) return null
         mapa = actual
         val maxLado = maxOf(actual.width, actual.height)
         if (maxLado > 1920)
@@ -412,7 +425,7 @@ fun comprimirImagen(contexto: Context, uri: Uri): ImagenLista?
         if (!actual.compress(Bitmap.CompressFormat.JPEG, 82, salida)) return null
         ImagenLista(salida.toByteArray(), actual.width, actual.height)
     }
-    catch (_: Exception)
+    catch (_: Throwable)
     {
         null
     }
