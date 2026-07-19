@@ -225,7 +225,7 @@ class ActividadPrincipal : FragmentActivity()
                 onDispose { lifecycle.removeObserver(observador) }
             }
 
-            CompositionLocalProvider(LocalTema provides estadoTema) {
+            CompositionLocalProvider(LocalTema provides estadoTema, LocalHazeState provides haze) {
                 val esPestana = pantalla == "amigos" || pantalla == "chats" || pantalla == "grupos"
                 BackHandler(enabled = pantalla == "registro") { pantalla = "login" }
                 BackHandler(enabled = pantalla == "chat" || pantalla == "ajustes") { pantalla = "chats" }
@@ -342,13 +342,11 @@ class ActividadPrincipal : FragmentActivity()
                     }
                     if (esPestana)
                     {
-                        CompositionLocalProvider(LocalHazeState provides haze) {
-                            BarraPestanas(
-                                actual = pantalla,
-                                alCambiar = { pantalla = it },
-                                modifier = Modifier.align(Alignment.BottomCenter),
-                            )
-                        }
+                        BarraPestanas(
+                            actual = pantalla,
+                            alCambiar = { pantalla = it },
+                            modifier = Modifier.align(Alignment.BottomCenter),
+                        )
                     }
                     if (bloqueado)
                     {
@@ -356,7 +354,7 @@ class ActividadPrincipal : FragmentActivity()
                     }
                     if (!animacionSplashLista)
                     {
-                        SplashOrbita(listoParaSalir = sesionVerificada) { animacionSplashLista = true }
+                        SplashOrbita(fondo = estadoTema.colores.fondo, listoParaSalir = sesionVerificada) { animacionSplashLista = true }
                     }
                 }
             }

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -38,6 +39,8 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInRoot
@@ -201,6 +204,9 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
     var indiceFijado by remember { mutableStateOf(0) }
     var ocultos by remember { mutableStateOf(setOf<String>()) }
     var pickerTemp by remember { mutableStateOf(false) }
+    var menu by remember { mutableStateOf(false) }
+    var silenciado by remember { mutableStateOf(app.estadosChat.leerEstados().silenciados.contains(otroId)) }
+    var confirmarKebab by remember { mutableStateOf<String?>(null) }
     var nuevosAbajo by remember { mutableStateOf(0) }
     var visor by remember { mutableStateOf<File?>(null) }
     var subiendo by remember { mutableStateOf(false) }
@@ -229,21 +235,31 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
     val fotoCamara = remember { arrayOf<android.net.Uri?>(null) }
     val claveBorrador = "chat-$otroId"
 
-    val visibles = remember(mensajes, ocultos, buscando, consulta) {
-        val sinOcultos = if (ocultos.isEmpty()) mensajes else mensajes.filter { !ocultos.contains(it.id) }
-        if (buscando && consulta.trim().isNotEmpty())
+    val visibles = remember(mensajes, ocultos) {
+        if (ocultos.isEmpty()) mensajes else mensajes.filter { !ocultos.contains(it.id) }
+    }
+    val mensajesPorId = remember(mensajes) { mensajes.associateBy { it.id } }
+    val coincidencias = remember(visibles, consulta, buscando) {
+        val q = consulta.trim().lowercase()
+        if (buscando && q.isNotEmpty())
         {
-            sinOcultos.filter { m ->
-                val t = m.texto ?: return@filter false
-                !t.startsWith("{") && t.lowercase().contains(consulta.trim().lowercase())
+            visibles.mapIndexedNotNull { i, m ->
+                val t = m.texto
+                if (t != null && !t.startsWith("{") && t.lowercase().contains(q)) i else null
             }
         }
         else
         {
-            sinOcultos
+            emptyList()
         }
     }
-    val mensajesPorId = remember(mensajes) { mensajes.associateBy { it.id } }
+    var indiceCoincidencia by remember { mutableStateOf(0) }
+    LaunchedEffect(coincidencias) {
+        indiceCoincidencia = if (coincidencias.isEmpty()) 0 else coincidencias.lastIndex
+    }
+    LaunchedEffect(indiceCoincidencia, coincidencias) {
+        coincidencias.getOrNull(indiceCoincidencia)?.let { listaEstado.animateScrollToItem(it) }
+    }
 
     fun guardarCache(lista: List<Mensaje>)
     {
@@ -1101,6 +1117,34 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
+                    if (consulta.trim().isNotEmpty())
+                    {
+                        Text(
+                            if (coincidencias.isEmpty()) "0/0" else "${indiceCoincidencia + 1}/${coincidencias.size}",
+                            fontSize = 12.sp,
+                            color = colores.muted,
+                        )
+                        Text(
+                            "‹",
+                            fontSize = 22.sp,
+                            color = if (indiceCoincidencia > 0) colores.texto else colores.placeholder,
+                            modifier = Modifier
+                                .rotate(90f)
+                                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                                    if (indiceCoincidencia > 0) indiceCoincidencia--
+                                },
+                        )
+                        Text(
+                            "‹",
+                            fontSize = 22.sp,
+                            color = if (indiceCoincidencia < coincidencias.lastIndex) colores.texto else colores.placeholder,
+                            modifier = Modifier
+                                .rotate(-90f)
+                                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                                    if (indiceCoincidencia < coincidencias.lastIndex) indiceCoincidencia++
+                                },
+                        )
+                    }
                 }
             }
             else
@@ -1141,7 +1185,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                     Box(modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { buscando = true }) {
                         Lupa(color = colores.texto, tamano = 20.dp)
                     }
-                    Box(modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { pickerTemp = true }) {
+                    Box(modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { menu = true }) {
                         Kebab(color = if (temporizador > 0) colores.botonFondo else colores.texto)
                     }
                 }
@@ -1153,7 +1197,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp)
-                        .panelVidrio(radio = 12.dp)
+                        .panelVidrio(radio = 12.dp, desenfocar = true)
                         .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { irAFijado() }
                         .padding(horizontal = 12.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -1187,13 +1231,19 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             )
             {
-                itemsIndexed(visibles, key = { _, m -> m.id }) { _, m ->
+                itemsIndexed(visibles, key = { _, m -> m.id }) { i, m ->
                     val mio = m.remitenteId == miId
                     val cita = m.respuestaTexto ?: m.respuestaA?.let { respuestaId ->
                         mensajesPorId[respuestaId]?.texto?.let { Resumen.resumenMensaje(it) } ?: "Mensaje"
                     }
+                    val resaltado = buscando && coincidencias.getOrNull(indiceCoincidencia) == i
                     var limites by remember { mutableStateOf(Rect.Zero) }
-                    Box(modifier = Modifier.animateItem().onGloballyPositioned { limites = it.boundsInRoot() }) {
+                    Box(
+                        modifier = Modifier
+                            .animateItem()
+                            .then(if (resaltado) Modifier.background(colores.botonFondo.copy(alpha = 0.12f)) else Modifier)
+                            .onGloballyPositioned { limites = it.boundsInRoot() },
+                    ) {
                         Burbuja(
                             m = if (cita == m.respuestaTexto) m else m.copy(respuestaTexto = cita),
                             mio = mio,
@@ -1283,7 +1333,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 12.dp)
-                                .panelVidrio(radio = 12.dp)
+                                .panelVidrio(radio = 12.dp, desenfocar = true)
                                 .padding(horizontal = 12.dp, vertical = 8.dp),
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -1311,7 +1361,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 12.dp)
-                                .panelVidrio(radio = 12.dp)
+                                .panelVidrio(radio = 12.dp, desenfocar = true)
                                 .padding(horizontal = 12.dp, vertical = 8.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
@@ -1553,7 +1603,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                     modifier = Modifier
                         .navigationBarsPadding()
                         .padding(start = 12.dp, bottom = 68.dp)
-                        .panelVidrio(radio = 22.dp, fuerte = true)
+                        .panelVidrio(radio = 22.dp, fuerte = true, desenfocar = true)
                         .padding(horizontal = 14.dp, vertical = 10.dp),
                     horizontalArrangement = Arrangement.spacedBy(18.dp),
                 )
@@ -1616,7 +1666,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                     .fillMaxWidth()
                     .navigationBarsPadding()
                     .padding(12.dp)
-                    .panelVidrio(radio = 22.dp, fuerte = true)
+                    .panelVidrio(radio = 22.dp, fuerte = true, desenfocar = true)
                     .padding(horizontal = 18.dp, vertical = 14.dp),
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1705,7 +1755,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .panelVidrio(radio = 20.dp, fuerte = true)
+                        .panelVidrio(radio = 20.dp, fuerte = true, desenfocar = true)
                         .navigationBarsPadding()
                         .padding(top = 8.dp, bottom = 28.dp),
                 )
@@ -1749,7 +1799,123 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                 }
             }
         }
+        if (menu)
+        {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { menu = false },
+            )
+            {
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .statusBarsPadding()
+                        .padding(top = 46.dp, end = 10.dp)
+                        .widthIn(min = 214.dp)
+                        .panelVidrio(radio = 14.dp, desenfocar = true)
+                        .padding(vertical = 6.dp),
+                )
+                {
+                    ItemKebab(
+                        "Mensajes temporales",
+                        { Reloj(it, 18.dp) },
+                        if (temporizador > 0) colores.botonFondo else colores.texto,
+                        if (temporizador > 0) Efimero.etiquetaDuracion(temporizador) else "Desactivado",
+                        colores,
+                    ) { menu = false; pickerTemp = true }
+                    DivisorKebab(colores)
+                    ItemKebab(
+                        if (silenciado) "Activar sonido" else "Silenciar",
+                        { Silencio(it, 18.dp) },
+                        if (silenciado) colores.botonFondo else colores.texto,
+                        null,
+                        colores,
+                    ) {
+                        app.estadosChat.alternarSilenciado(otroId)
+                        silenciado = !silenciado
+                        menu = false
+                    }
+                    ItemKebab("Ver contacto", { Ojo(true, it, 18.dp) }, colores.texto, null, colores) { menu = false; alNavegar("perfil") }
+                    ItemKebab("Vaciar chat", { Bote(it, 18.dp) }, colores.texto, null, colores) { menu = false; confirmarKebab = "vaciar" }
+                    ItemKebab("Bloquear", null, colores.error, null, colores) { menu = false; confirmarKebab = "bloquear" }
+                }
+            }
+        }
+        Confirmacion(
+            visible = confirmarKebab == "vaciar",
+            titulo = "Vaciar chat",
+            mensaje = "Se borrará el historial de esta conversación en el servidor.",
+            textoConfirmar = "Vaciar",
+            destructivo = true,
+            alConfirmar = {
+                confirmarKebab = null
+                mensajes = emptyList()
+                alcance.launch {
+                    withContext(Dispatchers.IO) {
+                        runCatching { app.api.limpiarConversacion(otroId) }
+                        runCatching { app.cacheChats.guardarChat(otroId, JSONArray()) }
+                    }
+                }
+            },
+            alCancelar = { confirmarKebab = null },
+        )
+        Confirmacion(
+            visible = confirmarKebab == "bloquear",
+            titulo = "Bloquear",
+            mensaje = "No podrá escribirte y se quitará de tus chats. Puedes desbloquearle desde Ajustes.",
+            textoConfirmar = "Bloquear",
+            destructivo = true,
+            alConfirmar = {
+                confirmarKebab = null
+                alcance.launch {
+                    withContext(Dispatchers.IO) { runCatching { app.api.bloquear(otroId) } }
+                    alVolver()
+                }
+            },
+            alCancelar = { confirmarKebab = null },
+        )
     }
+}
+
+@Composable
+private fun ItemKebab(
+    texto: String,
+    icono: (@Composable (Color) -> Unit)?,
+    color: Color,
+    sub: String?,
+    colores: Paleta,
+    alPulsar: () -> Unit,
+)
+{
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alPulsar() }
+            .padding(horizontal = 16.dp, vertical = 11.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    )
+    {
+        if (icono != null)
+        {
+            icono(color)
+        }
+        Column(modifier = Modifier.weight(1f))
+        {
+            Text(texto, fontSize = 14.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.Medium, color = color)
+            if (sub != null)
+            {
+                Text(sub, fontSize = 11.sp, color = colores.muted)
+            }
+        }
+    }
+}
+
+@Composable
+private fun DivisorKebab(colores: Paleta)
+{
+    Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).height(1.dp).background(colores.borde))
 }
 
 @Composable
