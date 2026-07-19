@@ -35,15 +35,20 @@ class RadioBle(private val contexto: Context)
 {
     private val servicioUuid = UUID.fromString(MeshCercania.SERVICIO_UUID)
     private val caracteristicaUuid = UUID.fromString(MeshCercania.CARACTERISTICA_UUID)
+    private val capsUuid = UUID.fromString(MeshCercania.CARACTERISTICA_CAPS_UUID)
     private val datoCercaniaUuid = ParcelUuid.fromString(MeshCercania.DATO_CERCANIA_UUID)
     private val trozo = 180
+    private val umbralL2cap = 4096
+    private val vidaCapsMs = 5 * 60 * 1000L
 
     private var anunciante: BluetoothLeAdvertiser? = null
     private var callbackAnuncio: AdvertiseCallback? = null
     private var servidor: BluetoothGattServer? = null
+    private var servidorL2cap: android.bluetooth.BluetoothServerSocket? = null
     private var escaner: BluetoothLeScanner? = null
     private var callbackEscaneo: ScanCallback? = null
     private val buffers = HashMap<String, ByteArrayOutputStream>()
+    private val capsConocidas = HashMap<String, Pair<Int, Long>>()
     private var alMensaje: ((String) -> Unit)? = null
 
     private val gestor: BluetoothManager?
@@ -65,6 +70,7 @@ class RadioBle(private val contexto: Context)
                 return "bt-apagado"
             }
             abrirServidor(gestorBt)
+            abrirL2cap(adaptador)
             val adv = adaptador.bluetoothLeAdvertiser ?: return "sin-anunciante"
             anunciante = adv
             callbackAnuncio?.let { adv.stopAdvertising(it) }
@@ -119,6 +125,14 @@ class RadioBle(private val contexto: Context)
         {
         }
         servidor = null
+        try
+        {
+            servidorL2cap?.close()
+        }
+        catch (_: Exception)
+        {
+        }
+        servidorL2cap = null
         buffers.clear()
     }
 
@@ -209,14 +223,37 @@ class RadioBle(private val contexto: Context)
         {
             return false
         }
-        val sesion = SesionEnvio(texto)
+        val bytes = (texto + "\n").toByteArray(Charsets.UTF_8)
+        if (bytes.size > umbralL2cap && android.os.Build.VERSION.SDK_INT >= 29)
+        {
+            val psm = psmCacheado(direccion)
+            if (psm != null)
+            {
+                if (enviarPorL2cap(dispositivo, psm, bytes))
+                {
+                    return true
+                }
+                olvidarCaps(direccion)
+            }
+        }
+        val (ok, reintentar) = correrSesion(dispositivo, bytes, forzarGatt = false)
+        if (ok || !reintentar)
+        {
+            return ok
+        }
+        return correrSesion(dispositivo, bytes, forzarGatt = true).first
+    }
+
+    private fun correrSesion(dispositivo: BluetoothDevice, bytes: ByteArray, forzarGatt: Boolean): Pair<Boolean, Boolean>
+    {
+        val sesion = SesionEnvio(dispositivo, bytes, forzarGatt)
         val gatt = try
         {
             dispositivo.connectGatt(contexto, false, sesion.callback)
         }
         catch (_: Exception)
         {
-            return false
+            return Pair(false, false)
         }
         sesion.gatt = gatt
         val ok = sesion.esperar()
@@ -227,7 +264,87 @@ class RadioBle(private val contexto: Context)
         catch (_: Exception)
         {
         }
-        return ok
+        return Pair(ok, sesion.reintentarPorGatt)
+    }
+
+    private fun enviarPorL2cap(dispositivo: BluetoothDevice, psm: Int, bytes: ByteArray): Boolean
+    {
+        if (android.os.Build.VERSION.SDK_INT < 29 || psm <= 0)
+        {
+            return false
+        }
+        var socket: android.bluetooth.BluetoothSocket? = null
+        return try
+        {
+            val abierto = dispositivo.createInsecureL2capChannel(psm)
+            socket = abierto
+            val guardian = Thread {
+                try
+                {
+                    Thread.sleep(20000)
+                }
+                catch (_: InterruptedException)
+                {
+                    return@Thread
+                }
+                try
+                {
+                    abierto.close()
+                }
+                catch (_: Exception)
+                {
+                }
+            }
+            guardian.isDaemon = true
+            guardian.start()
+            abierto.connect()
+            abierto.outputStream.write(bytes)
+            abierto.outputStream.flush()
+            val ack = abierto.inputStream.read()
+            guardian.interrupt()
+            ack == 49
+        }
+        catch (_: Exception)
+        {
+            false
+        }
+        finally
+        {
+            try
+            {
+                socket?.close()
+            }
+            catch (_: Exception)
+            {
+            }
+        }
+    }
+
+    private fun psmCacheado(direccion: String): Int?
+    {
+        synchronized(capsConocidas) {
+            val (psm, cuando) = capsConocidas[direccion] ?: return null
+            if (System.currentTimeMillis() - cuando > vidaCapsMs)
+            {
+                capsConocidas.remove(direccion)
+                return null
+            }
+            return psm
+        }
+    }
+
+    private fun recordarCaps(direccion: String, psm: Int)
+    {
+        synchronized(capsConocidas) {
+            capsConocidas[direccion] = Pair(psm, System.currentTimeMillis())
+        }
+    }
+
+    private fun olvidarCaps(direccion: String)
+    {
+        synchronized(capsConocidas) {
+            capsConocidas.remove(direccion)
+        }
     }
 
     private fun abrirServidor(gestorBt: BluetoothManager)
@@ -260,6 +377,24 @@ class RadioBle(private val contexto: Context)
                     }
                 }
             }
+
+            override fun onCharacteristicReadRequest(
+                dispositivo: BluetoothDevice,
+                requestId: Int,
+                offset: Int,
+                caracteristica: BluetoothGattCharacteristic,
+            )
+            {
+                val valor = if (caracteristica.uuid == capsUuid) capsLocales() else ByteArray(0)
+                val pedazo = if (offset >= valor.size) ByteArray(0) else valor.copyOfRange(offset, valor.size)
+                try
+                {
+                    servidor?.sendResponse(dispositivo, requestId, BluetoothGatt.GATT_SUCCESS, offset, pedazo)
+                }
+                catch (_: Exception)
+                {
+                }
+            }
         }
         val gatt = gestorBt.openGattServer(contexto, cb)
         val servicio = BluetoothGattService(servicioUuid, BluetoothGattService.SERVICE_TYPE_PRIMARY)
@@ -269,8 +404,107 @@ class RadioBle(private val contexto: Context)
             BluetoothGattCharacteristic.PERMISSION_WRITE,
         )
         servicio.addCharacteristic(caracteristica)
+        val caps = BluetoothGattCharacteristic(
+            capsUuid,
+            BluetoothGattCharacteristic.PROPERTY_READ,
+            BluetoothGattCharacteristic.PERMISSION_READ,
+        )
+        servicio.addCharacteristic(caps)
         gatt.addService(servicio)
         servidor = gatt
+    }
+
+    private fun capsLocales(): ByteArray
+    {
+        val psm = try
+        {
+            if (android.os.Build.VERSION.SDK_INT >= 29) servidorL2cap?.psm ?: 0 else 0
+        }
+        catch (_: Exception)
+        {
+            0
+        }
+        val flags = if (psm > 0) 1 else 0
+        return byteArrayOf(1, flags.toByte(), ((psm shr 8) and 0xFF).toByte(), (psm and 0xFF).toByte())
+    }
+
+    private fun abrirL2cap(adaptador: android.bluetooth.BluetoothAdapter)
+    {
+        if (android.os.Build.VERSION.SDK_INT < 29 || servidorL2cap != null)
+        {
+            return
+        }
+        val servidorSocket = try
+        {
+            adaptador.listenUsingInsecureL2capChannel()
+        }
+        catch (_: Exception)
+        {
+            return
+        }
+        servidorL2cap = servidorSocket
+        val hilo = Thread {
+            while (servidorL2cap === servidorSocket)
+            {
+                val socket = try
+                {
+                    servidorSocket.accept()
+                }
+                catch (_: Exception)
+                {
+                    break
+                }
+                Thread { atenderL2cap(socket) }.apply { isDaemon = true }.start()
+            }
+        }
+        hilo.isDaemon = true
+        hilo.start()
+    }
+
+    private fun atenderL2cap(socket: android.bluetooth.BluetoothSocket)
+    {
+        try
+        {
+            val entrada = socket.inputStream.buffered()
+            val salida = socket.outputStream
+            val buffer = ByteArrayOutputStream()
+            while (true)
+            {
+                val b = entrada.read()
+                if (b < 0)
+                {
+                    break
+                }
+                if (b == 10)
+                {
+                    val completo = buffer.toByteArray()
+                    buffer.reset()
+                    if (completo.isNotEmpty())
+                    {
+                        alMensaje?.invoke(String(completo, Charsets.UTF_8))
+                        salida.write(49)
+                        salida.flush()
+                    }
+                }
+                else
+                {
+                    buffer.write(b)
+                }
+            }
+        }
+        catch (_: Exception)
+        {
+        }
+        finally
+        {
+            try
+            {
+                socket.close()
+            }
+            catch (_: Exception)
+            {
+            }
+        }
     }
 
     private fun acumular(direccion: String, trozoBytes: ByteArray)
@@ -294,15 +528,31 @@ class RadioBle(private val contexto: Context)
         }
     }
 
-    private inner class SesionEnvio(texto: String)
+    private inner class SesionEnvio(
+        private val dispositivo: BluetoothDevice,
+        private val bytes: ByteArray,
+        forzarGatt: Boolean,
+    )
     {
         var gatt: BluetoothGatt? = null
+        var reintentarPorGatt = false
+            private set
         private val cierre = CountDownLatch(1)
         private var exito = false
-        private val bytes = (texto + "\n").toByteArray(Charsets.UTF_8)
         private var cursor = 0
         private var trozoSesion = trozo
         private var caracteristica: BluetoothGattCharacteristic? = null
+        private val intentarL2cap =
+            !forzarGatt && bytes.size > umbralL2cap && android.os.Build.VERSION.SDK_INT >= 29
+
+        @Volatile
+        private var psmRemoto = 0
+
+        @Volatile
+        private var capsProcesadas = false
+
+        @Volatile
+        private var l2capLanzado = false
 
         val callback = object : BluetoothGattCallback()
         {
@@ -321,7 +571,14 @@ class RadioBle(private val contexto: Context)
                 }
                 else if (nuevoEstado == BluetoothProfile.STATE_DISCONNECTED)
                 {
-                    terminar(exito)
+                    if (psmRemoto > 0 && !exito && !l2capLanzado)
+                    {
+                        lanzarL2cap()
+                    }
+                    else
+                    {
+                        terminar(exito)
+                    }
                 }
             }
 
@@ -356,7 +613,34 @@ class RadioBle(private val contexto: Context)
                     return
                 }
                 caracteristica = car
+                if (intentarL2cap)
+                {
+                    val caps = servicio.getCharacteristic(capsUuid)
+                    if (caps != null && runCatching { g.readCharacteristic(caps) }.getOrDefault(false))
+                    {
+                        return
+                    }
+                }
                 enviarSiguiente(g)
+            }
+
+            @Deprecated("Compat con API < 33")
+            override fun onCharacteristicRead(g: BluetoothGatt, car: BluetoothGattCharacteristic, estado: Int)
+            {
+                if (android.os.Build.VERSION.SDK_INT < 33)
+                {
+                    alLeerCaps(g, car.value, estado)
+                }
+            }
+
+            override fun onCharacteristicRead(
+                g: BluetoothGatt,
+                car: BluetoothGattCharacteristic,
+                valor: ByteArray,
+                estado: Int,
+            )
+            {
+                alLeerCaps(g, valor, estado)
             }
 
             override fun onCharacteristicWrite(g: BluetoothGatt, car: BluetoothGattCharacteristic, estado: Int)
@@ -368,6 +652,68 @@ class RadioBle(private val contexto: Context)
                 }
                 enviarSiguiente(g)
             }
+        }
+
+        private fun alLeerCaps(g: BluetoothGatt, valor: ByteArray?, estado: Int)
+        {
+            if (capsProcesadas)
+            {
+                return
+            }
+            capsProcesadas = true
+            val psm = if (
+                estado == BluetoothGatt.GATT_SUCCESS &&
+                valor != null &&
+                valor.size >= 4 &&
+                (valor[1].toInt() and 1) == 1
+            )
+            {
+                ((valor[2].toInt() and 0xFF) shl 8) or (valor[3].toInt() and 0xFF)
+            }
+            else
+            {
+                0
+            }
+            if (psm > 0)
+            {
+                recordarCaps(dispositivo.address, psm)
+                psmRemoto = psm
+                try
+                {
+                    g.disconnect()
+                }
+                catch (_: Exception)
+                {
+                    lanzarL2cap()
+                }
+            }
+            else
+            {
+                enviarSiguiente(g)
+            }
+        }
+
+        private fun lanzarL2cap()
+        {
+            if (l2capLanzado)
+            {
+                return
+            }
+            l2capLanzado = true
+            val hilo = Thread {
+                if (enviarPorL2cap(dispositivo, psmRemoto, bytes))
+                {
+                    terminar(true)
+                }
+                else
+                {
+                    olvidarCaps(dispositivo.address)
+                    reintentarPorGatt = true
+                    terminar(false)
+                }
+            }
+            hilo.isDaemon = true
+            hilo.start()
         }
 
         private fun enviarSiguiente(g: BluetoothGatt)
@@ -431,9 +777,10 @@ class RadioBle(private val contexto: Context)
 
         fun esperar(): Boolean
         {
+            val limite = if (bytes.size > umbralL2cap) 60L else 15L
             return try
             {
-                cierre.await(15, TimeUnit.SECONDS)
+                cierre.await(limite, TimeUnit.SECONDS)
                 exito
             }
             catch (_: Exception)
