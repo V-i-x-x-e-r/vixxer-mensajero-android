@@ -55,6 +55,7 @@ import dev.vixxer.mensajero.ui.PantallaAgregar
 import dev.vixxer.mensajero.ui.PantallaAjustes
 import dev.vixxer.mensajero.ui.PantallaAmigos
 import dev.vixxer.mensajero.ui.PantallaBloqueados
+import dev.vixxer.mensajero.ui.PantallaCercania
 import dev.vixxer.mensajero.ui.PantallaCambiarContrasena
 import dev.vixxer.mensajero.ui.PantallaCrearGrupo
 import dev.vixxer.mensajero.ui.PantallaSolicitudes
@@ -256,6 +257,7 @@ class ActividadPrincipal : FragmentActivity()
                         "agregar" -> PantallaAgregar(app) { pantalla = "amigos" }
                         "solicitudes" -> PantallaSolicitudes(app) { pantalla = "amigos" }
                         "bloqueados" -> PantallaBloqueados(app) { pantalla = "ajustes" }
+                        "cercania" -> PantallaCercania(app) { pantalla = "ajustes" }
                         "cambiar-contrasena" -> PantallaCambiarContrasena(app) { pantalla = "ajustes" }
                         "grupo-crear" -> PantallaCrearGrupo(app) { pantalla = "grupos" }
                         "perfil" ->

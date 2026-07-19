@@ -368,6 +368,11 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
             Text(errorPreferencias, fontSize = 13.sp, color = colores.error)
         }
 
+        Seccion("SIN INTERNET", colores)
+        Tarjeta {
+            FilaNav("Ver radar de cercanía", colores) { alNavegar("cercania") }
+        }
+
         Seccion("SEGURIDAD", colores)
         Tarjeta {
             FilaSwitch("Bloquear capturas de pantalla", capturas, colores) { activo ->
