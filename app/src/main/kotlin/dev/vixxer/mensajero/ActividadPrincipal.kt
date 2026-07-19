@@ -68,6 +68,7 @@ import dev.vixxer.mensajero.ui.PantallaMultimedia
 import dev.vixxer.mensajero.ui.PantallaPerfil
 import dev.vixxer.mensajero.ui.PantallaRecuperar
 import dev.vixxer.mensajero.ui.PantallaRegistro
+import dev.vixxer.mensajero.ui.SplashOrbita
 import dev.vixxer.mensajero.nucleo.ConexionSocket
 import io.socket.client.Socket
 import io.socket.emitter.Emitter
@@ -93,6 +94,7 @@ class ActividadPrincipal : FragmentActivity()
             var chatAbierto by remember { mutableStateOf<Amigo?>(null) }
             var bloqueado by remember { mutableStateOf(false) }
             var sesionVerificada by remember { mutableStateOf(false) }
+            var animacionSplashLista by remember { mutableStateOf(false) }
             var socketMensajeria by remember { mutableStateOf<Socket?>(null) }
             var cuentaMensajeria by remember { mutableStateOf("") }
             val alcanceMensajeria = rememberCoroutineScope()
@@ -300,6 +302,10 @@ class ActividadPrincipal : FragmentActivity()
                     if (bloqueado)
                     {
                         PantallaBloqueo(app) { bloqueado = false }
+                    }
+                    if (!animacionSplashLista)
+                    {
+                        SplashOrbita(listoParaSalir = sesionVerificada) { animacionSplashLista = true }
                     }
                 }
             }
