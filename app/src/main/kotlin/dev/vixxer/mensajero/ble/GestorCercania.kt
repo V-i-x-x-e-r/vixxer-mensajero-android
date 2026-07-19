@@ -10,8 +10,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.core.content.ContextCompat
 import dev.vixxer.mensajero.AplicacionVixxer
+import dev.vixxer.mensajero.nucleo.ClavesSeguras
+import dev.vixxer.mensajero.nucleo.Cripto
+import dev.vixxer.mensajero.nucleo.IdentidadRotativa
+import org.json.JSONArray
 
-data class PeerCercano(val id: String, val rssi: Int, val visto: Long)
+data class PeerCercano(
+    val id: String,
+    val rssi: Int,
+    val visto: Long,
+    val amigoId: String? = null,
+    val nombre: String? = null,
+)
 
 data class ResultadoActivar(val ok: Boolean, val razon: String? = null, val abrirAjustes: Boolean = false)
 
@@ -19,10 +29,28 @@ object GestorCercania
 {
     private const val CLAVE = "vixxer_modo_cercania"
 
+    private const val MILIS_ROTACION = 15000L
+    private const val TOPE_TOKENS = 128
+
     private var radio: RadioBle? = null
     private var mensajeria: MensajeriaBle? = null
     private var detenerEscaneo: (() -> Unit)? = null
     private val vistosCercanos = LinkedHashMap<String, PeerCercano>()
+    private var hiloRotacion: Thread? = null
+
+    @Volatile
+    private var secretosAmigos: Map<String, ByteArray> = emptyMap()
+
+    @Volatile
+    private var nombresAmigos: Map<String, String> = emptyMap()
+
+    private val tokensVistos = HashMap<String, String?>()
+
+    @Volatile
+    private var ventanaTokens = -1L
+
+    @Volatile
+    private var ultimoTokenAnunciado: String? = null
 
     var corriendo by mutableStateOf(false)
         private set
@@ -104,17 +132,29 @@ object GestorCercania
             soloVixxer = true,
             alEncontrar = { cercano ->
                 mensajero.registrarPeer(cercano.id)
-                vistosCercanos[cercano.id] = PeerCercano(cercano.id, cercano.rssi, System.currentTimeMillis())
+                val previo = vistosCercanos[cercano.id]
+                val amigoId = cercano.token?.let { resolverAmigo(it) } ?: previo?.amigoId
+                vistosCercanos[cercano.id] = PeerCercano(
+                    cercano.id,
+                    cercano.rssi,
+                    System.currentTimeMillis(),
+                    amigoId,
+                    amigoId?.let { nombresAmigos[it] },
+                )
                 refrescarPeers()
             },
             onError = {},
         )
         corriendo = true
+        arrancarRotacion(app)
         return ResultadoActivar(true)
     }
 
     fun detener(app: AplicacionVixxer)
     {
+        corriendo = false
+        hiloRotacion?.interrupt()
+        hiloRotacion = null
         detenerEscaneo?.invoke()
         detenerEscaneo = null
         radio?.detenerAnuncio()
@@ -123,7 +163,8 @@ object GestorCercania
         mensajeria?.olvidarPeers()
         vistosCercanos.clear()
         _peers.clear()
-        corriendo = false
+        ultimoTokenAnunciado = null
+        limpiarTokens()
     }
 
     fun activar(app: AplicacionVixxer, contexto: Context, valor: Boolean): ResultadoActivar
@@ -143,6 +184,97 @@ object GestorCercania
         {
             iniciar(app, contexto)
         }
+    }
+
+    private fun arrancarRotacion(app: AplicacionVixxer)
+    {
+        if (hiloRotacion?.isAlive == true)
+        {
+            return
+        }
+        val hilo = Thread {
+            cargarSecretos(app)
+            var indice = 0
+            while (corriendo)
+            {
+                anunciarSiguienteToken(app, indice)
+                indice += 1
+                try
+                {
+                    Thread.sleep(MILIS_ROTACION)
+                }
+                catch (_: InterruptedException)
+                {
+                    return@Thread
+                }
+            }
+        }
+        hilo.isDaemon = true
+        hiloRotacion = hilo
+        hilo.start()
+    }
+
+    private fun anunciarSiguienteToken(app: AplicacionVixxer, indice: Int)
+    {
+        val secretos = secretosAmigos.values.toList()
+        if (secretos.isEmpty())
+        {
+            return
+        }
+        val miId = app.boveda.leer(ClavesSeguras.MI_ID) ?: return
+        val secreto = secretos[indice % secretos.size]
+        val token = IdentidadRotativa.tokenActual(miId, secreto, System.currentTimeMillis() / 1000)
+        if (token == ultimoTokenAnunciado)
+        {
+            return
+        }
+        ultimoTokenAnunciado = token
+        radio?.anunciar(Cripto.deBase64(token))
+    }
+
+    private fun cargarSecretos(app: AplicacionVixxer)
+    {
+        val privada = app.boveda.leer(ClavesSeguras.CLAVE_PRIVADA) ?: return
+        val lista = runCatching { app.api.amigos() as? JSONArray }.getOrNull() ?: return
+        val secretos = HashMap<String, ByteArray>()
+        val nombres = HashMap<String, String>()
+        for (i in 0 until lista.length())
+        {
+            val amigo = lista.optJSONObject(i) ?: continue
+            val id = amigo.optString("id")
+            val publica = amigo.optString("llave_publica")
+            if (id.isEmpty() || publica.isEmpty())
+            {
+                continue
+            }
+            runCatching {
+                secretos[id] = Cripto.secretoCompartido(Cripto.deBase64(publica), Cripto.deBase64(privada))
+                nombres[id] = amigo.optString("usuario")
+            }
+        }
+        secretosAmigos = secretos
+        nombresAmigos = nombres
+        limpiarTokens()
+    }
+
+    @Synchronized
+    private fun resolverAmigo(token: String): String?
+    {
+        val ahora = System.currentTimeMillis() / 1000
+        val ventana = IdentidadRotativa.ventanaActual(ahora)
+        if (ventana != ventanaTokens || tokensVistos.size > TOPE_TOKENS)
+        {
+            tokensVistos.clear()
+            ventanaTokens = ventana
+        }
+        return tokensVistos.getOrPut(token) { IdentidadRotativa.coincidir(token, secretosAmigos, ahora) }
+    }
+
+    @Synchronized
+    private fun limpiarTokens()
+    {
+        tokensVistos.clear()
+        ventanaTokens = -1L
     }
 
     private fun prepararRadio(contexto: Context): RadioBle
