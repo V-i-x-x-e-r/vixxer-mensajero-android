@@ -82,7 +82,30 @@ class AplicacionVixxer : Application()
         {
             migrarOutbox()
         }
+        registerActivityLifecycleCallbacks(object : android.app.Application.ActivityLifecycleCallbacks
+        {
+            override fun onActivityCreated(a: android.app.Activity, b: android.os.Bundle?) {}
+            override fun onActivityStarted(a: android.app.Activity)
+            {
+                actividadesVisibles += 1
+            }
+
+            override fun onActivityResumed(a: android.app.Activity) {}
+            override fun onActivityPaused(a: android.app.Activity) {}
+            override fun onActivityStopped(a: android.app.Activity)
+            {
+                actividadesVisibles -= 1
+            }
+
+            override fun onActivitySaveInstanceState(a: android.app.Activity, b: android.os.Bundle) {}
+            override fun onActivityDestroyed(a: android.app.Activity) {}
+        })
     }
+
+    @Volatile
+    private var actividadesVisibles = 0
+
+    fun enPrimerPlano(): Boolean = actividadesVisibles > 0
 
     @Synchronized
     fun activarCuenta(cuentaId: String?)
