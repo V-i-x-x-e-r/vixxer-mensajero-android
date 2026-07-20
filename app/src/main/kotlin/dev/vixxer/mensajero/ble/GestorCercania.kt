@@ -264,6 +264,8 @@ object GestorCercania
         limpiarTokens()
     }
 
+    fun nombreDe(amigoId: String): String? = nombresAmigos[amigoId]?.takeIf { it.isNotEmpty() }
+
     fun macsDeAmigo(amigoId: String): List<String>
     {
         val limite = System.currentTimeMillis() - 120_000L

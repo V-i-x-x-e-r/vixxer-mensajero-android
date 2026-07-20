@@ -1082,7 +1082,9 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
             }
         }
         val alConectar = Emitter.Listener { vaciarOutbox() }
-        val dejarDeEscucharBle = GestorCercania.mensajeria(app).alEntrante { obj ->
+        val mensajeriaBle = GestorCercania.mensajeria(app)
+        mensajeriaBle.chatVisible = otroId
+        val dejarDeEscucharBle = mensajeriaBle.alEntrante { obj ->
             if (obj.optString("remitente_id") == otroId)
             {
                 alcance.launch {
@@ -1115,6 +1117,10 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
             socket?.off("mensaje:borrado", alBorrado)
             socket?.off("mensaje:reaccion", alReaccion)
             socket?.off(Socket.EVENT_CONNECT, alConectar)
+            if (mensajeriaBle.chatVisible == otroId)
+            {
+                mensajeriaBle.chatVisible = null
+            }
             dejarDeEscucharBle()
             dejarDeObservarOutbox()
         }
