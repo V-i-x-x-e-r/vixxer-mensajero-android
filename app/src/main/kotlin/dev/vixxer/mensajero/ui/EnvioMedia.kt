@@ -174,6 +174,52 @@ class EnvioMedia(private val app: AplicacionVixxer, private val contexto: Contex
             .toString()
     }
 
+    fun prepararImagenCercania(imagen: ImagenLista, cap: String?): Pair<String, ByteArray>?
+    {
+        val mini = miniaturaDe(imagen) ?: return null
+        val path = pathCercania("jpg")
+        CacheMedia.guardar(contexto, path, mini.bytes.size.toLong()) { mini.bytes.inputStream() }
+        val obj = JSONObject()
+            .put("t", "img")
+            .put("path", path)
+            .put("mime", "image/jpeg")
+            .put("w", mini.ancho)
+            .put("h", mini.alto)
+            .put("peso", mini.bytes.size)
+        if (!cap.isNullOrBlank())
+        {
+            obj.put("cap", cap.trim())
+        }
+        return Pair(obj.toString(), mini.bytes)
+    }
+
+    fun prepararAudioCercania(archivo: File, dur: Int, ondas: List<Float>): Pair<String, ByteArray>?
+    {
+        val bytes = runCatching { archivo.readBytes() }.getOrNull() ?: return null
+        if (bytes.isEmpty() || bytes.size > TOPE_CERCANIA)
+        {
+            return null
+        }
+        val path = pathCercania("m4a")
+        CacheMedia.guardar(contexto, path, bytes.size.toLong()) { bytes.inputStream() }
+        val wf = JSONArray()
+        for (v in ondas)
+        {
+            wf.put(v.toDouble())
+        }
+        val obj = JSONObject()
+            .put("t", "audio")
+            .put("path", path)
+            .put("mime", "audio/mp4")
+            .put("dur", maxOf(1, dur))
+            .put("peso", bytes.size)
+            .put("wf", wf)
+        return Pair(obj.toString(), bytes)
+    }
+
+    private fun pathCercania(extension: String): String =
+        "ble/${System.currentTimeMillis()}-${(1000..9999).random()}.$extension"
+
     private fun pesoDe(uri: Uri): Long?
     {
         val descriptor = runCatching {
@@ -196,5 +242,6 @@ class EnvioMedia(private val app: AplicacionVixxer, private val contexto: Contex
         const val LIMITE_DOCUMENTO = 25L * 1024 * 1024
         const val LIMITE_AUDIO = 25L * 1024 * 1024
         const val LIMITE_STICKER = 5L * 1024 * 1024
+        const val TOPE_CERCANIA = 80 * 1024
     }
 }

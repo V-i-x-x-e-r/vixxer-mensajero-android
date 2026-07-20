@@ -378,6 +378,55 @@ data class ImagenLista(val bytes: ByteArray, val ancho: Int, val alto: Int)
 
 data class PrevioEnvio(val uri: Uri, val imagen: ImagenLista?, val miniatura: String?, val esVideo: Boolean)
 
+fun miniaturaDe(imagen: ImagenLista, ladoMax: Int = 480, topeBytes: Int = 80 * 1024): ImagenLista?
+{
+    var original: Bitmap? = null
+    var escalado: Bitmap? = null
+    return try
+    {
+        val base = BitmapFactory.decodeByteArray(imagen.bytes, 0, imagen.bytes.size) ?: return null
+        original = base
+        val mayor = maxOf(base.width, base.height)
+        val mapa = if (mayor > ladoMax)
+        {
+            val factor = ladoMax.toFloat() / mayor
+            Bitmap.createScaledBitmap(
+                base,
+                (base.width * factor).toInt().coerceAtLeast(1),
+                (base.height * factor).toInt().coerceAtLeast(1),
+                true,
+            )
+        }
+        else
+        {
+            base
+        }
+        escalado = mapa
+        for (calidad in listOf(60, 45, 32))
+        {
+            val salida = ByteArrayOutputStream()
+            if (!mapa.compress(Bitmap.CompressFormat.JPEG, calidad, salida))
+            {
+                return null
+            }
+            if (salida.size() <= topeBytes)
+            {
+                return ImagenLista(salida.toByteArray(), mapa.width, mapa.height)
+            }
+        }
+        null
+    }
+    catch (_: Throwable)
+    {
+        null
+    }
+    finally
+    {
+        escalado?.takeIf { it !== original && !it.isRecycled }?.recycle()
+        original?.takeIf { !it.isRecycled }?.recycle()
+    }
+}
+
 fun comprimirImagen(contexto: Context, uri: Uri): ImagenLista?
 {
     var mapa: Bitmap? = null
