@@ -74,6 +74,7 @@ import dev.vixxer.mensajero.nucleo.Cripto
 import dev.vixxer.mensajero.nucleo.Efimero
 import dev.vixxer.mensajero.nucleo.EnvioDirecto
 import dev.vixxer.mensajero.nucleo.Fechas
+import dev.vixxer.mensajero.nucleo.IdMensaje
 import dev.vixxer.mensajero.nucleo.Fijados
 import dev.vixxer.mensajero.nucleo.Medios
 import dev.vixxer.mensajero.nucleo.Ocultos
@@ -505,9 +506,70 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
         mandar(if (temporizador > 0) Efimero.envolver(limpio, temporizador) else limpio)
     }
 
+    fun rutaCercania(): Boolean =
+        ConexionSocket.obtener()?.connected() != true &&
+            GestorCercania.corriendo &&
+            GestorCercania.amigoVisible(otroId)
+
+    fun avisoCercania(aviso: String)
+    {
+        android.widget.Toast.makeText(contexto, aviso, android.widget.Toast.LENGTH_SHORT).show()
+    }
+
+    suspend fun despacharMediaCercania(par: Pair<String, ByteArray>?): Boolean
+    {
+        if (par == null)
+        {
+            return false
+        }
+        val (plano, datos) = par
+        val localId = withContext(Dispatchers.IO) {
+            val privada = app.boveda.leer(ClavesSeguras.CLAVE_PRIVADA) ?: return@withContext null
+            val publica = runCatching { app.llaves.llavePublicaDe(otroId) }.getOrNull()
+                ?: return@withContext null
+            val claro = JSONObject()
+                .put("t", "cercania-media")
+                .put("plano", plano)
+                .put("datos", Cripto.aBase64(datos))
+                .toString()
+            val sellado = runCatching { Cripto.cifrarTexto(claro, publica, privada) }.getOrNull()
+                ?: return@withContext null
+            val id = IdMensaje.nuevo()
+            val resultado = GestorCercania.mensajeria(app).enviarDirectoA(
+                GestorCercania.macsDeAmigo(otroId),
+                otroId,
+                sellado.first,
+                sellado.second,
+                id,
+            )
+            if (resultado.entregados > 0) id else null
+        }
+        if (localId == null)
+        {
+            return false
+        }
+        val nuevo = Mensaje(
+            id = localId,
+            remitenteId = miId,
+            texto = plano,
+            enviadoEn = Instant.now().toString(),
+            estado = "cercania",
+            clienteId = localId,
+        )
+        mensajes = mensajes + nuevo
+        withContext(Dispatchers.IO) { guardarCache(mensajes) }
+        listaEstado.animateScrollToItem(maxOf(0, mensajes.size - 1))
+        return true
+    }
+
     fun enviarSticker(archivo: java.io.File)
     {
         mostrandoStickers = false
+        if (rutaCercania())
+        {
+            avisoCercania("Sin internet: por Bluetooth solo viajan fotos ligeras y notas de voz")
+            return
+        }
         subiendo = true
         progresoSubida = 0f
         alcance.launch {
@@ -534,9 +596,29 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
         subiendo = true
         progresoSubida = 0f
         alcance.launch {
+            val porCercania = rutaCercania()
             for ((indice, par) in lista.withIndex())
             {
                 val (item, cap) = par
+                if (porCercania)
+                {
+                    if (item.esVideo)
+                    {
+                        avisoCercania("Sin internet: los videos no viajan por Bluetooth")
+                    }
+                    else
+                    {
+                        val listo = withContext(Dispatchers.IO) {
+                            item.imagen?.let { envioMedia.prepararImagenCercania(it, cap) }
+                        }
+                        if (!despacharMediaCercania(listo))
+                        {
+                            avisoCercania("No se pudo enviar por cercanía")
+                        }
+                    }
+                    progresoSubida = (indice + 1f) / lista.size
+                    continue
+                }
                 val plano = withContext(Dispatchers.IO) {
                     val progreso: (Double) -> Unit = { avance ->
                         val total = (indice + avance.coerceIn(0.0, 1.0)) / lista.size
@@ -560,6 +642,23 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
         subiendo = true
         progresoSubida = 0f
         alcance.launch {
+            if (rutaCercania())
+            {
+                val listo = withContext(Dispatchers.IO) {
+                    envioMedia.prepararAudioCercania(archivo, dur, ondas)
+                }
+                subiendo = false
+                runCatching { archivo.delete() }
+                if (listo == null)
+                {
+                    avisoCercania("La nota es muy larga para enviarse por Bluetooth")
+                }
+                else if (!despacharMediaCercania(listo))
+                {
+                    avisoCercania("No se pudo enviar por cercanía")
+                }
+                return@launch
+            }
             val plano = withContext(Dispatchers.IO) {
                 envioMedia.prepararAudio(archivo, dur, ondas) { avance ->
                     alcance.launch { progresoSubida = avance.toFloat().coerceIn(0f, 1f) }
@@ -606,6 +705,11 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
 
     fun enviarDocumento(uri: android.net.Uri)
     {
+        if (rutaCercania())
+        {
+            avisoCercania("Sin internet: por Bluetooth solo viajan fotos ligeras y notas de voz")
+            return
+        }
         subiendo = true
         progresoSubida = 0f
         alcance.launch {
