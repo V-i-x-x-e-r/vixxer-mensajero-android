@@ -562,6 +562,67 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
         return true
     }
 
+    suspend fun despacharFotoWifi(imagen: ImagenLista, cap: String?): Boolean
+    {
+        val entregadoId = withContext(Dispatchers.IO) {
+            val par = envioMedia.prepararImagenCompletaCercania(imagen, cap) ?: return@withContext null
+            val (plano, bytes) = par
+            val privada = app.boveda.leer(ClavesSeguras.CLAVE_PRIVADA) ?: return@withContext null
+            val publica = runCatching { app.llaves.llavePublicaDe(otroId) }.getOrNull()
+                ?: return@withContext null
+            val nonce = ByteArray(Cripto.TAMANO_NONCE)
+            java.security.SecureRandom().nextBytes(nonce)
+            val caja = runCatching {
+                Cripto.cifrar(bytes, nonce, Cripto.deBase64(publica), Cripto.deBase64(privada))
+            }.getOrNull() ?: return@withContext null
+            val sesion = dev.vixxer.mensajero.ble.RadioWifi.servir(contexto, caja) ?: return@withContext null
+            val control = JSONObject()
+                .put("t", "cercania-wifi")
+                .put("ssid", sesion.ssid)
+                .put("pass", sesion.pass)
+                .put("puerto", sesion.puerto)
+                .put("nonce", Cripto.aBase64(nonce))
+                .put("plano", plano)
+                .put("peso", caja.size)
+                .toString()
+            val sellado = runCatching { Cripto.cifrarTexto(control, publica, privada) }.getOrNull()
+                ?: run {
+                    sesion.cerrar()
+                    return@withContext null
+                }
+            val id = IdMensaje.nuevo()
+            val resultado = GestorCercania.mensajeria(app).enviarDirectoA(
+                GestorCercania.macsDeAmigo(otroId),
+                otroId,
+                sellado.first,
+                sellado.second,
+                id,
+            )
+            if (resultado.entregados == 0)
+            {
+                sesion.cerrar()
+                return@withContext null
+            }
+            if (sesion.esperarEntrega(90)) Pair(id, plano) else null
+        }
+        if (entregadoId == null)
+        {
+            return false
+        }
+        val nuevo = Mensaje(
+            id = entregadoId.first,
+            remitenteId = miId,
+            texto = entregadoId.second,
+            enviadoEn = Instant.now().toString(),
+            estado = "cercania",
+            clienteId = entregadoId.first,
+        )
+        mensajes = mensajes + nuevo
+        withContext(Dispatchers.IO) { guardarCache(mensajes) }
+        listaEstado.animateScrollToItem(maxOf(0, mensajes.size - 1))
+        return true
+    }
+
     fun enviarSticker(archivo: java.io.File)
     {
         mostrandoStickers = false
@@ -608,12 +669,30 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                     }
                     else
                     {
-                        val listo = withContext(Dispatchers.IO) {
-                            item.imagen?.let { envioMedia.prepararImagenCercania(it, cap) }
-                        }
-                        if (!despacharMediaCercania(listo))
+                        val imagen = item.imagen
+                        var mandado = false
+                        if (
+                            imagen != null &&
+                            dev.vixxer.mensajero.ble.RadioWifi.soportado(contexto) &&
+                            GestorCercania.amigoSoportaWifi(otroId)
+                        )
                         {
-                            avisoCercania("No se pudo enviar por cercanía")
+                            avisoCercania("Enviando foto completa por Wi-Fi directo…")
+                            mandado = despacharFotoWifi(imagen, cap)
+                            if (!mandado)
+                            {
+                                avisoCercania("Wi-Fi directo no disponible: va la miniatura")
+                            }
+                        }
+                        if (!mandado)
+                        {
+                            val listo = withContext(Dispatchers.IO) {
+                                imagen?.let { envioMedia.prepararImagenCercania(it, cap) }
+                            }
+                            if (!despacharMediaCercania(listo))
+                            {
+                                avisoCercania("No se pudo enviar por cercanía")
+                            }
                         }
                     }
                     progresoSubida = (indice + 1f) / lista.size

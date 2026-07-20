@@ -28,6 +28,7 @@ data class PeerCercano(
     val visto: Long,
     val amigoId: String? = null,
     val nombre: String? = null,
+    val caps: Int = 0,
 )
 
 data class ResultadoActivar(val ok: Boolean, val razon: String? = null, val abrirAjustes: Boolean = false)
@@ -93,17 +94,21 @@ object GestorCercania
 
     fun permisos(): Array<String>
     {
-        return if (Build.VERSION.SDK_INT >= 31)
+        return when
         {
-            arrayOf(
+            Build.VERSION.SDK_INT >= 33 -> arrayOf(
                 android.Manifest.permission.BLUETOOTH_SCAN,
                 android.Manifest.permission.BLUETOOTH_CONNECT,
                 android.Manifest.permission.BLUETOOTH_ADVERTISE,
+                android.Manifest.permission.NEARBY_WIFI_DEVICES,
             )
-        }
-        else
-        {
-            arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION)
+            Build.VERSION.SDK_INT >= 31 -> arrayOf(
+                android.Manifest.permission.BLUETOOTH_SCAN,
+                android.Manifest.permission.BLUETOOTH_CONNECT,
+                android.Manifest.permission.BLUETOOTH_ADVERTISE,
+                android.Manifest.permission.ACCESS_FINE_LOCATION,
+            )
+            else -> arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION)
         }
     }
 
@@ -150,6 +155,7 @@ object GestorCercania
                     System.currentTimeMillis(),
                     amigoId,
                     amigoId?.let { nombresAmigos[it] },
+                    if (cercano.caps != 0) cercano.caps else previo?.caps ?: 0,
                 )
                 refrescarPeers()
                 if (amigoId != null)
@@ -310,6 +316,12 @@ object GestorCercania
     }
 
     fun amigoVisible(amigoId: String): Boolean = macsDeAmigo(amigoId).isNotEmpty()
+
+    fun amigoSoportaWifi(amigoId: String): Boolean
+    {
+        val limite = System.currentTimeMillis() - 120_000L
+        return _peers.any { it.amigoId == amigoId && it.visto >= limite && (it.caps and 2) != 0 }
+    }
 
     @Synchronized
     private fun resolverAmigo(token: String): String?

@@ -193,6 +193,28 @@ class EnvioMedia(private val app: AplicacionVixxer, private val contexto: Contex
         return Pair(obj.toString(), mini.bytes)
     }
 
+    fun prepararImagenCompletaCercania(imagen: ImagenLista, cap: String?): Pair<String, ByteArray>?
+    {
+        if (imagen.bytes.isEmpty() || imagen.bytes.size > LIMITE_IMAGEN)
+        {
+            return null
+        }
+        val path = pathCercania("jpg")
+        CacheMedia.guardar(contexto, path, imagen.bytes.size.toLong()) { imagen.bytes.inputStream() }
+        val obj = JSONObject()
+            .put("t", "img")
+            .put("path", path)
+            .put("mime", "image/jpeg")
+            .put("w", imagen.ancho)
+            .put("h", imagen.alto)
+            .put("peso", imagen.bytes.size)
+        if (!cap.isNullOrBlank())
+        {
+            obj.put("cap", cap.trim())
+        }
+        return Pair(obj.toString(), imagen.bytes)
+    }
+
     fun prepararAudioCercania(archivo: File, dur: Int, ondas: List<Float>): Pair<String, ByteArray>?
     {
         val bytes = runCatching { archivo.readBytes() }.getOrNull() ?: return null

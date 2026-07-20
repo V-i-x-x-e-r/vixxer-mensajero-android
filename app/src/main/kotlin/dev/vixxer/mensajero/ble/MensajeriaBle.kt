@@ -298,20 +298,30 @@ class MensajeriaBle(
         {
             null
         }
-        val idMensaje = sobre.clienteId ?: sobre.id
+        if (claro != null && esControlWifi(claro))
+        {
+            recibirFotoWifi(sobre, claro, publica, privada)
+            return
+        }
         val entregado = claro?.let { desenvolver(it) }
-        val claveChat = entregado?.grupoId?.let { "g-$it" } ?: sobre.remitenteId
+        publicarMensaje(sobre, entregado?.texto, entregado?.grupoId)
+    }
+
+    private fun publicarMensaje(sobre: MeshCercania.Sobre, texto: String?, grupoId: String?)
+    {
+        val idMensaje = sobre.clienteId ?: sobre.id
+        val claveChat = grupoId?.let { "g-$it" } ?: sobre.remitenteId
         val mensaje = JSONObject()
             .put("id", idMensaje)
             .put("cliente_id", idMensaje)
             .put("remitente_id", sobre.remitenteId)
             .put("contenido_cifrado", sobre.contenidoCifrado)
             .put("nonce", sobre.nonce)
-            .put("texto", entregado?.texto ?: "No se pudo descifrar (BLE)")
+            .put("texto", texto ?: "No se pudo descifrar (BLE)")
             .put("enviado_en", Instant.now().toString())
             .put("estado", "cercania")
             .put("porBle", true)
-        entregado?.grupoId?.let {
+        grupoId?.let {
             mensaje.put("grupo_id", it)
             mensaje.put("autor", GestorCercania.nombreDe(sobre.remitenteId) ?: JSONObject.NULL)
         }
@@ -324,6 +334,54 @@ class MensajeriaBle(
         {
             notificarEntrante(sobre.remitenteId)
         }
+    }
+
+    private fun esControlWifi(claro: String): Boolean =
+        claro.startsWith("{") &&
+            runCatching { JSONObject(claro).optString("t") }.getOrNull() == "cercania-wifi"
+
+    private fun recibirFotoWifi(
+        sobre: MeshCercania.Sobre,
+        claro: String,
+        publicaRemitente: String?,
+        privadaPropia: String?,
+    )
+    {
+        val hilo = Thread {
+            val control = runCatching { JSONObject(claro) }.getOrNull() ?: return@Thread
+            val ssid = control.optString("ssid")
+            val pass = control.optString("pass")
+            val puerto = control.optInt("puerto")
+            val nonce = control.optString("nonce")
+            val plano = control.optString("plano")
+            if (ssid.isBlank() || pass.isBlank() || puerto <= 0 || nonce.isBlank() || plano.isBlank())
+            {
+                return@Thread
+            }
+            if (publicaRemitente == null || privadaPropia == null)
+            {
+                return@Thread
+            }
+            val caja = RadioWifi.recibir(app, ssid, pass, puerto, 90) ?: return@Thread
+            val datos = runCatching {
+                Cripto.descifrar(
+                    caja,
+                    Cripto.deBase64(nonce),
+                    Cripto.deBase64(publicaRemitente),
+                    Cripto.deBase64(privadaPropia),
+                )
+            }.getOrNull() ?: return@Thread
+            val media = runCatching { JSONObject(plano) }.getOrNull() ?: return@Thread
+            val path = media.optString("path")
+            if (!path.startsWith("ble/"))
+            {
+                return@Thread
+            }
+            dev.vixxer.mensajero.ui.CacheMedia.guardar(app, path, datos.size.toLong()) { datos.inputStream() }
+            publicarMensaje(sobre, plano, null)
+        }
+        hilo.isDaemon = true
+        hilo.start()
     }
 
     private fun notificarEntrante(remitenteId: String)
