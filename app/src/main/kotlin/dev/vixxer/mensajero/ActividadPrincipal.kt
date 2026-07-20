@@ -89,6 +89,7 @@ class ActividadPrincipal : FragmentActivity()
         enableEdgeToEdge()
         val app = application as AplicacionVixxer
         GestorLlamadas.preparar(app)
+        dev.vixxer.mensajero.ble.GestorCercania.arrancarSiActivo(app, this)
         if (Seguridad.capturasBloqueadas(app.estado))
         {
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
