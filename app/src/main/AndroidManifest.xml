@@ -27,6 +27,7 @@
         android:fullBackupContent="false"
         android:label="Vixxer Mensajero"
         android:icon="@mipmap/ic_lanzador"
+        android:networkSecurityConfig="@xml/config_red"
         android:theme="@android:style/Theme.Material.NoActionBar">
         <provider
             android:name="androidx.core.content.FileProvider"

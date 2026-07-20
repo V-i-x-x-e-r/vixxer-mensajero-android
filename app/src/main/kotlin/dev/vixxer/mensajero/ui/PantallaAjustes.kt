@@ -745,6 +745,7 @@ private fun ImportarLlave(
                     .border(1.dp, if (archivoCargado) colores.botonFondo else colores.borde, RoundedCornerShape(12.dp))
                     .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alElegirArchivo() }
                     .padding(horizontal = 14.dp, vertical = 14.dp),
+                horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             )
             {
@@ -752,6 +753,7 @@ private fun ImportarLlave(
                     if (archivoCargado) "Respaldo cargado ✓  (toca para cambiar)" else "Toca para elegir el archivo .json del respaldo",
                     fontSize = 14.sp,
                     color = if (archivoCargado) colores.texto else colores.muted,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 )
             }
             Campo(valor = codigo, alCambiar = alCambiarCodigo, placeholder = "Código de recuperación de esa llave", enMayusculas = true)
