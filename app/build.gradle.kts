@@ -12,10 +12,10 @@ android {
         applicationId = "dev.vixxer.mensajero.nativo"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "0.2.0-f2"
+        versionCode = 3
+        versionName = "0.3.0"
         ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
         }
         val turnUsuario = (project.findProperty("VIXXER_TURN_USUARIO") as String?)
             ?: System.getenv("VIXXER_TURN_USUARIO")
@@ -25,6 +25,15 @@ android {
             ?: "openrelayproject"
         buildConfigField("String", "TURN_USUARIO", "\"$turnUsuario\"")
         buildConfigField("String", "TURN_CREDENCIAL", "\"$turnCredencial\"")
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.getByName("debug")
+        }
     }
 
     compileOptions {

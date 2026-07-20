@@ -1,0 +1,10 @@
+-keep class com.goterl.** { *; }
+-keep class com.sun.jna.** { *; }
+-keepclassmembers class * extends com.sun.jna.Structure { *; }
+-keep class org.webrtc.** { *; }
+-keep class io.socket.** { *; }
+-keep class io.github.crow_misia.** { *; }
+-dontwarn com.goterl.lazysodium.SodiumJava
+-dontwarn java.awt.**
+-dontwarn org.slf4j.**
+-dontwarn javax.naming.**
