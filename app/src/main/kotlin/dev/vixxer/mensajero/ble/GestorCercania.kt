@@ -172,9 +172,15 @@ object GestorCercania
         guardarModo(app, valor)
         if (valor)
         {
-            return iniciar(app, contexto)
+            val resultado = iniciar(app, contexto)
+            if (resultado.ok)
+            {
+                runCatching { ServicioCercania.arrancar(contexto) }
+            }
+            return resultado
         }
         detener(app)
+        runCatching { ServicioCercania.parar(contexto) }
         return ResultadoActivar(false)
     }
 
@@ -182,7 +188,7 @@ object GestorCercania
     {
         if (modoGuardado(app) && permisosConcedidos(contexto))
         {
-            iniciar(app, contexto)
+            runCatching { ServicioCercania.arrancar(contexto) }
         }
     }
 
