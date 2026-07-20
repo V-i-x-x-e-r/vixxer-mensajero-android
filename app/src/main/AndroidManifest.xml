@@ -20,7 +20,7 @@
         android:name=".AplicacionVixxer"
         android:allowBackup="false"
         android:fullBackupContent="false"
-        android:label="Vixxer Nativo"
+        android:label="Vixxer Mensajero"
         android:icon="@mipmap/ic_lanzador"
         android:theme="@android:style/Theme.Material.NoActionBar">
         <provider
