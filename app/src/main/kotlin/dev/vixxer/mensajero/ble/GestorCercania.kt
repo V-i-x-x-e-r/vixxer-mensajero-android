@@ -250,12 +250,21 @@ object GestorCercania
             runCatching {
                 secretos[id] = Cripto.secretoCompartido(Cripto.deBase64(publica), Cripto.deBase64(privada))
                 nombres[id] = amigo.optString("usuario")
+                app.llaves.sembrar(id, publica)
             }
         }
         secretosAmigos = secretos
         nombresAmigos = nombres
         limpiarTokens()
     }
+
+    fun macsDeAmigo(amigoId: String): List<String>
+    {
+        val limite = System.currentTimeMillis() - 120_000L
+        return _peers.filter { it.amigoId == amigoId && it.visto >= limite }.map { it.id }
+    }
+
+    fun amigoVisible(amigoId: String): Boolean = macsDeAmigo(amigoId).isNotEmpty()
 
     @Synchronized
     private fun resolverAmigo(token: String): String?

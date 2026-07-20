@@ -95,20 +95,64 @@ class MensajeriaBle(
         return entregados
     }
 
-    fun enviarPorCercania(destinatarioId: String, contenidoCifrado: String, nonce: String): ResultadoEnvioCercania
+    fun enviarPorCercania(
+        destinatarioId: String,
+        contenidoCifrado: String,
+        nonce: String,
+        clienteId: String? = null,
+    ): ResultadoEnvioCercania
     {
-        val miId = app.boveda.leer(ClavesSeguras.MI_ID) ?: ""
-        val base = MeshCercania.crearSobre(miId, destinatarioId, contenidoCifrado, nonce)
-        val canonico = Firma.mensajeCanonico(miId, destinatarioId, contenidoCifrado, nonce, base.id)
-        val firma = app.firma.firmar(canonico)
-        val sobre = base.copy(firma = firma)
-        vistos.marcar(sobre.id)
+        val sobre = sellarSobre(destinatarioId, contenidoCifrado, nonce, ttl = 5, clienteId = clienteId)
         val entregados = difundir(sobre, null)
         if (entregados > 0)
         {
             enviados += 1
         }
         return ResultadoEnvioCercania(sobre.id, entregados)
+    }
+
+    fun enviarDirectoA(
+        macs: List<String>,
+        destinatarioId: String,
+        contenidoCifrado: String,
+        nonce: String,
+        clienteId: String? = null,
+    ): ResultadoEnvioCercania
+    {
+        val sobre = sellarSobre(destinatarioId, contenidoCifrado, nonce, ttl = 1, clienteId = clienteId)
+        val texto = MeshCercania.aJson(sobre)
+        var entregados = 0
+        for (mac in macs)
+        {
+            if (radio.conectarYEnviar(mac, texto))
+            {
+                entregados += 1
+                ultimaRuta = mac
+                break
+            }
+        }
+        if (entregados > 0)
+        {
+            enviados += 1
+        }
+        return ResultadoEnvioCercania(sobre.id, entregados)
+    }
+
+    private fun sellarSobre(
+        destinatarioId: String,
+        contenidoCifrado: String,
+        nonce: String,
+        ttl: Int,
+        clienteId: String?,
+    ): MeshCercania.Sobre
+    {
+        val miId = app.boveda.leer(ClavesSeguras.MI_ID) ?: ""
+        val base = MeshCercania.crearSobre(miId, destinatarioId, contenidoCifrado, nonce, ttl = ttl, clienteId = clienteId)
+        val canonico = Firma.mensajeCanonico(miId, destinatarioId, contenidoCifrado, nonce, base.id)
+        val firma = app.firma.firmar(canonico)
+        val sobre = base.copy(firma = firma)
+        vistos.marcar(sobre.id)
+        return sobre
     }
 
     fun iniciarPuente()
@@ -251,20 +295,49 @@ class MensajeriaBle(
         {
             null
         }
+        val idMensaje = sobre.clienteId ?: sobre.id
+        val texto = claro?.let { desenvolverMedia(it) }
         val mensaje = JSONObject()
-            .put("id", sobre.id)
-            .put("cliente_id", sobre.id)
+            .put("id", idMensaje)
+            .put("cliente_id", idMensaje)
             .put("remitente_id", sobre.remitenteId)
             .put("contenido_cifrado", sobre.contenidoCifrado)
             .put("nonce", sobre.nonce)
-            .put("texto", claro ?: "No se pudo descifrar (BLE)")
+            .put("texto", texto ?: "No se pudo descifrar (BLE)")
             .put("enviado_en", Instant.now().toString())
+            .put("estado", "cercania")
             .put("porBle", true)
         guardarEnCache(sobre.remitenteId, mensaje)
         for (cb in oyentes)
         {
             runCatching { cb(mensaje) }
         }
+    }
+
+    private fun desenvolverMedia(claro: String): String
+    {
+        if (!claro.startsWith("{"))
+        {
+            return claro
+        }
+        val obj = runCatching { JSONObject(claro) }.getOrNull() ?: return claro
+        if (obj.optString("t") != "cercania-media")
+        {
+            return claro
+        }
+        val plano = obj.optString("plano")
+        val datos = runCatching { Cripto.deBase64(obj.optString("datos")) }.getOrNull()
+        if (plano.isBlank() || datos == null || datos.isEmpty())
+        {
+            return claro
+        }
+        val media = runCatching { JSONObject(plano) }.getOrNull() ?: return claro
+        val path = media.optString("path")
+        if (path.startsWith("ble/"))
+        {
+            dev.vixxer.mensajero.ui.CacheMedia.guardar(app, path, datos.size.toLong()) { datos.inputStream() }
+        }
+        return plano
     }
 
     private fun guardarEnCache(remitenteId: String, mensaje: JSONObject)

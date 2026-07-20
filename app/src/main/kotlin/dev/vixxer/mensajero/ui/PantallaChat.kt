@@ -66,6 +66,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import java.io.File
 import dev.vixxer.mensajero.AplicacionVixxer
 import dev.vixxer.mensajero.DrenadorOutbox
+import dev.vixxer.mensajero.ble.GestorCercania
 import dev.vixxer.mensajero.llamadas.GestorLlamadas
 import dev.vixxer.mensajero.nucleo.ClavesSeguras
 import dev.vixxer.mensajero.nucleo.ConexionSocket
@@ -961,7 +962,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                         }
                         else if (mensaje.id == resultado.clienteId)
                         {
-                            mensaje.copy(estado = "fallido")
+                            mensaje.copy(estado = if (resultado.porCercania) "cercania" else "fallido")
                         }
                         else
                         {
@@ -977,6 +978,22 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
             }
         }
         val alConectar = Emitter.Listener { vaciarOutbox() }
+        val dejarDeEscucharBle = GestorCercania.mensajeria(app).alEntrante { obj ->
+            if (obj.optString("remitente_id") == otroId)
+            {
+                alcance.launch {
+                    val nuevo = mensajeDeJson(obj)
+                    val repetido = mensajes.any {
+                        it.id == nuevo.id || (nuevo.clienteId != null && it.clienteId == nuevo.clienteId)
+                    }
+                    if (!repetido)
+                    {
+                        mensajes = mensajes + nuevo
+                        listaEstado.animateScrollToItem(maxOf(0, mensajes.size - 1))
+                    }
+                }
+            }
+        }
         socket?.on("mensaje:recibido", alRecibir)
         socket?.on("usuario:escribiendo", alEscribir)
         socket?.on("mensaje:entregado", alEstado)
@@ -994,6 +1011,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
             socket?.off("mensaje:borrado", alBorrado)
             socket?.off("mensaje:reaccion", alReaccion)
             socket?.off(Socket.EVENT_CONNECT, alConectar)
+            dejarDeEscucharBle()
             dejarDeObservarOutbox()
         }
     }
@@ -1276,7 +1294,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                                 }
                             },
                             alMantener = {
-                                if (!seleccionando && !m.borrado && m.estado == null)
+                                if (!seleccionando && !m.borrado && (m.estado == null || m.estado == "cercania"))
                                 {
                                     vibrador.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                                     sel = AccionesDe(m, limites)

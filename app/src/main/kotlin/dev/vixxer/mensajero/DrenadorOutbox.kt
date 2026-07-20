@@ -1,5 +1,6 @@
 package dev.vixxer.mensajero
 
+import dev.vixxer.mensajero.ble.GestorCercania
 import dev.vixxer.mensajero.nucleo.ClavesSeguras
 import dev.vixxer.mensajero.nucleo.ConexionSocket
 import dev.vixxer.mensajero.nucleo.Cripto
@@ -28,6 +29,7 @@ object DrenadorOutbox
         val clienteId: String,
         val exitoso: Boolean,
         val idServidor: String? = null,
+        val porCercania: Boolean = false,
     )
 
     private val enVuelo = EnviosEnVuelo()
@@ -82,10 +84,10 @@ object DrenadorOutbox
             {
                 return
             }
-            val idServidor = when (pendiente.tipo)
+            val (idServidor, porCercania) = when (pendiente.tipo)
             {
                 Outbox.Tipo.DIRECTO -> enviarDirecto(app, cuentaId, pendiente)
-                Outbox.Tipo.GRUPO -> enviarGrupo(app, cuentaId, pendiente)
+                Outbox.Tipo.GRUPO -> Pair(enviarGrupo(app, cuentaId, pendiente), false)
             }
             val persistido = withContext(Dispatchers.IO) {
                 app.persistirResultadoOutbox(cuentaId, pendiente, idServidor != null)
@@ -94,7 +96,7 @@ object DrenadorOutbox
             {
                 return
             }
-            avisar(resultado(cuentaId, pendiente, idServidor))
+            avisar(resultado(cuentaId, pendiente, idServidor, porCercania))
         }
         catch (cancelacion: CancellationException)
         {
@@ -114,19 +116,46 @@ object DrenadorOutbox
         app: AplicacionVixxer,
         cuentaId: String,
         pendiente: Outbox.Pendiente,
-    ): String?
+    ): Pair<String?, Boolean>
     {
         val socket = ConexionSocket.obtener()
         if (socket == null || !socket.connected())
         {
-            return null
+            return Pair(null, enviarDirectoPorCercania(app, pendiente))
         }
-        val cuerpo = prepararCuerpoDirecto(app, pendiente) ?: return null
+        val cuerpo = prepararCuerpoDirecto(app, pendiente) ?: return Pair(null, false)
         if (!esCuentaActual(app, cuentaId) || !socket.connected())
         {
-            return null
+            return Pair(null, false)
         }
-        return esperarAckDirecto(socket, cuerpo)
+        return Pair(esperarAckDirecto(socket, cuerpo), false)
+    }
+
+    private suspend fun enviarDirectoPorCercania(
+        app: AplicacionVixxer,
+        pendiente: Outbox.Pendiente,
+    ): Boolean = withContext(Dispatchers.IO) {
+        if (!GestorCercania.corriendo)
+        {
+            return@withContext false
+        }
+        val plano = pendiente.datos.optString("texto")
+        if (plano.isEmpty())
+        {
+            return@withContext false
+        }
+        val privada = app.boveda.leer(ClavesSeguras.CLAVE_PRIVADA) ?: return@withContext false
+        val publica = runCatching { app.llaves.llavePublicaDe(pendiente.destinoId) }.getOrNull()
+            ?: return@withContext false
+        val (cifrado, nonce) = runCatching { Cripto.cifrarTexto(plano, publica, privada) }.getOrNull()
+            ?: return@withContext false
+        val resultado = GestorCercania.mensajeria(app).enviarPorCercania(
+            pendiente.destinoId,
+            cifrado,
+            nonce,
+            pendiente.clienteId,
+        )
+        resultado.entregados > 0
     }
 
     private suspend fun prepararCuerpoDirecto(
@@ -265,6 +294,7 @@ object DrenadorOutbox
         cuentaId: String,
         pendiente: Outbox.Pendiente,
         idServidor: String?,
+        porCercania: Boolean = false,
     ) = Resultado(
         cuentaId = cuentaId,
         tipo = pendiente.tipo,
@@ -272,6 +302,7 @@ object DrenadorOutbox
         clienteId = pendiente.clienteId,
         exitoso = idServidor != null,
         idServidor = idServidor,
+        porCercania = porCercania,
     )
 
     private fun avisar(resultado: Resultado)
