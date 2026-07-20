@@ -351,7 +351,7 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
         }
         val dejarDeEscucharBle = dev.vixxer.mensajero.ble.GestorCercania.mensajeria(app).alEntrante { obj ->
             val de = obj.optString("remitente_id")
-            if (de.isNotEmpty())
+            if (de.isNotEmpty() && !obj.has("grupo_id"))
             {
                 alcance.launch {
                     val previa = convs[de]

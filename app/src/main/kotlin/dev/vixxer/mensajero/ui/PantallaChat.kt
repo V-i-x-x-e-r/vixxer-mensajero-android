@@ -1085,7 +1085,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
         val mensajeriaBle = GestorCercania.mensajeria(app)
         mensajeriaBle.chatVisible = otroId
         val dejarDeEscucharBle = mensajeriaBle.alEntrante { obj ->
-            if (obj.optString("remitente_id") == otroId)
+            if (obj.optString("remitente_id") == otroId && !obj.has("grupo_id"))
             {
                 alcance.launch {
                     val nuevo = mensajeDeJson(obj)
