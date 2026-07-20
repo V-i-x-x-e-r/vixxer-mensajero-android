@@ -54,16 +54,16 @@ val OSCURO = Paleta(
 )
 
 val COLORIDO = Paleta(
-    fondo = Color(0xFFFAFAF7),
-    surface = Color(0xFFF0F0EA),
-    texto = Color(0xFF1C1B18),
-    muted = Color(0xFF78766D),
-    borde = Color(0xFFE2E1D8),
+    fondo = Color(0xFFFFFFFF),
+    surface = Color(0xFFF5F5F7),
+    texto = Color(0xFF1D1D1F),
+    muted = Color(0xFF86868B),
+    borde = Color(0xFFE8E8ED),
     bordeFoco = Color(0xFF14B8A6),
     botonFondo = Color(0xFF14B8A6),
     botonTexto = Color(0xFFFFFFFF),
     enlace = Color(0xFF14B8A6),
-    placeholder = Color(0xFFA3A198),
+    placeholder = Color(0xFFA1A1A6),
     error = Color(0xFFE0356B),
 )
 

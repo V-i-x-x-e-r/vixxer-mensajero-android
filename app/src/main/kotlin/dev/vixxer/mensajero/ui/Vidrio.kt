@@ -141,7 +141,7 @@ private fun Modifier.brilloTope(forma: Shape): Modifier
 fun colorPestanaActiva(): Color
 {
     val tema = LocalTema.current
-    return if (tema.oscuro) Vidrio.activo else tema.colores.texto
+    return if (tema.oscuro) Vidrio.activo else tema.colores.botonTexto
 }
 
 @Composable
@@ -155,5 +155,5 @@ fun colorPestanaInactiva(): Color
 fun colorBrilloPestana(): Color
 {
     val tema = LocalTema.current
-    return if (tema.oscuro) Vidrio.brillo else tema.colores.texto.copy(alpha = 0.17f)
+    return if (tema.oscuro) Vidrio.brillo else tema.colores.botonFondo
 }

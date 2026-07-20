@@ -70,6 +70,7 @@ import android.os.Build
 import android.provider.MediaStore
 import android.provider.OpenableColumns
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.padding
@@ -1195,9 +1196,11 @@ fun AdjuntoAudio(app: AplicacionVixxer, media: MediaMensaje, mio: Boolean, color
         }
         Box(
             modifier = Modifier
+                .width(44.dp)
                 .border(1.dp, colorTexto.copy(alpha = 0.55f), RoundedCornerShape(10.dp))
                 .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { cambiarVelocidad() }
-                .padding(horizontal = 8.dp, vertical = 3.dp),
+                .padding(vertical = 3.dp),
+            contentAlignment = Alignment.Center,
         )
         {
             Text(

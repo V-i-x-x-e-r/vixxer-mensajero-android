@@ -301,6 +301,7 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
             return@LaunchedEffect
         }
         val socket = withContext(Dispatchers.IO) { ConexionSocket.conectar(Config.SOCKET_URL, token) }
+        dev.vixxer.mensajero.NotificadorMensajes.enganchar(app, socket)
         socketActivo = socket
         estadoConexion = if (socket.connected()) "conectado" else "conectando…"
         socket.emit("entregar:pendientes")

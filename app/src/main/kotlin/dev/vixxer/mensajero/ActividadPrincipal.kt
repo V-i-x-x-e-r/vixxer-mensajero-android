@@ -164,6 +164,7 @@ class ActividadPrincipal : FragmentActivity()
                 val socket = withContext(Dispatchers.IO) {
                     ConexionSocket.conectar(Config.SOCKET_URL, token)
                 }
+                NotificadorMensajes.enganchar(app, socket)
                 socketMensajeria = socket
                 cuentaMensajeria = cuentaId
                 DrenadorOutbox.drenar(app, cuentaId)
