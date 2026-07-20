@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "634735405241",
+    "project_id": "vixxer-mensajero",
+    "storage_bucket": "vixxer-mensajero.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:634735405241:android:5790e945fd1aeaa500d368",
+        "android_client_info": {
+          "package_name": "dev.vixxer.mensajero.nativo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAWUJ3L3xrNuFRIfMy5vZrP_2LBmKdkDnI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

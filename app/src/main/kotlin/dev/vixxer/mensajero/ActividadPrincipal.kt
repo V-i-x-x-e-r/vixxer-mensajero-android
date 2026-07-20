@@ -90,6 +90,13 @@ class ActividadPrincipal : FragmentActivity()
         val app = application as AplicacionVixxer
         GestorLlamadas.preparar(app)
         dev.vixxer.mensajero.ble.GestorCercania.arrancarSiActivo(app, this)
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) !=
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+        )
+        {
+            requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 71)
+        }
         if (Seguridad.capturasBloqueadas(app.estado))
         {
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
@@ -165,6 +172,7 @@ class ActividadPrincipal : FragmentActivity()
                     ConexionSocket.conectar(Config.SOCKET_URL, token)
                 }
                 NotificadorMensajes.enganchar(app, socket)
+                ServicioFcm.registrar(app)
                 socketMensajeria = socket
                 cuentaMensajeria = cuentaId
                 DrenadorOutbox.drenar(app, cuentaId)
