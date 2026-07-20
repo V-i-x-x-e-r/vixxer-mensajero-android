@@ -274,6 +274,18 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                         miembro.textoO("avatar_url").ifEmpty { null },
                     ))
                 }
+                val pubsCache = JSONObject()
+                for ((id, publica) in publicas)
+                {
+                    if (publica.isNotBlank())
+                    {
+                        pubsCache.put(id, publica)
+                    }
+                }
+                if (pubsCache.length() > 0)
+                {
+                    app.estado.escribir("vixxer_grupo_pubs_$grupoId", pubsCache.toString())
+                }
                 DatosGrupo(
                     nombre = grupo.optString("nombre").ifEmpty { nombreInicial },
                     miembros = miembrosNuevos,
@@ -975,7 +987,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                         }
                         else if (mensaje.id == resultado.clienteId)
                         {
-                            mensaje.copy(estado = "fallido")
+                            mensaje.copy(estado = if (resultado.porCercania) "cercania" else "fallido")
                         }
                         else
                         {
@@ -986,6 +998,33 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                     if (resultado.exitoso)
                     {
                         withContext(Dispatchers.IO) { guardarCache(actualizados) }
+                    }
+                }
+            }
+        }
+        val mensajeriaBle = dev.vixxer.mensajero.ble.GestorCercania.mensajeria(app)
+        mensajeriaBle.chatVisible = claveCache
+        val dejarDeEscucharBle = mensajeriaBle.alEntrante { obj ->
+            if (obj.optString("grupo_id") == grupoId)
+            {
+                alcance.launch {
+                    val remitente = obj.optString("remitente_id")
+                    val nuevo = MensajeGrupo(
+                        id = obj.optString("id"),
+                        remitenteId = remitente,
+                        autor = nombres[remitente] ?: obj.optString("autor").ifEmpty { null },
+                        texto = obj.optString("texto"),
+                        enviadoEn = obj.optString("enviado_en"),
+                        estado = "cercania",
+                        clienteId = obj.optString("cliente_id").ifEmpty { null },
+                    )
+                    val repetido = mensajes.any {
+                        it.id == nuevo.id || (nuevo.clienteId != null && it.clienteId == nuevo.clienteId)
+                    }
+                    if (!repetido)
+                    {
+                        mensajes = mensajes + nuevo
+                        listaEstado.animateScrollToItem(maxOf(0, mensajes.size - 1))
                     }
                 }
             }
@@ -1007,6 +1046,11 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
             socket?.off("grupo:leido", alLeido)
             socket?.off("grupo:actualizado", alActualizado)
             socket?.off(Socket.EVENT_CONNECT, alConectar)
+            if (mensajeriaBle.chatVisible == claveCache)
+            {
+                mensajeriaBle.chatVisible = null
+            }
+            dejarDeEscucharBle()
             dejarDeObservarOutbox()
         }
     }
@@ -1090,7 +1134,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                         },
                         alReintentar = { reintentar(m) },
                         alMantener = {
-                            if (!m.borrado && m.estado == null)
+                            if (!m.borrado && (m.estado == null || m.estado == "cercania"))
                             {
                                 vibrador.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                                 sel = AccionesDe(m, limites)

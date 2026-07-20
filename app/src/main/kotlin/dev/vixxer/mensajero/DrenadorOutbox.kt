@@ -87,7 +87,7 @@ object DrenadorOutbox
             val (idServidor, porCercania) = when (pendiente.tipo)
             {
                 Outbox.Tipo.DIRECTO -> enviarDirecto(app, cuentaId, pendiente)
-                Outbox.Tipo.GRUPO -> Pair(enviarGrupo(app, cuentaId, pendiente), false)
+                Outbox.Tipo.GRUPO -> enviarGrupo(app, cuentaId, pendiente)
             }
             val persistido = withContext(Dispatchers.IO) {
                 app.persistirResultadoOutbox(cuentaId, pendiente, idServidor != null)
@@ -186,6 +186,90 @@ object DrenadorOutbox
         app: AplicacionVixxer,
         cuentaId: String,
         pendiente: Outbox.Pendiente,
+    ): Pair<String?, Boolean>
+    {
+        val socket = ConexionSocket.obtener()
+        if (socket == null || !socket.connected())
+        {
+            return Pair(null, enviarGrupoPorCercania(app, pendiente))
+        }
+        return Pair(enviarGrupoServidor(app, cuentaId, pendiente), false)
+    }
+
+    private suspend fun enviarGrupoPorCercania(
+        app: AplicacionVixxer,
+        pendiente: Outbox.Pendiente,
+    ): Boolean = withContext(Dispatchers.IO) {
+        if (!GestorCercania.corriendo)
+        {
+            return@withContext false
+        }
+        val plano = pendiente.datos.optString("texto")
+        if (plano.isEmpty())
+        {
+            return@withContext false
+        }
+        val privada = app.boveda.leer(ClavesSeguras.CLAVE_PRIVADA) ?: return@withContext false
+        val miId = app.boveda.leer(ClavesSeguras.MI_ID) ?: return@withContext false
+        val pubs = runCatching {
+            JSONObject(app.estado.leer("vixxer_grupo_pubs_${pendiente.destinoId}") ?: "")
+        }.getOrNull() ?: return@withContext false
+        val envoltura = JSONObject()
+            .put("t", "cercania-grupo")
+            .put("grupoId", pendiente.destinoId)
+            .put("plano", plano)
+            .toString()
+        var entregadoAlguno = false
+        for (id in pubs.keys())
+        {
+            if (id == miId)
+            {
+                continue
+            }
+            val publica = pubs.optString(id)
+            if (publica.isBlank())
+            {
+                continue
+            }
+            val sellado = runCatching { Cripto.cifrarTexto(envoltura, publica, privada) }.getOrNull()
+                ?: continue
+            val resultado = GestorCercania.mensajeria(app).enviarPorCercania(
+                id,
+                sellado.first,
+                sellado.second,
+                pendiente.clienteId,
+            )
+            if (resultado.entregados > 0)
+            {
+                entregadoAlguno = true
+            }
+        }
+        entregadoAlguno
+    }
+
+    private fun guardarPubsGrupo(app: AplicacionVixxer, grupoId: String, miembros: JSONArray)
+    {
+        val pubs = JSONObject()
+        for (i in 0 until miembros.length())
+        {
+            val miembro = miembros.optJSONObject(i) ?: continue
+            val id = miembro.optString("id")
+            val publica = miembro.optString("llave_publica")
+            if (id.isNotBlank() && publica.isNotBlank())
+            {
+                pubs.put(id, publica)
+            }
+        }
+        if (pubs.length() > 0)
+        {
+            app.estado.escribir("vixxer_grupo_pubs_$grupoId", pubs.toString())
+        }
+    }
+
+    private suspend fun enviarGrupoServidor(
+        app: AplicacionVixxer,
+        cuentaId: String,
+        pendiente: Outbox.Pendiente,
     ): String? =
         withContext(Dispatchers.IO) {
             for (intento in 0..1)
@@ -203,6 +287,7 @@ object DrenadorOutbox
                         return@withContext null
                     }
                     val miembros = grupo.optJSONArray("miembros") ?: return@withContext null
+                    guardarPubsGrupo(app, pendiente.destinoId, miembros)
                     val copias = cifrarParaMiembros(pendiente.datos.getString("texto"), miembros, privada)
                         ?: return@withContext null
                     if (copias.length() == 0 || copias.length() != miembros.length())

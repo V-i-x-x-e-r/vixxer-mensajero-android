@@ -299,23 +299,28 @@ class MensajeriaBle(
             null
         }
         val idMensaje = sobre.clienteId ?: sobre.id
-        val texto = claro?.let { desenvolverMedia(it) }
+        val entregado = claro?.let { desenvolver(it) }
+        val claveChat = entregado?.grupoId?.let { "g-$it" } ?: sobre.remitenteId
         val mensaje = JSONObject()
             .put("id", idMensaje)
             .put("cliente_id", idMensaje)
             .put("remitente_id", sobre.remitenteId)
             .put("contenido_cifrado", sobre.contenidoCifrado)
             .put("nonce", sobre.nonce)
-            .put("texto", texto ?: "No se pudo descifrar (BLE)")
+            .put("texto", entregado?.texto ?: "No se pudo descifrar (BLE)")
             .put("enviado_en", Instant.now().toString())
             .put("estado", "cercania")
             .put("porBle", true)
-        guardarEnCache(sobre.remitenteId, mensaje)
+        entregado?.grupoId?.let {
+            mensaje.put("grupo_id", it)
+            mensaje.put("autor", GestorCercania.nombreDe(sobre.remitenteId) ?: JSONObject.NULL)
+        }
+        guardarEnCache(claveChat, mensaje)
         for (cb in oyentes)
         {
             runCatching { cb(mensaje) }
         }
-        if (chatVisible != sobre.remitenteId)
+        if (chatVisible != claveChat)
         {
             notificarEntrante(sobre.remitenteId)
         }
@@ -355,24 +360,44 @@ class MensajeriaBle(
         }
     }
 
-    private fun desenvolverMedia(claro: String): String
+    private data class Desenvuelto(val texto: String, val grupoId: String? = null)
+
+    private fun desenvolver(claro: String): Desenvuelto
     {
         if (!claro.startsWith("{"))
         {
-            return claro
+            return Desenvuelto(claro)
         }
-        val obj = runCatching { JSONObject(claro) }.getOrNull() ?: return claro
-        if (obj.optString("t") != "cercania-media")
+        val obj = runCatching { JSONObject(claro) }.getOrNull() ?: return Desenvuelto(claro)
+        return when (obj.optString("t"))
         {
-            return claro
+            "cercania-media" -> Desenvuelto(materializarMedia(obj) ?: claro)
+            "cercania-grupo" ->
+            {
+                val grupoId = obj.optString("grupoId")
+                val plano = obj.optString("plano")
+                if (grupoId.isNotBlank() && plano.isNotBlank())
+                {
+                    Desenvuelto(plano, grupoId)
+                }
+                else
+                {
+                    Desenvuelto(claro)
+                }
+            }
+            else -> Desenvuelto(claro)
         }
+    }
+
+    private fun materializarMedia(obj: JSONObject): String?
+    {
         val plano = obj.optString("plano")
         val datos = runCatching { Cripto.deBase64(obj.optString("datos")) }.getOrNull()
         if (plano.isBlank() || datos == null || datos.isEmpty())
         {
-            return claro
+            return null
         }
-        val media = runCatching { JSONObject(plano) }.getOrNull() ?: return claro
+        val media = runCatching { JSONObject(plano) }.getOrNull() ?: return null
         val path = media.optString("path")
         if (path.startsWith("ble/"))
         {
@@ -381,11 +406,11 @@ class MensajeriaBle(
         return plano
     }
 
-    private fun guardarEnCache(remitenteId: String, mensaje: JSONObject)
+    private fun guardarEnCache(claveChat: String, mensaje: JSONObject)
     {
         try
         {
-            val cache = app.cacheChats.leerChat(remitenteId) ?: JSONArray()
+            val cache = app.cacheChats.leerChat(claveChat) ?: JSONArray()
             val id = mensaje.optString("id")
             var existe = false
             for (i in 0 until cache.length())
@@ -399,7 +424,7 @@ class MensajeriaBle(
             if (!existe)
             {
                 cache.put(mensaje)
-                app.cacheChats.guardarChat(remitenteId, cache)
+                app.cacheChats.guardarChat(claveChat, cache)
             }
         }
         catch (_: Exception)
