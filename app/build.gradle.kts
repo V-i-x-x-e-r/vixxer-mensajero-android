@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("com.google.gms.google-services") version "4.4.3"
 }
 
 android {
@@ -67,4 +68,5 @@ dependencies {
     implementation("androidx.camera:camera-view:1.4.1")
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
     implementation("io.getstream:stream-webrtc-android:1.3.8")
+    implementation("com.google.firebase:firebase-messaging:25.0.0")
 }
