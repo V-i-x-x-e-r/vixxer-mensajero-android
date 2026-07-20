@@ -52,6 +52,9 @@ class MensajeriaBle(
     @Volatile
     private var puenteActivo = false
 
+    @Volatile
+    var chatVisible: String? = null
+
     private val CLAVE_COLA = "vixxer_cola_relay"
     private val alConectar = Emitter.Listener { drenarCola() }
 
@@ -311,6 +314,44 @@ class MensajeriaBle(
         for (cb in oyentes)
         {
             runCatching { cb(mensaje) }
+        }
+        if (chatVisible != sobre.remitenteId)
+        {
+            notificarEntrante(sobre.remitenteId)
+        }
+    }
+
+    private fun notificarEntrante(remitenteId: String)
+    {
+        try
+        {
+            val gestor = app.getSystemService(android.content.Context.NOTIFICATION_SERVICE)
+                as android.app.NotificationManager
+            gestor.createNotificationChannel(
+                android.app.NotificationChannel(
+                    "mensajes-cercania",
+                    "Mensajes por cercanía",
+                    android.app.NotificationManager.IMPORTANCE_HIGH,
+                ),
+            )
+            val abrir = android.app.PendingIntent.getActivity(
+                app,
+                0,
+                android.content.Intent(app, dev.vixxer.mensajero.ActividadPrincipal::class.java),
+                android.app.PendingIntent.FLAG_IMMUTABLE,
+            )
+            val nombre = GestorCercania.nombreDe(remitenteId) ?: "Un vixxer cercano"
+            val notificacion = android.app.Notification.Builder(app, "mensajes-cercania")
+                .setContentTitle(nombre)
+                .setContentText("Te envió un mensaje por cercanía")
+                .setSmallIcon(dev.vixxer.mensajero.R.mipmap.ic_lanzador)
+                .setAutoCancel(true)
+                .setContentIntent(abrir)
+                .build()
+            gestor.notify(remitenteId.hashCode(), notificacion)
+        }
+        catch (_: Exception)
+        {
         }
     }
 
