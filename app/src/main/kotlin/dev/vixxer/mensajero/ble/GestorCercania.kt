@@ -10,9 +10,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.core.content.ContextCompat
 import dev.vixxer.mensajero.AplicacionVixxer
+import dev.vixxer.mensajero.DrenadorOutbox
 import dev.vixxer.mensajero.nucleo.ClavesSeguras
+import dev.vixxer.mensajero.nucleo.ConexionSocket
 import dev.vixxer.mensajero.nucleo.Cripto
 import dev.vixxer.mensajero.nucleo.IdentidadRotativa
+import dev.vixxer.mensajero.nucleo.Outbox
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import org.json.JSONArray
 
 data class PeerCercano(
@@ -51,6 +58,9 @@ object GestorCercania
 
     @Volatile
     private var ultimoTokenAnunciado: String? = null
+
+    private val drenados = HashMap<String, Long>()
+    private val alcanceMesh = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     var corriendo by mutableStateOf(false)
         private set
@@ -142,6 +152,10 @@ object GestorCercania
                     amigoId?.let { nombresAmigos[it] },
                 )
                 refrescarPeers()
+                if (amigoId != null)
+                {
+                    drenarAlAvistar(app, amigoId)
+                }
             },
             onError = {},
         )
@@ -164,6 +178,7 @@ object GestorCercania
         vistosCercanos.clear()
         _peers.clear()
         ultimoTokenAnunciado = null
+        synchronized(drenados) { drenados.clear() }
         limpiarTokens()
     }
 
@@ -265,6 +280,28 @@ object GestorCercania
     }
 
     fun nombreDe(amigoId: String): String? = nombresAmigos[amigoId]?.takeIf { it.isNotEmpty() }
+
+    private fun drenarAlAvistar(app: AplicacionVixxer, amigoId: String)
+    {
+        val socket = ConexionSocket.obtener()
+        if (socket != null && socket.connected())
+        {
+            return
+        }
+        val ahora = System.currentTimeMillis()
+        synchronized(drenados) {
+            val ultimo = drenados[amigoId] ?: 0L
+            if (ahora - ultimo < 30_000L)
+            {
+                return
+            }
+            drenados[amigoId] = ahora
+        }
+        val cuentaId = app.boveda.leer(ClavesSeguras.MI_ID) ?: return
+        alcanceMesh.launch {
+            runCatching { DrenadorOutbox.drenar(app, cuentaId, Outbox.Tipo.DIRECTO, amigoId, forzar = true) }
+        }
+    }
 
     fun macsDeAmigo(amigoId: String): List<String>
     {

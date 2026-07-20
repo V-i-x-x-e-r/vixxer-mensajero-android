@@ -349,6 +349,35 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
                 }
             }
         }
+        val dejarDeEscucharBle = dev.vixxer.mensajero.ble.GestorCercania.mensajeria(app).alEntrante { obj ->
+            val de = obj.optString("remitente_id")
+            if (de.isNotEmpty())
+            {
+                alcance.launch {
+                    val previa = convs[de]
+                    val nuevas = convs + (de to Conv(
+                        preview = previewDe(obj.optString("texto")),
+                        enviadoEn = obj.optString("enviado_en"),
+                        noLeidos = (previa?.noLeidos ?: 0) + 1,
+                    ))
+                    convs = nuevas
+                    val fijados = estados.fijados
+                    val base = if (amigos.none { it.id == de })
+                    {
+                        val nombre = dev.vixxer.mensajero.ble.GestorCercania.nombreDe(de) ?: "Vixxer"
+                        amigos + Amigo(de, nombre, "")
+                    }
+                    else
+                    {
+                        amigos
+                    }
+                    amigos = base.sortedWith(
+                        compareByDescending<Amigo> { fijados.contains(it.id) }
+                            .thenByDescending { nuevas[it.id]?.enviadoEn ?: "" },
+                    )
+                }
+            }
+        }
         socket?.on(Socket.EVENT_CONNECT, alConectar)
         socket?.on(Socket.EVENT_DISCONNECT, alDesconectar)
         socket?.on(Socket.EVENT_CONNECT_ERROR, alErrorConexion)
@@ -360,6 +389,7 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
             socket?.off(Socket.EVENT_CONNECT_ERROR, alErrorConexion)
             socket?.off("mensaje:recibido", alMensaje)
             socket?.off("usuario:escribiendo", alEscribiendo)
+            dejarDeEscucharBle()
             recarga[0]?.cancel()
             trabajosTecleo.values.forEach { it.cancel() }
         }
