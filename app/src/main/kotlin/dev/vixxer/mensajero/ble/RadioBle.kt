@@ -28,7 +28,7 @@ import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
-data class Cercano(val id: String, val nombre: String, val rssi: Int, val token: String? = null)
+data class Cercano(val id: String, val nombre: String, val rssi: Int, val token: String? = null, val caps: Int = 0)
 
 @SuppressLint("MissingPermission")
 class RadioBle(private val contexto: Context)
@@ -37,6 +37,7 @@ class RadioBle(private val contexto: Context)
     private val caracteristicaUuid = UUID.fromString(MeshCercania.CARACTERISTICA_UUID)
     private val capsUuid = UUID.fromString(MeshCercania.CARACTERISTICA_CAPS_UUID)
     private val datoCercaniaUuid = ParcelUuid.fromString(MeshCercania.DATO_CERCANIA_UUID)
+    private val datoCapsUuid = ParcelUuid.fromString(MeshCercania.DATO_CAPS_UUID)
     private val trozo = 180
     private val umbralL2cap = 4096
     private val vidaCapsMs = 5 * 60 * 1000L
@@ -85,20 +86,11 @@ class RadioBle(private val contexto: Context)
                 .build()
             val cb = object : AdvertiseCallback() {}
             callbackAnuncio = cb
-            val respuesta = tokenCercania?.let {
-                AdvertiseData.Builder()
-                    .setIncludeDeviceName(false)
-                    .addServiceData(datoCercaniaUuid, it)
-                    .build()
-            }
-            if (respuesta != null)
-            {
-                adv.startAdvertising(ajustes, datos, respuesta, cb)
-            }
-            else
-            {
-                adv.startAdvertising(ajustes, datos, cb)
-            }
+            val constructorRespuesta = AdvertiseData.Builder()
+                .setIncludeDeviceName(false)
+                .addServiceData(datoCapsUuid, byteArrayOf(capsRadio()))
+            tokenCercania?.let { constructorRespuesta.addServiceData(datoCercaniaUuid, it) }
+            adv.startAdvertising(ajustes, datos, constructorRespuesta.build(), cb)
             "ok"
         }
         catch (e: Exception)
@@ -179,7 +171,9 @@ class RadioBle(private val contexto: Context)
                 val token = resultado.scanRecord?.getServiceData(datoCercaniaUuid)
                     ?.takeIf { it.isNotEmpty() }
                     ?.let { Cripto.aBase64(it) }
-                alEncontrar(Cercano(dispositivo.address, nombre, resultado.rssi, token))
+                val caps = resultado.scanRecord?.getServiceData(datoCapsUuid)
+                    ?.firstOrNull()?.toInt()?.and(0xFF) ?: 0
+                alEncontrar(Cercano(dispositivo.address, nombre, resultado.rssi, token, caps))
             }
 
             override fun onScanFailed(codigo: Int)
@@ -412,6 +406,20 @@ class RadioBle(private val contexto: Context)
         servicio.addCharacteristic(caps)
         gatt.addService(servicio)
         servidor = gatt
+    }
+
+    private fun capsRadio(): Byte
+    {
+        var flags = 0
+        if (android.os.Build.VERSION.SDK_INT >= 29)
+        {
+            flags = flags or 1
+            if (RadioWifi.soportado(contexto))
+            {
+                flags = flags or 2
+            }
+        }
+        return flags.toByte()
     }
 
     private fun capsLocales(): ByteArray
