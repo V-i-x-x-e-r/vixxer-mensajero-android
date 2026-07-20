@@ -30,7 +30,7 @@ object NotificadorMensajes
         {
             return@Listener
         }
-        notificar(aplicacion, de.hashCode(), nombreDe(aplicacion, de) ?: "Nuevo mensaje", "Te envió un mensaje")
+        notificar(aplicacion, de.hashCode(), nombreDe(aplicacion, de) ?: "Nuevo mensaje", "Te envió un mensaje", "chat/$de")
     }
 
     private val alGrupo = Emitter.Listener { args ->
@@ -45,7 +45,7 @@ object NotificadorMensajes
         {
             return@Listener
         }
-        notificar(aplicacion, grupoId.hashCode(), "Mensaje de grupo", "Tienes un mensaje nuevo")
+        notificar(aplicacion, grupoId.hashCode(), "Mensaje de grupo", "Tienes un mensaje nuevo", "grupo/$grupoId")
     }
 
     fun enganchar(aplicacion: AplicacionVixxer, socket: Socket)
@@ -73,7 +73,7 @@ object NotificadorMensajes
         }.getOrNull()
     }
 
-    private fun notificar(aplicacion: AplicacionVixxer, id: Int, titulo: String, cuerpo: String)
+    private fun notificar(aplicacion: AplicacionVixxer, id: Int, titulo: String, cuerpo: String, destino: String)
     {
         try
         {
@@ -83,9 +83,9 @@ object NotificadorMensajes
             )
             val abrir = PendingIntent.getActivity(
                 aplicacion,
-                0,
-                Intent(aplicacion, ActividadPrincipal::class.java),
-                PendingIntent.FLAG_IMMUTABLE,
+                destino.hashCode(),
+                Intent(aplicacion, ActividadPrincipal::class.java).putExtra("vixxer_destino", destino),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
             val notificacion = Notification.Builder(aplicacion, CANAL)
                 .setContentTitle(titulo)

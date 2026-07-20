@@ -219,6 +219,26 @@ fun PantallaGrupos(app: AplicacionVixxer, alNavegar: (String) -> Unit)
                 }
             }
         }
+        val dejarDeEscucharBle = dev.vixxer.mensajero.ble.GestorCercania.mensajeria(app).alEntrante { obj ->
+            val grupoId = obj.optString("grupo_id")
+            if (grupoId.isNotEmpty())
+            {
+                alcance.launch {
+                    val autor = obj.optString("autor").ifEmpty { "Alguien" }
+                    val cuerpo = previewDeGrupo(obj.optString("texto"))
+                    grupos = grupos.map {
+                        if (it.id == grupoId)
+                        {
+                            it.copy(preview = "$autor: $cuerpo", hora = obj.optString("enviado_en"), nuevo = true)
+                        }
+                        else
+                        {
+                            it
+                        }
+                    }
+                }
+            }
+        }
         socket?.on("grupo:nuevo", alCambio)
         socket?.on("grupo:mensaje", alCambio)
         socket?.on("grupo:actualizado", alCambio)
@@ -228,6 +248,7 @@ fun PantallaGrupos(app: AplicacionVixxer, alNavegar: (String) -> Unit)
             socket?.off("grupo:mensaje", alCambio)
             socket?.off("grupo:actualizado", alCambio)
             socket?.off("grupo:escribiendo", alEscribiendo)
+            dejarDeEscucharBle()
         }
     }
 

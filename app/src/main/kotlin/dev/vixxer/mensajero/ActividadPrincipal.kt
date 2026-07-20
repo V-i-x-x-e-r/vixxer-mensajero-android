@@ -82,6 +82,19 @@ import kotlinx.coroutines.launch
 
 class ActividadPrincipal : FragmentActivity()
 {
+    private val destinoNotificacion = androidx.compose.runtime.mutableStateOf<String?>(null)
+
+    private fun procesarIntentNotificacion(intent: android.content.Intent?)
+    {
+        intent?.getStringExtra("vixxer_destino")?.let { destinoNotificacion.value = it }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent)
+    {
+        super.onNewIntent(intent)
+        procesarIntentNotificacion(intent)
+    }
+
     @androidx.camera.core.ExperimentalGetImage
     override fun onCreate(estado: Bundle?)
     {
@@ -90,6 +103,7 @@ class ActividadPrincipal : FragmentActivity()
         val app = application as AplicacionVixxer
         GestorLlamadas.preparar(app)
         dev.vixxer.mensajero.ble.GestorCercania.arrancarSiActivo(app, this)
+        procesarIntentNotificacion(intent)
         if (android.os.Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) !=
             android.content.pm.PackageManager.PERMISSION_GRANTED
@@ -116,6 +130,50 @@ class ActividadPrincipal : FragmentActivity()
             var cuentaMensajeria by remember { mutableStateOf("") }
             val alcanceMensajeria = rememberCoroutineScope()
             app.alExpirarSesion = { runOnUiThread { pantalla = "login" } }
+
+            val destinoPendiente = destinoNotificacion.value
+            LaunchedEffect(destinoPendiente, sesionVerificada) {
+                if (destinoPendiente != null && sesionVerificada)
+                {
+                    if (destinoPendiente.startsWith("grupo/"))
+                    {
+                        pantalla = destinoPendiente
+                    }
+                    else if (destinoPendiente.startsWith("chat/"))
+                    {
+                        val id = destinoPendiente.removePrefix("chat/")
+                        val amigo = withContext(Dispatchers.IO) {
+                            runCatching {
+                                val amigos = app.cacheChats.leerLista()?.optJSONArray("amigos")
+                                var hallado: Amigo? = null
+                                if (amigos != null)
+                                {
+                                    for (i in 0 until amigos.length())
+                                    {
+                                        val a = amigos.optJSONObject(i) ?: continue
+                                        if (a.optString("id") == id)
+                                        {
+                                            hallado = Amigo(id, a.optString("usuario"), a.optString("avatar_url"))
+                                            break
+                                        }
+                                    }
+                                }
+                                hallado
+                            }.getOrNull()
+                        }
+                        if (amigo != null)
+                        {
+                            chatAbierto = amigo
+                            pantalla = "chat"
+                        }
+                        else
+                        {
+                            pantalla = "chats"
+                        }
+                    }
+                    destinoNotificacion.value = null
+                }
+            }
 
             LaunchedEffect(Unit) {
                 val estadoSesion = withContext(Dispatchers.IO) {

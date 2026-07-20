@@ -332,7 +332,7 @@ class MensajeriaBle(
         }
         if (chatVisible != claveChat)
         {
-            notificarEntrante(sobre.remitenteId)
+            notificarEntrante(sobre.remitenteId, grupoId)
         }
     }
 
@@ -384,10 +384,11 @@ class MensajeriaBle(
         hilo.start()
     }
 
-    private fun notificarEntrante(remitenteId: String)
+    private fun notificarEntrante(remitenteId: String, grupoId: String? = null)
     {
         try
         {
+            val destino = grupoId?.let { "grupo/$it" } ?: "chat/$remitenteId"
             val gestor = app.getSystemService(android.content.Context.NOTIFICATION_SERVICE)
                 as android.app.NotificationManager
             gestor.createNotificationChannel(
@@ -399,9 +400,10 @@ class MensajeriaBle(
             )
             val abrir = android.app.PendingIntent.getActivity(
                 app,
-                0,
-                android.content.Intent(app, dev.vixxer.mensajero.ActividadPrincipal::class.java),
-                android.app.PendingIntent.FLAG_IMMUTABLE,
+                destino.hashCode(),
+                android.content.Intent(app, dev.vixxer.mensajero.ActividadPrincipal::class.java)
+                    .putExtra("vixxer_destino", destino),
+                android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT,
             )
             val nombre = GestorCercania.nombreDe(remitenteId) ?: "Un vixxer cercano"
             val notificacion = android.app.Notification.Builder(app, "mensajes-cercania")
