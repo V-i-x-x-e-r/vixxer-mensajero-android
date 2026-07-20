@@ -1264,7 +1264,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
             val dir = java.io.File(contexto.cacheDir, "capturas")
             dir.mkdirs()
             val destino = java.io.File(dir, "captura-${System.currentTimeMillis()}.jpg")
-            val uri = androidx.core.content.FileProvider.getUriForFile(contexto, "dev.vixxer.mensajero.nativo.archivos", destino)
+            val uri = androidx.core.content.FileProvider.getUriForFile(contexto, dev.vixxer.mensajero.BuildConfig.APPLICATION_ID + ".archivos", destino)
             fotoCamara[0] = uri
             app.saltarBloqueo = true
             camara.launch(uri)

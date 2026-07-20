@@ -809,7 +809,7 @@ private fun exportarRespaldoArchivo(contexto: android.content.Context, respaldo:
     carpeta.mkdirs()
     val archivo = java.io.File(carpeta, "vixxer-respaldo.json")
     archivo.writeText(JSONObject(respaldo.toString()).put("v", 1).toString())
-    val uri = androidx.core.content.FileProvider.getUriForFile(contexto, "dev.vixxer.mensajero.nativo.archivos", archivo)
+    val uri = androidx.core.content.FileProvider.getUriForFile(contexto, dev.vixxer.mensajero.BuildConfig.APPLICATION_ID + ".archivos", archivo)
     val envio = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
         type = "application/json"
         putExtra(android.content.Intent.EXTRA_STREAM, uri)

@@ -399,10 +399,15 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
     {
         try
         {
+            val inicioSync = System.currentTimeMillis()
             val descifrados = withContext(Dispatchers.IO) {
                 val filas = app.api.historial(otroId) as JSONArray
                 Pair(filas.length(), descifrarLote(filas))
             }
+            android.util.Log.d(
+                "VxPerf",
+                "chat servidor: ${descifrados.first} mensajes descifrados en ${System.currentTimeMillis() - inicioSync} ms",
+            )
             val extras = mensajes.filter { m ->
                 m.estado != null && descifrados.second.none { servidor ->
                     servidor.id == m.id || servidor.clienteId == m.id
@@ -913,6 +918,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
     }
 
     LaunchedEffect(otroId) {
+        val inicioCarga = System.currentTimeMillis()
         val datos = withContext(Dispatchers.IO) {
             val mi = app.boveda.leer(ClavesSeguras.MI_ID) ?: ""
             val cache = app.cacheChats.leerChat(otroId)
@@ -937,6 +943,10 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
         if (cache != null)
         {
             mensajes = (0 until cache.length()).map { mensajeDeJson(cache.getJSONObject(it)) }
+            android.util.Log.d(
+                "VxPerf",
+                "chat cache: ${mensajes.size} mensajes en ${System.currentTimeMillis() - inicioCarga} ms",
+            )
         }
         val pendientes = datos.second.third
         if (pendientes.isNotEmpty())
@@ -1665,7 +1675,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                         val dir = java.io.File(contexto.cacheDir, "capturas")
                         dir.mkdirs()
                         val destino = java.io.File(dir, "captura-${System.currentTimeMillis()}.jpg")
-                        val uri = androidx.core.content.FileProvider.getUriForFile(contexto, "dev.vixxer.mensajero.nativo.archivos", destino)
+                        val uri = androidx.core.content.FileProvider.getUriForFile(contexto, dev.vixxer.mensajero.BuildConfig.APPLICATION_ID + ".archivos", destino)
                         fotoCamara[0] = uri
                         app.saltarBloqueo = true
                         camara.launch(uri)
