@@ -125,7 +125,10 @@ class RadioBle(private val contexto: Context)
         {
         }
         servidorL2cap = null
-        buffers.clear()
+        synchronized(buffers)
+        {
+            buffers.clear()
+        }
     }
 
     fun escanear(soloVixxer: Boolean, alEncontrar: (Cercano) -> Unit, onError: (String) -> Unit): () -> Unit
@@ -203,6 +206,7 @@ class RadioBle(private val contexto: Context)
         {
         }
         callbackEscaneo = null
+        escaner = null
     }
 
     fun conectarYEnviar(direccion: String, texto: String): Boolean
@@ -517,22 +521,30 @@ class RadioBle(private val contexto: Context)
 
     private fun acumular(direccion: String, trozoBytes: ByteArray)
     {
-        val buffer = buffers.getOrPut(direccion) { ByteArrayOutputStream() }
-        for (b in trozoBytes)
+        val completados = ArrayList<ByteArray>()
+        synchronized(buffers)
         {
-            if (b.toInt() == 10)
+            val buffer = buffers.getOrPut(direccion) { ByteArrayOutputStream() }
+            for (b in trozoBytes)
             {
-                val completo = buffer.toByteArray()
-                buffer.reset()
-                if (completo.isNotEmpty())
+                if (b.toInt() == 10)
                 {
-                    alMensaje?.invoke(String(completo, Charsets.UTF_8))
+                    val completo = buffer.toByteArray()
+                    buffer.reset()
+                    if (completo.isNotEmpty())
+                    {
+                        completados.add(completo)
+                    }
+                }
+                else
+                {
+                    buffer.write(b.toInt())
                 }
             }
-            else
-            {
-                buffer.write(b.toInt())
-            }
+        }
+        for (completo in completados)
+        {
+            alMensaje?.invoke(String(completo, Charsets.UTF_8))
         }
     }
 
@@ -546,6 +558,7 @@ class RadioBle(private val contexto: Context)
         var reintentarPorGatt = false
             private set
         private val cierre = CountDownLatch(1)
+        @Volatile
         private var exito = false
         private var cursor = 0
         private var trozoSesion = trozo

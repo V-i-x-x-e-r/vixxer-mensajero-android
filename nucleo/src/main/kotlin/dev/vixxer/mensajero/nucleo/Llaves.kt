@@ -1,10 +1,11 @@
 package dev.vixxer.mensajero.nucleo
 
+import java.util.concurrent.ConcurrentHashMap
 import org.json.JSONObject
 
 class Llaves(private val api: ClienteApi)
 {
-    private val cache = LinkedHashMap<String, String>()
+    private val cache = ConcurrentHashMap<String, String>()
 
     fun sembrar(userId: String, llave: String?)
     {
