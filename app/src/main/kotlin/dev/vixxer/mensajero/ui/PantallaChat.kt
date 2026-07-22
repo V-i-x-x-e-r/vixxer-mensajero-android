@@ -2188,7 +2188,7 @@ private fun Burbuja(
                 .background(if (seleccionado) colores.borde else androidx.compose.ui.graphics.Color.Transparent, RoundedCornerShape(12.dp)),
         )
         {
-            val mediaBurbuja = if (m.borrado) null else leerMedia(m.texto)
+            val mediaBurbuja = remember(m.texto, m.borrado) { if (m.borrado) null else leerMedia(m.texto) }
             val mediaVisual = mediaBurbuja != null && mediaBurbuja.t in listOf("img", "video", "sticker")
             Column(
                 modifier = Modifier
@@ -2218,7 +2218,7 @@ private fun Burbuja(
                         modifier = Modifier.padding(start = 8.dp, bottom = 6.dp),
                     )
                 }
-                val media = if (m.borrado) null else leerMedia(m.texto)
+                val media = mediaBurbuja
                 if (m.borrado)
                 {
                     Text(

@@ -147,16 +147,20 @@ object GestorCercania
             soloVixxer = true,
             alEncontrar = { cercano ->
                 mensajero.registrarPeer(cercano.id)
-                val previo = vistosCercanos[cercano.id]
-                val amigoId = cercano.token?.let { resolverAmigo(it) } ?: previo?.amigoId
-                vistosCercanos[cercano.id] = PeerCercano(
-                    cercano.id,
-                    cercano.rssi,
-                    System.currentTimeMillis(),
-                    amigoId,
-                    amigoId?.let { nombresAmigos[it] },
-                    if (cercano.caps != 0) cercano.caps else previo?.caps ?: 0,
-                )
+                val amigoId = synchronized(vistosCercanos)
+                {
+                    val previo = vistosCercanos[cercano.id]
+                    val resuelto = cercano.token?.let { resolverAmigo(it) } ?: previo?.amigoId
+                    vistosCercanos[cercano.id] = PeerCercano(
+                        cercano.id,
+                        cercano.rssi,
+                        System.currentTimeMillis(),
+                        resuelto,
+                        resuelto?.let { nombresAmigos[it] },
+                        if (cercano.caps != 0) cercano.caps else previo?.caps ?: 0,
+                    )
+                    resuelto
+                }
                 refrescarPeers()
                 if (amigoId != null)
                 {
@@ -181,7 +185,10 @@ object GestorCercania
         radio?.detenerEscaneo()
         mensajeria?.detenerPuente()
         mensajeria?.olvidarPeers()
-        vistosCercanos.clear()
+        synchronized(vistosCercanos)
+        {
+            vistosCercanos.clear()
+        }
         _peers.clear()
         ultimoTokenAnunciado = null
         synchronized(drenados) { drenados.clear() }
@@ -370,8 +377,12 @@ object GestorCercania
 
     private fun refrescarPeers()
     {
+        val instantanea = synchronized(vistosCercanos)
+        {
+            vistosCercanos.values.toList()
+        }
         _peers.clear()
-        _peers.addAll(vistosCercanos.values)
+        _peers.addAll(instantanea)
     }
 
     private fun razonAnuncio(codigo: String): String = when (codigo)

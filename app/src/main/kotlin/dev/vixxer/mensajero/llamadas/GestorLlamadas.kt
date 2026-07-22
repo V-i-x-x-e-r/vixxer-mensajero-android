@@ -2,6 +2,7 @@ package dev.vixxer.mensajero.llamadas
 
 import android.content.Context
 import android.media.AudioManager
+import java.util.concurrent.CopyOnWriteArraySet
 import dev.vixxer.mensajero.nucleo.ConexionSocket
 import dev.vixxer.mensajero.nucleo.EventosLlamada
 import org.json.JSONObject
@@ -67,7 +68,7 @@ object GestorLlamadas
     private var altavoz = false
     private var camaraFrontal = true
 
-    private val oyentes = mutableSetOf<(EstadoLlamada) -> Unit>()
+    private val oyentes = CopyOnWriteArraySet<(EstadoLlamada) -> Unit>()
 
     fun preparar(aplicacion: Context)
     {
@@ -104,7 +105,7 @@ object GestorLlamadas
     private fun avisar()
     {
         val e = estadoLlamada()
-        for (cb in oyentes.toList())
+        for (cb in oyentes)
         {
             cb(e)
         }
@@ -239,11 +240,19 @@ object GestorLlamadas
 
     private fun vaciarCandidatos()
     {
-        for (c in candidatosPendientes)
+        val pendientes = synchronized(candidatosPendientes)
+        {
+            val copia = candidatosPendientes.toList()
+            synchronized(candidatosPendientes)
+        {
+            candidatosPendientes.clear()
+        }
+            copia
+        }
+        for (c in pendientes)
         {
             pc?.addIceCandidate(c)
         }
-        candidatosPendientes.clear()
     }
 
     fun iniciarLlamada(paraId: String, nombre: String, video: Boolean): Boolean
@@ -256,7 +265,10 @@ object GestorLlamadas
         conId = paraId
         conNombre = nombre
         fase = FaseLlamada.LLAMANDO
-        candidatosPendientes.clear()
+        synchronized(candidatosPendientes)
+        {
+            candidatosPendientes.clear()
+        }
         abrirMedia(esVideo)
         crearPc(paraId)
         val restricciones = MediaConstraints()
@@ -357,7 +369,10 @@ object GestorLlamadas
         fase = FaseLlamada.LIBRE
         esVideo = false
         ofertaPendiente = null
-        candidatosPendientes.clear()
+        synchronized(candidatosPendientes)
+        {
+            candidatosPendientes.clear()
+        }
     }
 
     fun alternarSilencio(): Boolean
@@ -407,7 +422,10 @@ object GestorLlamadas
         conId = data.optString("de")
         conNombre = data.optString("usuario", "")
         esVideo = data.optBoolean("video", false)
-        candidatosPendientes.clear()
+        synchronized(candidatosPendientes)
+        {
+            candidatosPendientes.clear()
+        }
         avisar()
     }
 
@@ -441,7 +459,10 @@ object GestorLlamadas
         }
         else
         {
-            candidatosPendientes.add(candidato)
+            synchronized(candidatosPendientes)
+            {
+                candidatosPendientes.add(candidato)
+            }
         }
     }
 
