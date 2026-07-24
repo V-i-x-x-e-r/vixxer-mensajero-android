@@ -68,6 +68,7 @@ object GestorLlamadas
     private var altavoz = false
     private var camaraFrontal = true
 
+    private val candado = Any()
     private val oyentes = CopyOnWriteArraySet<(EstadoLlamada) -> Unit>()
 
     fun preparar(aplicacion: Context)
@@ -91,8 +92,10 @@ object GestorLlamadas
 
     fun llamadasDisponibles(): Boolean = factory != null
 
-    fun estadoLlamada(): EstadoLlamada =
+    fun estadoLlamada(): EstadoLlamada = synchronized(candado)
+    {
         EstadoLlamada(fase, conId, conNombre, esVideo, pistaVideoLocal, pistaVideoRemoto)
+    }
 
     fun altavozActivo(): Boolean = altavoz
 
@@ -218,7 +221,10 @@ object GestorLlamadas
                 val pista = receptor.track()
                 if (pista is VideoTrack)
                 {
-                    pistaVideoRemoto = pista
+                    synchronized(candado)
+                    {
+                        pistaVideoRemoto = pista
+                    }
                     avisar()
                 }
             }
@@ -240,13 +246,10 @@ object GestorLlamadas
 
     private fun vaciarCandidatos()
     {
-        val pendientes = synchronized(candidatosPendientes)
+        val pendientes = synchronized(candado)
         {
             val copia = candidatosPendientes.toList()
-            synchronized(candidatosPendientes)
-        {
             candidatosPendientes.clear()
-        }
             copia
         }
         for (c in pendientes)
@@ -257,16 +260,16 @@ object GestorLlamadas
 
     fun iniciarLlamada(paraId: String, nombre: String, video: Boolean): Boolean
     {
-        if (fase != FaseLlamada.LIBRE || factory == null)
+        synchronized(candado)
         {
-            return false
-        }
-        esVideo = video
-        conId = paraId
-        conNombre = nombre
-        fase = FaseLlamada.LLAMANDO
-        synchronized(candidatosPendientes)
-        {
+            if (fase != FaseLlamada.LIBRE || factory == null)
+            {
+                return false
+            }
+            esVideo = video
+            conId = paraId
+            conNombre = nombre
+            fase = FaseLlamada.LLAMANDO
             candidatosPendientes.clear()
         }
         abrirMedia(esVideo)
@@ -293,10 +296,14 @@ object GestorLlamadas
 
     fun contestar(): Boolean
     {
-        val of = ofertaPendiente ?: return false
-        if (factory == null)
+        val of = synchronized(candado)
         {
-            return false
+            val pendiente = ofertaPendiente
+            if (pendiente == null || factory == null || fase != FaseLlamada.ENTRANTE)
+            {
+                return false
+            }
+            pendiente
         }
         val de = of.optString("de")
         val sdp = jsonASdp(of.getJSONObject("sdp"))
@@ -318,8 +325,11 @@ object GestorLlamadas
                                 .put("para", de)
                                 .put("sdp", sdpAJson(descripcion)),
                         )
-                        ofertaPendiente = null
-                        fase = FaseLlamada.ACTIVA
+                        synchronized(candado)
+                        {
+                            ofertaPendiente = null
+                            fase = FaseLlamada.ACTIVA
+                        }
                         avisar()
                     }
                 }, MediaConstraints())
@@ -330,7 +340,8 @@ object GestorLlamadas
 
     fun colgar()
     {
-        conId?.let {
+        val destino = synchronized(candado) { conId }
+        destino?.let {
             ConexionSocket.obtener()?.emit(EventosLlamada.COLGAR, JSONObject().put("para", it))
         }
         limpiar()
@@ -339,38 +350,38 @@ object GestorLlamadas
 
     private fun limpiar()
     {
-        val audio = administradorAudio
-        if (audio != null)
+        synchronized(candado)
         {
-            audio.isSpeakerphoneOn = false
-            audio.mode = AudioManager.MODE_NORMAL
-        }
-        altavoz = false
-        try
-        {
-            capturador?.stopCapture()
-        }
-        catch (e: Exception)
-        {
-        }
-        capturador?.dispose()
-        capturador = null
-        ayudanteTextura?.dispose()
-        ayudanteTextura = null
-        fuenteVideo?.dispose()
-        fuenteVideo = null
-        pc?.close()
-        pc = null
-        pistaAudio = null
-        pistaVideoLocal = null
-        pistaVideoRemoto = null
-        conId = null
-        conNombre = ""
-        fase = FaseLlamada.LIBRE
-        esVideo = false
-        ofertaPendiente = null
-        synchronized(candidatosPendientes)
-        {
+            val audio = administradorAudio
+            if (audio != null)
+            {
+                audio.isSpeakerphoneOn = false
+                audio.mode = AudioManager.MODE_NORMAL
+            }
+            altavoz = false
+            try
+            {
+                capturador?.stopCapture()
+            }
+            catch (e: Exception)
+            {
+            }
+            capturador?.dispose()
+            capturador = null
+            ayudanteTextura?.dispose()
+            ayudanteTextura = null
+            fuenteVideo?.dispose()
+            fuenteVideo = null
+            pc?.close()
+            pc = null
+            pistaAudio = null
+            pistaVideoLocal = null
+            pistaVideoRemoto = null
+            conId = null
+            conNombre = ""
+            fase = FaseLlamada.LIBRE
+            esVideo = false
+            ofertaPendiente = null
             candidatosPendientes.clear()
         }
     }
@@ -409,7 +420,24 @@ object GestorLlamadas
 
     fun alRecibirOferta(data: JSONObject)
     {
-        if (fase != FaseLlamada.LIBRE)
+        val ocupado = synchronized(candado)
+        {
+            if (fase != FaseLlamada.LIBRE)
+            {
+                true
+            }
+            else
+            {
+                ofertaPendiente = data
+                fase = FaseLlamada.ENTRANTE
+                conId = data.optString("de")
+                conNombre = data.optString("usuario", "")
+                esVideo = data.optBoolean("video", false)
+                candidatosPendientes.clear()
+                false
+            }
+        }
+        if (ocupado)
         {
             ConexionSocket.obtener()?.emit(
                 EventosLlamada.COLGAR,
@@ -417,30 +445,27 @@ object GestorLlamadas
             )
             return
         }
-        ofertaPendiente = data
-        fase = FaseLlamada.ENTRANTE
-        conId = data.optString("de")
-        conNombre = data.optString("usuario", "")
-        esVideo = data.optBoolean("video", false)
-        synchronized(candidatosPendientes)
-        {
-            candidatosPendientes.clear()
-        }
         avisar()
     }
 
     fun alRecibirRespuesta(data: JSONObject)
     {
-        if (pc == null || data.optString("de") != conId)
+        synchronized(candado)
         {
-            return
+            if (pc == null || data.optString("de") != conId)
+            {
+                return
+            }
         }
         pc?.setRemoteDescription(object : SdpObservadorBase()
         {
             override fun onSetSuccess()
             {
                 vaciarCandidatos()
-                fase = FaseLlamada.ACTIVA
+                synchronized(candado)
+                {
+                    fase = FaseLlamada.ACTIVA
+                }
                 avisar()
             }
         }, jsonASdp(data.getJSONObject("sdp")))
@@ -448,18 +473,22 @@ object GestorLlamadas
 
     fun alRecibirIce(data: JSONObject)
     {
-        if (data.optString("de") != conId || !data.has("candidato"))
+        if (!data.has("candidato"))
         {
             return
         }
         val candidato = jsonACandidato(data.getJSONObject("candidato"))
-        if (pc != null && pc?.remoteDescription != null)
+        synchronized(candado)
         {
-            pc?.addIceCandidate(candidato)
-        }
-        else
-        {
-            synchronized(candidatosPendientes)
+            if (data.optString("de") != conId)
+            {
+                return
+            }
+            if (pc != null && pc?.remoteDescription != null)
+            {
+                pc?.addIceCandidate(candidato)
+            }
+            else
             {
                 candidatosPendientes.add(candidato)
             }
@@ -468,7 +497,8 @@ object GestorLlamadas
 
     fun alRecibirColgar(data: JSONObject)
     {
-        if (data.optString("de") == conId)
+        val coincide = synchronized(candado) { conId != null && data.optString("de") == conId }
+        if (coincide)
         {
             limpiar()
             avisar()
