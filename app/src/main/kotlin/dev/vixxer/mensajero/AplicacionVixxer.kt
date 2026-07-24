@@ -63,7 +63,7 @@ class AplicacionVixxer : Application()
             migrarLegado()
         }
         api = ClienteApi(
-            baseUrl = Config.API_URL,
+            baseUrl = urlServidor(),
             token = { boveda.leer(ClavesSeguras.TOKEN) },
             alExpirarSesion = {
                 cerrarSesionLocal()
@@ -106,6 +106,17 @@ class AplicacionVixxer : Application()
     private var actividadesVisibles = 0
 
     fun enPrimerPlano(): Boolean = actividadesVisibles > 0
+
+    fun urlServidor(): String
+    {
+        val guardado = estado.leer(CLAVE_SERVIDOR)
+        return if (guardado.isNullOrBlank()) Config.API_URL else guardado.trim().trimEnd('/')
+    }
+
+    fun guardarServidor(url: String)
+    {
+        estado.escribir(CLAVE_SERVIDOR, url.trim().trimEnd('/'))
+    }
 
     @Synchronized
     fun activarCuenta(cuentaId: String?)
@@ -235,6 +246,8 @@ class AplicacionVixxer : Application()
 
     companion object
     {
+        const val CLAVE_SERVIDOR = "vixxer_servidor"
+
         private val CLAVES_GLOBALES_BOVEDA = setOf(
             ClavesSeguras.TOKEN,
             ClavesSeguras.MI_ID,
@@ -247,6 +260,7 @@ class AplicacionVixxer : Application()
             "vixxer_bloquear_capturas",
             "vixxer_bloqueo_activo",
             "vixxer_biometrico",
+            CLAVE_SERVIDOR,
         )
     }
 }

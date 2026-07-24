@@ -227,7 +227,7 @@ class ActividadPrincipal : FragmentActivity()
                     return@LaunchedEffect
                 }
                 val socket = withContext(Dispatchers.IO) {
-                    ConexionSocket.conectar(Config.SOCKET_URL, token)
+                    ConexionSocket.conectar(app.urlServidor(), token)
                 }
                 NotificadorMensajes.enganchar(app, socket)
                 ServicioFcm.registrar(app)

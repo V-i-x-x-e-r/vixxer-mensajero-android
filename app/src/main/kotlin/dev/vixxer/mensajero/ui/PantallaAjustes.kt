@@ -74,6 +74,8 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
     var importArchivo by remember { mutableStateOf<JSONObject?>(null) }
     var importCodigo by remember { mutableStateOf("") }
     var importEstado by remember { mutableStateOf("") }
+    var editandoServidor by remember { mutableStateOf(false) }
+    var servidorActual by remember { mutableStateOf(app.urlServidor()) }
 
     val lanzadorPermisosBle = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions(),
@@ -525,6 +527,17 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
             modifier = Modifier.padding(top = 8.dp).padding(horizontal = 4.dp),
         )
 
+        Seccion("SERVIDOR", colores)
+        Tarjeta {
+            FilaValor("Dirección", servidorActual, colores) { editandoServidor = true }
+        }
+        Text(
+            "A dónde se conecta la app. Cámbialo si mueves el backend (IP local, Tailscale, etc.). Al guardar, reinicia la app para aplicar.",
+            fontSize = 12.sp,
+            color = colores.muted,
+            modifier = Modifier.padding(top = 8.dp).padding(horizontal = 4.dp),
+        )
+
         Seccion("CUENTA", colores)
         Tarjeta {
             FilaNav("Importar llave anterior", colores) { importando = true }
@@ -588,6 +601,21 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
                 importCodigo = ""
                 importEstado = ""
             },
+        )
+    }
+
+    if (editandoServidor)
+    {
+        EditarServidor(
+            colores = colores,
+            actual = servidorActual,
+            alGuardar = { nueva ->
+                app.guardarServidor(nueva)
+                servidorActual = app.urlServidor()
+                editandoServidor = false
+                android.widget.Toast.makeText(contexto, "Servidor guardado. Reinicia la app para aplicar.", android.widget.Toast.LENGTH_LONG).show()
+            },
+            alCerrar = { editandoServidor = false },
         )
     }
 
@@ -706,6 +734,67 @@ private fun FilaValor(
     {
         Text(etiqueta, fontSize = 15.sp, color = if (apagada) colores.muted else colores.texto)
         Text(valor, fontSize = 14.sp, color = colores.muted)
+    }
+}
+
+@Composable
+private fun EditarServidor(
+    colores: Paleta,
+    actual: String,
+    alGuardar: (String) -> Unit,
+    alCerrar: () -> Unit,
+)
+{
+    var texto by remember { mutableStateOf(actual) }
+    androidx.compose.ui.window.Dialog(onDismissRequest = alCerrar)
+    {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(colores.surface, RoundedCornerShape(16.dp))
+                .border(1.dp, colores.borde, RoundedCornerShape(16.dp))
+                .padding(22.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        )
+        {
+            Text("Servidor", fontSize = 17.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.SemiBold, color = colores.texto)
+            Text(
+                "Dirección del backend, con http:// o https:// y el puerto si aplica.",
+                fontSize = 13.sp,
+                color = colores.muted,
+            )
+            Campo(valor = texto, alCambiar = { texto = it }, placeholder = "http://192.168.1.88:8100")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            )
+            {
+                Text(
+                    "Cancelar",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = colores.texto,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier
+                        .weight(1f)
+                        .border(Vidrio.anchoBorde, colores.borde, RoundedCornerShape(Vidrio.radioPildora))
+                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alCerrar() }
+                        .padding(vertical = 12.dp),
+                )
+                Text(
+                    "Guardar",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = colores.botonTexto,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(colores.botonFondo, RoundedCornerShape(Vidrio.radioPildora))
+                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { if (texto.isNotBlank()) alGuardar(texto) }
+                        .padding(vertical = 12.dp),
+                )
+            }
+        }
     }
 }
 
