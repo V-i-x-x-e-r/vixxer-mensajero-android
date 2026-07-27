@@ -49,7 +49,7 @@ class CapturaBurbujasTest
                 Conversacion(tema.colores)
             }
         }
-        compose.onRoot().captureRoboImage("src/test/capturas/$nombre.png")
+        compose.onRoot().captureRoboImage("src/test/capturas/$nombre.png", roborazziOptions = OPCIONES_CAPTURA)
     }
 }
 
