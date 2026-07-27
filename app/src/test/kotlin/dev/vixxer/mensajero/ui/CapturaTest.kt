@@ -67,7 +67,7 @@ class CapturaSinBlurTest
                 }
             }
         }
-        compose.onRoot().captureRoboImage("src/test/capturas/avatares-respaldo.png")
+        compose.onRoot().captureRoboImage("src/test/capturas/avatares-respaldo.png", roborazziOptions = OPCIONES_CAPTURA)
     }
 
     @Test
@@ -87,7 +87,7 @@ class CapturaSinBlurTest
                 )
             }
         }
-        compose.onNode(isDialog()).captureRoboImage("src/test/capturas/dialogo-botones.png")
+        compose.onNode(isDialog()).captureRoboImage("src/test/capturas/dialogo-botones.png", roborazziOptions = OPCIONES_CAPTURA)
     }
 }
 
@@ -118,7 +118,7 @@ private fun capturar(
             Muestrario()
         }
     }
-    compose.onRoot().captureRoboImage("src/test/capturas/$nombre.png")
+    compose.onRoot().captureRoboImage("src/test/capturas/$nombre.png", roborazziOptions = OPCIONES_CAPTURA)
 }
 
 @Composable
