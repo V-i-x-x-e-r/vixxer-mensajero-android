@@ -1,9 +1,6 @@
 package dev.vixxer.mensajero.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -119,12 +116,12 @@ fun PantallaAmigos(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCh
                     "✕",
                     fontSize = 22.sp,
                     color = colores.texto,
-                    modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { sel = null },
+                    modifier = Modifier.pulsable { sel = null },
                 )
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { confirmar = true },
+                    modifier = Modifier.pulsable { confirmar = true },
                 )
                 {
                     Bote(color = colores.error)
@@ -134,7 +131,7 @@ fun PantallaAmigos(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCh
             else
             {
                 Text("Amigos", fontSize = 18.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.SemiBold, color = colores.texto)
-                Box(modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alNavegar("ajustes") }) {
+                Box(modifier = Modifier.pulsable { alNavegar("ajustes") }) {
                     Engrane(color = colores.texto)
                 }
             }
@@ -208,11 +205,9 @@ fun PantallaAmigos(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCh
                                     if (sel == item.id) colores.surface else androidx.compose.ui.graphics.Color.Transparent,
                                     androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
                                 )
-                                .combinedClickable(
-                                    indication = null,
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    onClick = { if (sel != null) sel = item.id else alAbrirChat(item) },
-                                    onLongClick = { sel = item.id },
+                                .pulsableLargo(
+                                    alMantener = { sel = item.id },
+                                    alPulsar = { if (sel != null) sel = item.id else alAbrirChat(item) },
                                 )
                                 .padding(vertical = 12.dp, horizontal = 10.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -259,8 +254,8 @@ private fun AccionAmigos(texto: String, icono: @Composable (androidx.compose.ui.
 {
     Row(
         modifier = modifier
+            .pulsable { alPulsar() }
             .panelVidrio(radio = 10.dp)
-            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alPulsar() }
             .padding(horizontal = 12.dp, vertical = 11.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,

@@ -2,8 +2,6 @@ package dev.vixxer.mensajero.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -141,7 +139,7 @@ fun PantallaPerfil(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> U
                 "‹",
                 fontSize = 26.sp,
                 color = colores.texto,
-                modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alNavegar("chat") },
+                modifier = Modifier.pulsable { alNavegar("chat") },
             )
         }
 
@@ -155,7 +153,7 @@ fun PantallaPerfil(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> U
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                modifier = Modifier.pulsable {
                     borradorAlias = alias ?: ""
                     editando = true
                 },
@@ -201,7 +199,7 @@ fun PantallaPerfil(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> U
                     color = colores.enlace,
                     modifier = Modifier
                         .padding(top = 16.dp)
-                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alNavegar("multimedia/${amigo.id}") },
+                        .pulsable { alNavegar("multimedia/${amigo.id}") },
                 )
             }
             if (media.isNotEmpty())
@@ -241,8 +239,8 @@ fun PantallaPerfil(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> U
             Column(modifier = Modifier.fillMaxWidth().panelVidrio()) {
                 Row(
                     modifier = Modifier
+                        .pulsable { confirmar = "borrar" }
                         .fillMaxWidth()
-                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { confirmar = "borrar" }
                         .padding(horizontal = 16.dp, vertical = 14.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
@@ -280,7 +278,7 @@ fun PantallaPerfil(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> U
                         .fillMaxWidth()
                         .padding(top = 10.dp)
                         .border(Vidrio.anchoBorde, colores.borde, RoundedCornerShape(12.dp))
-                        .clickable(enabled = !refrescando, indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                        .pulsable(habilitado = !refrescando) {
                             calcularSeguridad(true)
                         }
                         .padding(vertical = 12.dp),
@@ -304,8 +302,8 @@ fun PantallaPerfil(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> U
                     fontSize = 15.sp,
                     color = colores.error,
                     modifier = Modifier
+                        .pulsable { confirmar = "bloquear" }
                         .fillMaxWidth()
-                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { confirmar = "bloquear" }
                         .padding(horizontal = 16.dp, vertical = 14.dp),
                 )
             }
@@ -359,9 +357,9 @@ fun PantallaPerfil(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> U
                         color = colores.muted,
                         textAlign = TextAlign.Center,
                         modifier = Modifier
+                            .pulsable { editando = false }
                             .weight(1f)
                             .border(Vidrio.anchoBorde, colores.borde, RoundedCornerShape(10.dp))
-                            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { editando = false }
                             .padding(vertical = 11.dp),
                     )
                     Text(
@@ -374,7 +372,7 @@ fun PantallaPerfil(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> U
                         modifier = Modifier
                             .weight(1f)
                             .background(colores.botonFondo, RoundedCornerShape(10.dp))
-                            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                            .pulsable {
                                 val nuevo = borradorAlias.trim().ifEmpty { null }
                                 alcance.launch(Dispatchers.IO) { app.aliasLocal.guardar(amigo.id, nuevo) }
                                 alias = nuevo

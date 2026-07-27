@@ -13,8 +13,6 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -113,8 +111,8 @@ fun PantallaEscaner(app: dev.vixxer.mensajero.AplicacionVixxer, alLeer: (String)
                     fontWeight = FontWeight.SemiBold,
                     color = Color.White,
                     modifier = Modifier
+                        .pulsable { pedirPermiso.launch(Manifest.permission.CAMERA) }
                         .border(1.dp, Color.White, RoundedCornerShape(12.dp))
-                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { pedirPermiso.launch(Manifest.permission.CAMERA) }
                         .padding(horizontal = 20.dp, vertical = 12.dp),
                 )
             }
@@ -127,11 +125,11 @@ fun PantallaEscaner(app: dev.vixxer.mensajero.AplicacionVixxer, alLeer: (String)
             fontWeight = FontWeight.SemiBold,
             color = Color.White,
             modifier = Modifier
+                .pulsable { alCerrar() }
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
                 .padding(bottom = 40.dp)
                 .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(Vidrio.radioPildora))
-                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alCerrar() }
                 .padding(horizontal = 28.dp, vertical = 12.dp),
         )
     }

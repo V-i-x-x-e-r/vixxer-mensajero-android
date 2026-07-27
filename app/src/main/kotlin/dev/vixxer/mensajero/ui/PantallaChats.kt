@@ -4,7 +4,6 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -447,35 +446,35 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
                         "✕",
                         fontSize = 22.sp,
                         color = colores.texto,
-                        modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { sel = null },
+                        modifier = Modifier.pulsable { sel = null },
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.CenterVertically) {
                         val esFavorito = estados.favoritos.contains(seleccionado)
                         val esFijado = estados.fijados.contains(seleccionado)
                         val esSilenciado = estados.silenciados.contains(seleccionado)
                         val esArchivado = estados.archivados.contains(seleccionado)
-                        Box(modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                        Box(modifier = Modifier.pulsable {
                             accion { app.estadosChat.alternarFavorito(seleccionado) }
                         }) {
                             Estrella(color = if (esFavorito) DORADO else colores.muted, relleno = if (esFavorito) DORADO else null, tamano = 20.dp)
                         }
-                        Box(modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                        Box(modifier = Modifier.pulsable {
                             accion { app.estadosChat.alternarFijado(seleccionado) }
                         }) {
                             Pin(color = if (esFijado) colores.texto else colores.muted)
                         }
-                        Box(modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                        Box(modifier = Modifier.pulsable {
                             accion { app.estadosChat.alternarSilenciado(seleccionado) }
                         }) {
                             Silencio(color = if (esSilenciado) colores.texto else colores.muted)
                         }
-                        Box(modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                        Box(modifier = Modifier.pulsable {
                             sel = null
                             accion { app.estadosChat.alternarArchivado(seleccionado) }
                         }) {
                             Archivar(color = if (esArchivado) colores.texto else colores.muted)
                         }
-                        Box(modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { borrando = true }) {
+                        Box(modifier = Modifier.pulsable { borrando = true }) {
                             Bote(color = colores.error)
                         }
                     }
@@ -493,7 +492,7 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
                         "‹",
                         fontSize = 22.sp,
                         color = colores.texto,
-                        modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                        modifier = Modifier.pulsable {
                             verArchivados = false
                             busqueda = ""
                         },
@@ -510,7 +509,7 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
                 )
                 {
                     LogoPenduloFila(alto = 22.dp)
-                    Box(modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alNavegar("ajustes") }) {
+                    Box(modifier = Modifier.pulsable { alNavegar("ajustes") }) {
                         Engrane(color = colores.texto)
                     }
                 }
@@ -555,7 +554,7 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
                             "✕",
                             fontSize = 15.sp,
                             color = colores.muted,
-                            modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { busqueda = "" },
+                            modifier = Modifier.pulsable { busqueda = "" },
                         )
                     }
                 }
@@ -731,7 +730,7 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                            .pulsable {
                                 val id = sel
                                 borrando = false
                                 sel = null
@@ -751,7 +750,7 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                            .pulsable {
                                 val id = sel
                                 borrando = false
                                 sel = null

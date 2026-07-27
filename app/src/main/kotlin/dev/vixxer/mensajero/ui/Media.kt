@@ -661,7 +661,7 @@ fun AdjuntoArchivo(app: AplicacionVixxer, media: MediaMensaje, mio: Boolean, col
     Row(
         modifier = Modifier
             .widthIn(max = 260.dp)
-            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+            .pulsable {
                 if (estado.isEmpty())
                 {
                     estado = "descargando"
@@ -757,14 +757,12 @@ fun AdjuntoVideo(media: MediaMensaje, colores: Paleta, alReproducir: () -> Unit,
             .widthIn(max = 260.dp)
             .heightIn(max = 340.dp)
             .aspectRatio(proporcion.coerceIn(0.5f, 2.2f))
+            .pulsableLargo(
+                alMantener = { alMantener() },
+                alPulsar = { alReproducir() },
+            )
             .clip(RoundedCornerShape(16.dp))
-            .background(Color.Black)
-            .combinedClickable(
-                indication = null,
-                interactionSource = remember { MutableInteractionSource() },
-                onClick = { alReproducir() },
-                onLongClick = { alMantener() },
-            ),
+            .background(Color.Black),
         contentAlignment = Alignment.Center,
     )
     {
@@ -919,13 +917,13 @@ fun VisorVideo(app: AplicacionVixxer, media: MediaMensaje?, alCerrar: () -> Unit
         {
             Box(
                 modifier = Modifier
+                    .pulsable { alCerrar() }
                     .align(Alignment.TopEnd)
                     .statusBarsPadding()
                     .padding(top = 12.dp, end = 20.dp)
                     .size(38.dp)
                     .background(Color.White.copy(alpha = 0.12f), androidx.compose.foundation.shape.CircleShape)
-                    .border(0.5.dp, Color.White.copy(alpha = 0.25f), androidx.compose.foundation.shape.CircleShape)
-                    .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alCerrar() },
+                    .border(0.5.dp, Color.White.copy(alpha = 0.25f), androidx.compose.foundation.shape.CircleShape),
                 contentAlignment = Alignment.Center,
             )
             {
@@ -936,11 +934,11 @@ fun VisorVideo(app: AplicacionVixxer, media: MediaMensaje?, alCerrar: () -> Unit
             {
                 Box(
                     modifier = Modifier
+                        .pulsable { alternar() }
                         .align(Alignment.Center)
                         .size(68.dp)
                         .background(Color.White.copy(alpha = 0.14f), androidx.compose.foundation.shape.CircleShape)
-                        .border(0.5.dp, Color.White.copy(alpha = 0.3f), androidx.compose.foundation.shape.CircleShape)
-                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alternar() },
+                        .border(0.5.dp, Color.White.copy(alpha = 0.3f), androidx.compose.foundation.shape.CircleShape),
                     contentAlignment = Alignment.Center,
                 )
                 {
@@ -966,7 +964,7 @@ fun VisorVideo(app: AplicacionVixxer, media: MediaMensaje?, alCerrar: () -> Unit
                 Box(
                     modifier = Modifier
                         .size(24.dp)
-                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alternar() },
+                        .pulsable { alternar() },
                     contentAlignment = Alignment.Center,
                 )
                 {
@@ -1143,9 +1141,9 @@ fun AdjuntoAudio(app: AplicacionVixxer, media: MediaMensaje, mio: Boolean, color
     {
         Box(
             modifier = Modifier
+                .pulsable { alternar() }
                 .size(36.dp)
-                .background(colorTexto.copy(alpha = 0.15f), androidx.compose.foundation.shape.CircleShape)
-                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alternar() },
+                .background(colorTexto.copy(alpha = 0.15f), androidx.compose.foundation.shape.CircleShape),
             contentAlignment = Alignment.Center,
         )
         {
@@ -1196,9 +1194,9 @@ fun AdjuntoAudio(app: AplicacionVixxer, media: MediaMensaje, mio: Boolean, color
         }
         Box(
             modifier = Modifier
+                .pulsable { cambiarVelocidad() }
                 .width(44.dp)
                 .border(1.dp, colorTexto.copy(alpha = 0.55f), RoundedCornerShape(10.dp))
-                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { cambiarVelocidad() }
                 .padding(vertical = 3.dp),
             contentAlignment = Alignment.Center,
         )
@@ -1357,10 +1355,10 @@ fun VistaPrevio(previo: PrevioEnvio, modifier: Modifier = Modifier)
             {
                 Box(
                     modifier = Modifier
+                        .pulsable { reproduciendo = true }
                         .size(64.dp)
                         .background(Color.White.copy(alpha = 0.14f), androidx.compose.foundation.shape.CircleShape)
-                        .border(0.5.dp, Color.White.copy(alpha = 0.3f), androidx.compose.foundation.shape.CircleShape)
-                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { reproduciendo = true },
+                        .border(0.5.dp, Color.White.copy(alpha = 0.3f), androidx.compose.foundation.shape.CircleShape),
                     contentAlignment = Alignment.Center,
                 )
                 {
@@ -1419,13 +1417,9 @@ fun TarjetaEnlace(url: String, mio: Boolean, colores: Paleta)
     Column(
         modifier = Modifier
             .padding(top = 6.dp)
+            .pulsable(habilitado = estado != "cargando" && preview == null) { estado = "cargando" }
             .clip(RoundedCornerShape(10.dp))
-            .background(colorTexto.copy(alpha = 0.08f))
-            .clickable(
-                enabled = estado != "cargando" && preview == null,
-                indication = null,
-                interactionSource = remember { MutableInteractionSource() },
-            ) { estado = "cargando" },
+            .background(colorTexto.copy(alpha = 0.08f)),
     )
     {
         if (preview?.imagen != null)

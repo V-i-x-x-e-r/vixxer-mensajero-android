@@ -3,7 +3,6 @@ package dev.vixxer.mensajero.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -271,8 +270,8 @@ fun PantallaGrupos(app: AplicacionVixxer, alNavegar: (String) -> Unit)
                 Text("Grupos", fontSize = 18.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.SemiBold, color = colores.texto)
                 Box(
                     modifier = Modifier
+                        .pulsable { alNavegar("grupo-crear") }
                         .background(colores.botonFondo, RoundedCornerShape(20.dp))
-                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alNavegar("grupo-crear") }
                         .padding(horizontal = 14.dp, vertical = 8.dp),
                 )
                 {
@@ -312,11 +311,9 @@ fun PantallaGrupos(app: AplicacionVixxer, alNavegar: (String) -> Unit)
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .combinedClickable(
-                                        indication = null,
-                                        interactionSource = remember { MutableInteractionSource() },
-                                        onClick = { alNavegar("grupo/${item.id}") },
-                                        onLongClick = { sel = item },
+                                    .pulsableLargo(
+                                        alMantener = { sel = item },
+                                        alPulsar = { alNavegar("grupo/${item.id}") },
                                     )
                                     .padding(vertical = 12.dp, horizontal = 10.dp),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -412,7 +409,7 @@ fun PantallaGrupos(app: AplicacionVixxer, alNavegar: (String) -> Unit)
                         color = colores.texto,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                            .pulsable {
                                 val g = grupoSel
                                 sel = null
                                 alNavegar("grupo-info/${g.id}")
@@ -425,7 +422,7 @@ fun PantallaGrupos(app: AplicacionVixxer, alNavegar: (String) -> Unit)
                         color = colores.error,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { confirmarSalir = true }
+                            .pulsable { confirmarSalir = true }
                             .padding(vertical = 14.dp, horizontal = 24.dp),
                     )
                 }

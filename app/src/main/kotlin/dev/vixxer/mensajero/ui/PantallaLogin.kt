@@ -1,8 +1,6 @@
 package dev.vixxer.mensajero.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -217,7 +215,7 @@ fun PantallaLogin(app: AplicacionVixxer, alNavegar: (String) -> Unit)
                     color = colores.muted,
                     modifier = Modifier
                         .align(Alignment.End)
-                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { olvido = true },
+                        .pulsable { olvido = true },
                 )
                 if (error.isNotEmpty())
                 {

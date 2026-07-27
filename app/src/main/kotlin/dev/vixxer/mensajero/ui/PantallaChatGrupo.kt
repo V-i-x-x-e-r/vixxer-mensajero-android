@@ -1070,7 +1070,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                 "‹",
                 fontSize = 26.sp,
                 color = colores.texto,
-                modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alNavegar("grupos") },
+                modifier = Modifier.pulsable { alNavegar("grupos") },
             )
             Avatar(nombre = nombreGrupo, tamano = 32.dp)
             Column {
@@ -1088,10 +1088,10 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
         {
             Row(
                 modifier = Modifier
+                    .pulsable { irAFijado() }
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp)
                     .panelVidrio(radio = 12.dp, desenfocar = true)
-                    .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { irAFijado() }
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1170,7 +1170,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                     "✕",
                     fontSize = 16.sp,
                     color = colores.muted,
-                    modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { respondiendo = null },
+                    modifier = Modifier.pulsable { respondiendo = null },
                 )
             }
         }
@@ -1191,7 +1191,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                     "✕",
                     fontSize = 16.sp,
                     color = colores.muted,
-                    modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                    modifier = Modifier.pulsable {
                         editando = null
                         texto = ""
                     },
@@ -1287,7 +1287,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                            .pulsable {
                                 texto = texto.replace(Regex("@[\\w.-]*$"), "@${mb.usuario} ")
                             }
                             .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -1313,7 +1313,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
             Box(
                 modifier = Modifier
                     .size(44.dp)
-                    .clickable(enabled = !subiendo, indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                    .pulsable(habilitado = !subiendo) {
                         enfoque.clearFocus()
                         adjuntando = true
                     },
@@ -1362,7 +1362,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                         .size(44.dp)
                         .background(colores.surface, CircleShape)
                         .border(Vidrio.anchoBorde, colores.borde, CircleShape)
-                        .clickable(enabled = !subiendo, indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                        .pulsable(habilitado = !subiendo) {
                             permisoMicRef[0]?.invoke()
                         },
                     contentAlignment = Alignment.Center,
@@ -1375,9 +1375,9 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
             {
                 Box(
                     modifier = Modifier
+                        .pulsable { enviar() }
                         .size(44.dp)
-                        .background(colores.botonFondo, CircleShape)
-                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { enviar() },
+                        .background(colores.botonFondo, CircleShape),
                     contentAlignment = Alignment.Center,
                 )
                 {
@@ -1415,7 +1415,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                 ))
                 {
                     Column(
-                        modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { accion() },
+                        modifier = Modifier.pulsable { accion() },
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                     )
@@ -1484,7 +1484,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                     .size(34.dp)
                     .background(colores.surface, CircleShape)
                     .border(Vidrio.anchoBorde, colores.borde, CircleShape)
-                    .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                    .pulsable {
                         val activa = grabadora[0]
                         if (activa != null)
                         {
@@ -1508,7 +1508,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                 "Cancelar",
                 fontSize = 14.sp,
                 color = colores.muted,
-                modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                modifier = Modifier.pulsable {
                     terminarGrabacion(false)
                 },
             )
@@ -1516,7 +1516,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                 modifier = Modifier
                     .size(40.dp)
                     .background(colores.botonFondo, CircleShape)
-                    .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                    .pulsable {
                         terminarGrabacion(true)
                     },
                 contentAlignment = Alignment.Center,

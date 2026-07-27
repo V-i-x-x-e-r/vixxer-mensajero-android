@@ -151,7 +151,7 @@ fun <T> AccionesMensaje(
                         Text(
                             emoji,
                             fontSize = 17.sp,
-                            modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                            modifier = Modifier.pulsable {
                                 alReaccionar(mensaje, emoji)
                             },
                         )
@@ -167,7 +167,7 @@ fun <T> AccionesMensaje(
                         Column(
                             modifier = Modifier
                                 .weight(1f)
-                                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { accion.correr() }
+                                .pulsable { accion.correr() }
                                 .padding(vertical = 6.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(3.dp),
@@ -235,7 +235,7 @@ fun SelectorContacto(app: AplicacionVixxer, visible: Boolean, titulo: String, al
                     "✕",
                     fontSize = 18.sp,
                     color = colores.muted,
-                    modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alCerrar() },
+                    modifier = Modifier.pulsable { alCerrar() },
                 )
             }
             LazyColumn(modifier = Modifier.padding(horizontal = 12.dp)) {
@@ -255,7 +255,7 @@ fun SelectorContacto(app: AplicacionVixxer, visible: Boolean, titulo: String, al
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alElegir(item) }
+                            .pulsable { alElegir(item) }
                             .padding(vertical = 10.dp, horizontal = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically,

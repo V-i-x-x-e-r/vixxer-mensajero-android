@@ -5,8 +5,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -291,9 +289,9 @@ private fun Opcion(texto: String, color: androidx.compose.ui.graphics.Color, bor
 {
     Box(
         modifier = Modifier
+            .pulsable { alPulsar() }
             .fillMaxWidth()
             .border(1.dp, borde, RoundedCornerShape(12.dp))
-            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alPulsar() }
             .padding(vertical = 13.dp),
         contentAlignment = Alignment.Center,
     )

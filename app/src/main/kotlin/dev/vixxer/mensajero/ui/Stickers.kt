@@ -10,7 +10,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -156,7 +155,7 @@ fun SelectorSticker(app: AplicacionVixxer, visible: Boolean, alElegir: (File) ->
                             .aspectRatio(1f)
                             .clip(RoundedCornerShape(12.dp))
                             .border(Vidrio.anchoBorde, colores.borde, RoundedCornerShape(12.dp))
-                            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                            .pulsable {
                                 app.saltarBloqueo = true
                                 crearPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                             },
@@ -171,11 +170,9 @@ fun SelectorSticker(app: AplicacionVixxer, visible: Boolean, alElegir: (File) ->
                         modifier = Modifier
                             .aspectRatio(1f)
                             .clip(RoundedCornerShape(12.dp))
-                            .combinedClickable(
-                                indication = null,
-                                interactionSource = remember { MutableInteractionSource() },
-                                onClick = { alElegir(archivo) },
-                                onLongClick = { porBorrar = archivo },
+                            .pulsableLargo(
+                                alMantener = { porBorrar = archivo },
+                                alPulsar = { alElegir(archivo) },
                             ),
                     )
                     {

@@ -1,8 +1,6 @@
 package dev.vixxer.mensajero.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -106,7 +104,7 @@ fun PantallaCambiarContrasena(app: AplicacionVixxer, alVolver: () -> Unit)
                 "‹",
                 fontSize = 26.sp,
                 color = colores.texto,
-                modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alVolver() },
+                modifier = Modifier.pulsable { alVolver() },
             )
             Text("Cambiar contraseña", fontSize = 18.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.SemiBold, color = colores.texto)
         }

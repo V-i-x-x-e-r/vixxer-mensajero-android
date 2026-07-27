@@ -2,7 +2,6 @@ package dev.vixxer.mensajero.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Box
@@ -89,7 +88,7 @@ fun Campo(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
                     .padding(end = 14.dp)
-                    .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { ver = !ver },
+                    .pulsable { ver = !ver },
             )
             {
                 Ojo(mostrando = ver, color = colores.placeholder)

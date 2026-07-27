@@ -2,8 +2,6 @@ package dev.vixxer.mensajero.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -265,7 +263,7 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
                 "‹",
                 fontSize = 26.sp,
                 color = colores.texto,
-                modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alNavegar("chats") },
+                modifier = Modifier.pulsable { alNavegar("chats") },
             )
             Text("Ajustes", fontSize = 18.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.SemiBold, color = colores.texto)
         }
@@ -277,7 +275,7 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
         )
         {
             Box(
-                modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                modifier = Modifier.pulsable {
                     app.saltarBloqueo = true
                     selectorFoto.launch(androidx.activity.result.PickVisualMediaRequest(
                         androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly,
@@ -300,7 +298,7 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                    .pulsable {
                         portapapeles.setText(AnnotatedString(codigo))
                         copiado = true
                     }
@@ -334,9 +332,9 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
                             fontSize = 12.sp,
                             color = if (activo) colores.botonTexto else colores.texto,
                             modifier = Modifier
+                                .pulsable { tema.elegirTema(clave) }
                                 .background(if (activo) colores.botonFondo else Color.Transparent, RoundedCornerShape(Vidrio.radioPildora))
                                 .border(Vidrio.anchoBorde, colores.borde, RoundedCornerShape(Vidrio.radioPildora))
-                                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { tema.elegirTema(clave) }
                                 .padding(horizontal = 10.dp, vertical = 6.dp),
                         )
                     }
@@ -357,10 +355,10 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
                         {
                             Box(
                                 modifier = Modifier
+                                    .pulsable { tema.elegirAcento(c) }
                                     .size(24.dp)
                                     .background(c, CircleShape)
-                                    .then(if (tema.acento == c) Modifier.border(2.5.dp, colores.texto, CircleShape) else Modifier)
-                                    .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { tema.elegirAcento(c) },
+                                    .then(if (tema.acento == c) Modifier.border(2.5.dp, colores.texto, CircleShape) else Modifier),
                             )
                         }
                     }
@@ -413,7 +411,7 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
                             modifier = Modifier
                                 .background(if (activo) colores.botonFondo else Color.Transparent, RoundedCornerShape(Vidrio.radioPildora))
                                 .border(Vidrio.anchoBorde, colores.borde, RoundedCornerShape(Vidrio.radioPildora))
-                                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                                .pulsable {
                                     when (clave)
                                     {
                                         "red" -> gestor.activar(app, contexto, false)
@@ -537,7 +535,7 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
                 color = colores.error,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { confirmarSalir = true }
+                    .pulsable { confirmarSalir = true }
                     .padding(horizontal = 16.dp, vertical = 14.dp),
             )
         }
@@ -641,7 +639,7 @@ private fun FilaNav(etiqueta: String, colores: Paleta, alPulsar: () -> Unit)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alPulsar() }
+            .pulsable { alPulsar() }
             .padding(horizontal = 16.dp, vertical = 14.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
@@ -697,7 +695,7 @@ private fun FilaValor(
             .fillMaxWidth()
             .then(
                 if (apagada) Modifier
-                else Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alPulsar() },
+                else Modifier.pulsable { alPulsar() },
             )
             .padding(horizontal = 16.dp, vertical = 14.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -741,9 +739,9 @@ private fun ImportarLlave(
             )
             Row(
                 modifier = Modifier
+                    .pulsable { alElegirArchivo() }
                     .fillMaxWidth()
                     .border(1.dp, if (archivoCargado) colores.botonFondo else colores.borde, RoundedCornerShape(12.dp))
-                    .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alElegirArchivo() }
                     .padding(horizontal = 14.dp, vertical = 14.dp),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
@@ -777,9 +775,9 @@ private fun ImportarLlave(
                     color = colores.texto,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     modifier = Modifier
+                        .pulsable { alCerrar() }
                         .weight(1f)
                         .border(Vidrio.anchoBorde, colores.borde, RoundedCornerShape(Vidrio.radioPildora))
-                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alCerrar() }
                         .padding(vertical = 12.dp),
                 )
                 if (!listo)
@@ -791,9 +789,9 @@ private fun ImportarLlave(
                         color = colores.botonTexto,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                         modifier = Modifier
+                            .pulsable { alImportar() }
                             .weight(1f)
                             .background(colores.botonFondo, RoundedCornerShape(Vidrio.radioPildora))
-                            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alImportar() }
                             .padding(vertical = 12.dp),
                     )
                 }

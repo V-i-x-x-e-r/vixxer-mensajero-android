@@ -2,8 +2,6 @@ package dev.vixxer.mensajero.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -104,7 +102,7 @@ fun PantallaCrearGrupo(app: AplicacionVixxer, alVolver: () -> Unit)
                 "‹",
                 fontSize = 26.sp,
                 color = colores.texto,
-                modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alVolver() },
+                modifier = Modifier.pulsable { alVolver() },
             )
             Text("Nuevo grupo", fontSize = 18.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.SemiBold, color = colores.texto)
         }
@@ -138,7 +136,7 @@ fun PantallaCrearGrupo(app: AplicacionVixxer, alVolver: () -> Unit)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                        .pulsable {
                             elegidos = if (marcado) elegidos - item.id else elegidos + item.id
                         }
                         .padding(vertical = 10.dp),

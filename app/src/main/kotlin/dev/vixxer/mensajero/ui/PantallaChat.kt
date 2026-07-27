@@ -1322,7 +1322,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                         "‹",
                         fontSize = 26.sp,
                         color = colores.texto,
-                        modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                        modifier = Modifier.pulsable {
                             buscando = false
                             consulta = ""
                         },
@@ -1361,7 +1361,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                             color = if (indiceCoincidencia > 0) colores.texto else colores.placeholder,
                             modifier = Modifier
                                 .rotate(90f)
-                                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                                .pulsable {
                                     if (indiceCoincidencia > 0) indiceCoincidencia--
                                 },
                         )
@@ -1371,7 +1371,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                             color = if (indiceCoincidencia < coincidencias.lastIndex) colores.texto else colores.placeholder,
                             modifier = Modifier
                                 .rotate(-90f)
-                                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                                .pulsable {
                                     if (indiceCoincidencia < coincidencias.lastIndex) indiceCoincidencia++
                                 },
                         )
@@ -1390,13 +1390,13 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                         "‹",
                         fontSize = 26.sp,
                         color = colores.texto,
-                        modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alVolver() },
+                        modifier = Modifier.pulsable { alVolver() },
                     )
                     Avatar(nombre = nombre, uri = amigo.avatarUrl.ifEmpty { null }, tamano = 32.dp)
                     Column(
                         modifier = Modifier
                             .weight(1f)
-                            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alNavegar("perfil") },
+                            .pulsable { alNavegar("perfil") },
                     ) {
                         Text(nombre, fontSize = 16.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.SemiBold, color = colores.texto)
                         if (sub != null)
@@ -1406,17 +1406,17 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                     }
                     if (GestorLlamadas.llamadasDisponibles())
                     {
-                        Box(modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alNavegar("llamada/$otroId|$nombre|0|0") }) {
+                        Box(modifier = Modifier.pulsable { alNavegar("llamada/$otroId|$nombre|0|0") }) {
                             Telefono(color = colores.texto, tamano = 20.dp)
                         }
-                        Box(modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alNavegar("llamada/$otroId|$nombre|1|0") }) {
+                        Box(modifier = Modifier.pulsable { alNavegar("llamada/$otroId|$nombre|1|0") }) {
                             IconoVideo(color = colores.texto, tamano = 20.dp)
                         }
                     }
-                    Box(modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { buscando = true }) {
+                    Box(modifier = Modifier.pulsable { buscando = true }) {
                         Lupa(color = colores.texto, tamano = 20.dp)
                     }
-                    Box(modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { menu = true }) {
+                    Box(modifier = Modifier.pulsable { menu = true }) {
                         Kebab(color = if (temporizador > 0) colores.botonFondo else colores.texto)
                     }
                 }
@@ -1426,10 +1426,10 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
             {
                 Row(
                     modifier = Modifier
+                        .pulsable { irAFijado() }
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp)
                         .panelVidrio(radio = 12.dp, desenfocar = true)
-                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { irAFijado() }
                         .padding(horizontal = 12.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -1522,7 +1522,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                         "✕",
                         fontSize = 18.sp,
                         color = colores.texto,
-                        modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                        modifier = Modifier.pulsable {
                             seleccionando = false
                             seleccionados = emptyList()
                         },
@@ -1535,7 +1535,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                         color = colores.texto,
                         modifier = Modifier.weight(1f),
                     )
-                    Box(modifier = Modifier.clickable(enabled = seleccionados.isNotEmpty(), indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                    Box(modifier = Modifier.pulsable(habilitado = seleccionados.isNotEmpty()) {
                         alcance.launch {
                             withContext(Dispatchers.IO) {
                                 val almacen = Ocultos(app.estado)
@@ -1582,7 +1582,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                                 "✕",
                                 fontSize = 16.sp,
                                 color = colores.muted,
-                                modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { respondiendo = null },
+                                modifier = Modifier.pulsable { respondiendo = null },
                             )
                         }
                     }
@@ -1603,7 +1603,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                                 "✕",
                                 fontSize = 16.sp,
                                 color = colores.muted,
-                                modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                                modifier = Modifier.pulsable {
                                     editando = null
                                     texto = ""
                                 },
@@ -1692,7 +1692,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                         Box(
                             modifier = Modifier
                                 .size(44.dp)
-                                .clickable(enabled = !subiendo, indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                                .pulsable(habilitado = !subiendo) {
                                     enfoque.clearFocus()
                                     adjuntando = true
                                 },
@@ -1741,7 +1741,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                                     .size(44.dp)
                                     .background(colores.surface, CircleShape)
                                     .border(Vidrio.anchoBorde, colores.borde, CircleShape)
-                                    .clickable(enabled = !subiendo, indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                                    .pulsable(habilitado = !subiendo) {
                                         permisoMicRef[0]?.invoke()
                                     },
                                 contentAlignment = Alignment.Center,
@@ -1754,9 +1754,9 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                         {
                             Box(
                                 modifier = Modifier
+                                    .pulsable { enviar() }
                                     .size(44.dp)
-                                    .background(colores.botonFondo, CircleShape)
-                                    .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { enviar() },
+                                    .background(colores.botonFondo, CircleShape),
                                 contentAlignment = Alignment.Center,
                             )
                             {
@@ -1780,7 +1780,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                     .align(Alignment.BottomEnd)
                     .padding(end = 16.dp, bottom = 100.dp)
                     .background(colores.botonFondo, RoundedCornerShape(20.dp))
-                    .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                    .pulsable {
                         nuevosAbajo = 0
                         alcance.launch { listaEstado.animateScrollToItem(maxOf(0, visibles.size - 1)) }
                     }
@@ -1848,7 +1848,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                     ))
                     {
                         Column(
-                            modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { accion() },
+                            modifier = Modifier.pulsable { accion() },
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                         )
@@ -1916,7 +1916,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                     "Cancelar",
                     fontSize = 14.sp,
                     color = colores.muted,
-                    modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                    modifier = Modifier.pulsable {
                         terminarGrabacion(false)
                     },
                 )
@@ -1925,7 +1925,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                         .size(34.dp)
                         .background(colores.surface, CircleShape)
                         .border(Vidrio.anchoBorde, colores.borde, CircleShape)
-                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                        .pulsable {
                             val activa = grabadora[0]
                             if (activa != null)
                             {
@@ -1949,7 +1949,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                     modifier = Modifier
                         .size(40.dp)
                         .background(colores.botonFondo, CircleShape)
-                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                        .pulsable {
                             terminarGrabacion(true)
                         },
                     contentAlignment = Alignment.Center,
@@ -2005,7 +2005,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                                .pulsable {
                                     pickerTemp = false
                                     if (opcion.valor != temporizador)
                                     {
@@ -2122,7 +2122,7 @@ private fun ItemKebab(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alPulsar() }
+            .pulsable { alPulsar() }
             .padding(horizontal = 16.dp, vertical = 11.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -2315,7 +2315,7 @@ private fun Burbuja(
                                 fontFamily = FuenteOutfit,
                                 fontWeight = FontWeight.Medium,
                                 color = colores.error,
-                                modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alReintentar() },
+                                modifier = Modifier.pulsable { alReintentar() },
                             )
                             else -> Visto(
                                 color = if (m.leido) colores.botonTexto else colores.botonTexto.copy(alpha = 0.5f),
