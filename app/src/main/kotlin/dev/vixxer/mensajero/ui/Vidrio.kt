@@ -22,6 +22,10 @@ object Vidrio
     val fondoPanel = Color(0xFF121212).copy(alpha = 0.48f)
     val fondoFuerte = Color(0xFF121212).copy(alpha = 0.74f)
     val fondoOsd = Color(0xFF121212).copy(alpha = 0.78f)
+    val solidoPanel = Color(0xFF262626)
+    val solidoFuerte = Color(0xFF303030)
+    val solidoOsd = Color(0xFF2B2B2B)
+    val bordeSolido = Color(0x33FFFFFF)
     val borde = Color(0x22FFFFFF)
     val bordeSuave = Color(0x14FFFFFF)
     val brillo = Color(0x2EF8F8F8)
@@ -60,13 +64,13 @@ fun Modifier.panelVidrio(radio: Dp = Vidrio.radioPanel, fuerte: Boolean = false,
     if (tema.oscuro)
     {
         return this
-            .background(if (fuerte) Vidrio.fondoFuerte else Vidrio.fondoPanel, forma)
+            .background(if (fuerte) Vidrio.solidoFuerte else Vidrio.solidoPanel, forma)
             .brilloTope(forma)
-            .border(Vidrio.anchoBorde, Vidrio.borde, forma)
+            .border(Vidrio.anchoBorde, Vidrio.bordeSolido, forma)
     }
     val colores = tema.colores
     return this
-        .shadow(if (fuerte) 5.dp else 3.dp, forma, ambientColor = Vidrio.sombra, spotColor = Vidrio.sombra)
+        .shadow(if (fuerte) 10.dp else 6.dp, forma, ambientColor = Vidrio.sombra, spotColor = Vidrio.sombra)
         .background(colores.surface, forma)
         .brilloTope(forma)
         .border(Vidrio.anchoBorde, colores.borde, forma)

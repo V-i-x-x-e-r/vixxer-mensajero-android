@@ -51,6 +51,20 @@ android {
             useLegacyPackaging = false
         }
     }
+
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+            all {
+                it.systemProperty("robolectric.graphicsMode", "NATIVE")
+                when (project.findProperty("capturas"))
+                {
+                    "grabar" -> it.systemProperty("roborazzi.test.record", "true")
+                    "verificar" -> it.systemProperty("roborazzi.test.verify", "true")
+                }
+            }
+        }
+    }
 }
 
 dependencies {
@@ -78,4 +92,12 @@ dependencies {
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
     implementation("io.getstream:stream-webrtc-android:1.3.8")
     implementation("com.google.firebase:firebase-messaging:25.0.0")
+
+    testImplementation(platform("androidx.compose:compose-bom:2026.06.01"))
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.15.1")
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi:1.43.1")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi-compose:1.43.1")
 }

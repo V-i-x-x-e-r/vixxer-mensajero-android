@@ -26,11 +26,11 @@ data class Paleta(
 )
 
 val CLARO = Paleta(
-    fondo = Color(0xFFFFFFFF),
-    surface = Color(0xFFF5F5F7),
+    fondo = Color(0xFFF2F2F7),
+    surface = Color(0xFFFFFFFF),
     texto = Color(0xFF1D1D1F),
     muted = Color(0xFF86868B),
-    borde = Color(0xFFE8E8ED),
+    borde = Color(0xFFDCDCE3),
     bordeFoco = Color(0xFF1D1D1F),
     botonFondo = Color(0xFF1D1D1F),
     botonTexto = Color(0xFFFFFFFF),
@@ -54,11 +54,11 @@ val OSCURO = Paleta(
 )
 
 val COLORIDO = Paleta(
-    fondo = Color(0xFFFFFFFF),
-    surface = Color(0xFFF5F5F7),
+    fondo = Color(0xFFF2F2F7),
+    surface = Color(0xFFFFFFFF),
     texto = Color(0xFF1D1D1F),
     muted = Color(0xFF86868B),
-    borde = Color(0xFFE8E8ED),
+    borde = Color(0xFFDCDCE3),
     bordeFoco = Color(0xFF14B8A6),
     botonFondo = Color(0xFF14B8A6),
     botonTexto = Color(0xFFFFFFFF),
