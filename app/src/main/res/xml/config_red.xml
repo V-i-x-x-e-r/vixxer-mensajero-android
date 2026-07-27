@@ -5,8 +5,4 @@
             <certificates src="system" />
         </trust-anchors>
     </base-config>
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="false">192.168.1.88</domain>
-        <domain includeSubdomains="false">100.91.149.41</domain>
-    </domain-config>
 </network-security-config>
