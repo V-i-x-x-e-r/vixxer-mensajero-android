@@ -41,9 +41,9 @@ val CLARO = Paleta(
 
 val OSCURO = Paleta(
     fondo = Color(0xFF121212),
-    surface = Color(0xFF202020),
-    texto = Color(0xFFD6D6D6),
-    muted = Color(0xFFBDBDBD),
+    surface = Color(0xFF262626),
+    texto = Color(0xFFEDEDED),
+    muted = Color(0xFF9A9A9A),
     borde = Color(0x22FFFFFF),
     bordeFoco = Color(0xE8F8F8F8),
     botonFondo = Color(0xFFD8D8D8),

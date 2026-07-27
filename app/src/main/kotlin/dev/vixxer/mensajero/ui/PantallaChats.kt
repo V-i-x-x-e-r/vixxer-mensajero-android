@@ -624,13 +624,11 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .background(if (elegido) colores.surface else Color.Transparent, RoundedCornerShape(12.dp))
-                                    .combinedClickable(
-                                        indication = null,
-                                        interactionSource = remember { MutableInteractionSource() },
-                                        onClick = { if (sel != null) sel = item.id else alAbrirChat(item) },
-                                        onLongClick = { sel = item.id },
+                                    .pulsableLargo(
+                                        alMantener = { sel = item.id },
+                                        alPulsar = { if (sel != null) sel = item.id else alAbrirChat(item) },
                                     )
+                                    .background(if (elegido) colores.surface else Color.Transparent, RoundedCornerShape(12.dp))
                                     .padding(vertical = 12.dp, horizontal = 10.dp),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 verticalAlignment = Alignment.CenterVertically,

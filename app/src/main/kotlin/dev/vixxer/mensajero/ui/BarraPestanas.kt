@@ -48,8 +48,8 @@ fun BarraPestanas(actual: String, alCambiar: (String) -> Unit, modifier: Modifie
             )
             Row(
                 modifier = Modifier
+                    .pulsable { alCambiar(clave) }
                     .background(fondo, RoundedCornerShape(Vidrio.radioPildora))
-                    .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alCambiar(clave) }
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
