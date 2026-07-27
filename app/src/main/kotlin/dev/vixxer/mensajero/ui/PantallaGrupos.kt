@@ -320,23 +320,11 @@ fun PantallaGrupos(app: AplicacionVixxer, alNavegar: (String) -> Unit)
                                 verticalAlignment = Alignment.CenterVertically,
                             )
                             {
-                                if (item.avatarUrl.isNotEmpty())
-                                {
-                                    Avatar(nombre = item.nombre, uri = item.avatarUrl, tamano = 44.dp)
-                                }
-                                else
-                                {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(44.dp)
-                                            .background(colores.surface, CircleShape)
-                                            .border(Vidrio.anchoBorde, colores.borde, CircleShape),
-                                        contentAlignment = Alignment.Center,
-                                    )
-                                    {
-                                        IconoGrupos(color = colores.muted, tamano = 20.dp)
-                                    }
-                                }
+                                Avatar(
+                                    nombre = item.nombre,
+                                    uri = item.avatarUrl.ifEmpty { null },
+                                    tamano = 44.dp,
+                                )
                                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                     Text(item.nombre, fontSize = 16.sp, color = colores.texto, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     if (escribiendo[item.id] == true)

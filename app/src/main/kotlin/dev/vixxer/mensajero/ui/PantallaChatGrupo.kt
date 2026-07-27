@@ -105,6 +105,7 @@ data class MiembroGrupo(val id: String, val usuario: String, val avatarUrl: Stri
 
 private data class DatosGrupo(
     val nombre: String,
+    val avatarUrl: String?,
     val miembros: List<MiembroGrupo>,
     val publicas: Map<String, String>,
 )
@@ -118,6 +119,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
     var mensajes by remember { mutableStateOf(listOf<MensajeGrupo>()) }
     var texto by remember { mutableStateOf("") }
     var nombreGrupo by remember { mutableStateOf(nombreInicial) }
+    var avatarGrupo by remember { mutableStateOf<String?>(null) }
     var numMiembros by remember { mutableStateOf(0) }
     var miembros by remember { mutableStateOf(listOf<MiembroGrupo>()) }
     var infoDe by remember { mutableStateOf<MensajeGrupo?>(null) }
@@ -288,12 +290,14 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                 }
                 DatosGrupo(
                     nombre = grupo.optString("nombre").ifEmpty { nombreInicial },
+                    avatarUrl = grupo.textoO("avatar_url").ifEmpty { null },
                     miembros = miembrosNuevos,
                     publicas = publicas,
                 )
             }.getOrNull()
         } ?: return false
         nombreGrupo = datos.nombre
+        avatarGrupo = datos.avatarUrl
         miembros = datos.miembros
         numMiembros = datos.miembros.size
         pubs.clear()
@@ -1072,7 +1076,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                 color = colores.texto,
                 modifier = Modifier.pulsable { alNavegar("grupos") },
             )
-            Avatar(nombre = nombreGrupo, tamano = 32.dp)
+            Avatar(nombre = nombreGrupo, uri = avatarGrupo, tamano = 32.dp)
             Column {
                 Text(nombreGrupo, fontSize = 16.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.SemiBold, color = colores.texto)
                 Text(
