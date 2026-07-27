@@ -82,7 +82,7 @@ fun PrevioMediaMulti(
                 "✕",
                 fontSize = 22.sp,
                 color = Color.White,
-                modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { onCancelar() },
+                modifier = Modifier.pulsable { onCancelar() },
             )
         }
 
@@ -99,11 +99,11 @@ fun PrevioMediaMulti(
                 itemsIndexed(items) { i, item ->
                     Box(
                         modifier = Modifier
+                            .pulsable { indice = i }
                             .size(54.dp)
                             .clip(RoundedCornerShape(10.dp))
                             .background(Color.White.copy(alpha = 0.1f))
-                            .then(if (i == actualIndice) Modifier.border(2.dp, colores.botonFondo, RoundedCornerShape(10.dp)) else Modifier)
-                            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { indice = i },
+                            .then(if (i == actualIndice) Modifier.border(2.dp, colores.botonFondo, RoundedCornerShape(10.dp)) else Modifier),
                         contentAlignment = Alignment.Center,
                     )
                     {
@@ -153,7 +153,7 @@ fun PrevioMediaMulti(
                 modifier = Modifier
                     .size(44.dp)
                     .background(colores.botonFondo, CircleShape)
-                    .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                    .pulsable {
                         onEnviar(items.mapIndexed { i, item -> item to (caps[i]?.trim()?.ifEmpty { null }) })
                     },
                 contentAlignment = Alignment.Center,

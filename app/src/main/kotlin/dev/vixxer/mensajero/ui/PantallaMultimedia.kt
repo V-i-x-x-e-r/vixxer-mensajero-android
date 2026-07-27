@@ -3,8 +3,6 @@ package dev.vixxer.mensajero.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -202,7 +200,7 @@ fun PantallaMultimedia(app: AplicacionVixxer, amigoId: String, alVolver: () -> U
                 "‹",
                 fontSize = 26.sp,
                 color = colores.texto,
-                modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alVolver() },
+                modifier = Modifier.pulsable { alVolver() },
             )
             Text("Multimedia", fontSize = 18.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.SemiBold, color = colores.texto)
         }
@@ -221,9 +219,9 @@ fun PantallaMultimedia(app: AplicacionVixxer, amigoId: String, alVolver: () -> U
                     fontFamily = FuenteOutfit,
                     color = if (activo) colores.botonTexto else colores.texto,
                     modifier = Modifier
+                        .pulsable { filtro = clave }
                         .background(if (activo) colores.botonFondo else Color.Transparent, RoundedCornerShape(Vidrio.radioPildora))
                         .border(Vidrio.anchoBorde, colores.borde, RoundedCornerShape(Vidrio.radioPildora))
-                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { filtro = clave }
                         .padding(horizontal = 14.dp, vertical = 6.dp),
                 )
             }
@@ -263,10 +261,7 @@ fun PantallaMultimedia(app: AplicacionVixxer, amigoId: String, alVolver: () -> U
                             fontSize = 14.sp,
                             color = colores.muted,
                             textAlign = TextAlign.Center,
-                            modifier = Modifier.clickable(
-                                indication = null,
-                                interactionSource = remember { MutableInteractionSource() },
-                            ) { fallo = false },
+                            modifier = Modifier.pulsable { fallo = false },
                         )
                     }
                     else if (filtrados.isEmpty() && !hayMas)
@@ -292,10 +287,10 @@ private fun CeldaImagen(app: AplicacionVixxer, media: MediaMensaje, colores: Pal
     }
     Box(
         modifier = Modifier
+            .pulsable { archivo?.let(alAbrir) }
             .aspectRatio(1f)
             .clip(RoundedCornerShape(4.dp))
-            .background(colores.surface)
-            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { archivo?.let(alAbrir) },
+            .background(colores.surface),
     )
     {
         val actual = archivo
@@ -316,10 +311,10 @@ private fun CeldaVideo(prev: String?, colores: Paleta, alAbrir: () -> Unit)
 {
     Box(
         modifier = Modifier
+            .pulsable { alAbrir() }
             .aspectRatio(1f)
             .clip(RoundedCornerShape(4.dp))
-            .background(Color.Black)
-            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alAbrir() },
+            .background(Color.Black),
         contentAlignment = Alignment.Center,
     )
     {

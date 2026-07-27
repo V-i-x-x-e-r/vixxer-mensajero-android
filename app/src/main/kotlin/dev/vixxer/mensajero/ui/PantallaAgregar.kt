@@ -2,8 +2,6 @@ package dev.vixxer.mensajero.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -102,7 +100,7 @@ fun PantallaAgregar(
                 "‹",
                 fontSize = 26.sp,
                 color = colores.texto,
-                modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alVolver() },
+                modifier = Modifier.pulsable { alVolver() },
             )
             Text("Agregar amigo", fontSize = 18.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.SemiBold, color = colores.texto)
         }
@@ -121,9 +119,9 @@ fun PantallaAgregar(
 
         Box(
             modifier = Modifier
+                .pulsable { alEscanear() }
                 .fillMaxWidth()
                 .border(1.dp, colores.borde, RoundedCornerShape(12.dp))
-                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alEscanear() }
                 .padding(vertical = 14.dp),
             contentAlignment = Alignment.Center,
         )

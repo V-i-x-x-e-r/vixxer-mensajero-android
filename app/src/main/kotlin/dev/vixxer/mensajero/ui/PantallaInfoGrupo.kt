@@ -126,7 +126,7 @@ fun PantallaInfoGrupo(app: AplicacionVixxer, grupoId: String, alNavegar: (String
                 "‹",
                 fontSize = 26.sp,
                 color = colores.texto,
-                modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alNavegar("grupo/$grupoId") },
+                modifier = Modifier.pulsable { alNavegar("grupo/$grupoId") },
             )
             Text("Info del grupo", fontSize = 18.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.SemiBold, color = colores.texto)
         }
@@ -138,7 +138,7 @@ fun PantallaInfoGrupo(app: AplicacionVixxer, grupoId: String, alNavegar: (String
         )
         {
             Box(
-                modifier = Modifier.clickable(enabled = soyAdmin, indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                modifier = Modifier.pulsable(habilitado = soyAdmin) {
                     app.saltarBloqueo = true
                     selectorFoto.launch(androidx.activity.result.PickVisualMediaRequest(
                         androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly,
@@ -151,7 +151,7 @@ fun PantallaInfoGrupo(app: AplicacionVixxer, grupoId: String, alNavegar: (String
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.clickable(enabled = soyAdmin, indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                modifier = Modifier.pulsable(habilitado = soyAdmin) {
                     borradorNombre = nombre
                     renombrando = true
                 },
@@ -190,7 +190,7 @@ fun PantallaInfoGrupo(app: AplicacionVixxer, grupoId: String, alNavegar: (String
                         color = colores.enlace,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                            .pulsable {
                                 alcance.launch {
                                     val amigos = withContext(Dispatchers.IO) {
                                         runCatching { app.api.amigos() as JSONArray }.getOrNull()
@@ -213,11 +213,7 @@ fun PantallaInfoGrupo(app: AplicacionVixxer, grupoId: String, alNavegar: (String
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable(
-                                enabled = soyAdmin && m.id != miId,
-                                indication = null,
-                                interactionSource = remember { MutableInteractionSource() },
-                            ) { miembroSel = m }
+                            .pulsable(habilitado = soyAdmin && m.id != miId) { miembroSel = m }
                             .padding(vertical = 10.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -256,7 +252,7 @@ fun PantallaInfoGrupo(app: AplicacionVixxer, grupoId: String, alNavegar: (String
                     color = colores.error,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { confirmarSalir = true }
+                        .pulsable { confirmarSalir = true }
                         .padding(vertical = 18.dp),
                 )
             }
@@ -298,7 +294,7 @@ fun PantallaInfoGrupo(app: AplicacionVixxer, grupoId: String, alNavegar: (String
                     color = colores.texto,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                        .pulsable {
                             miembroSel = null
                             alcance.launch {
                                 withContext(Dispatchers.IO) {
@@ -315,7 +311,7 @@ fun PantallaInfoGrupo(app: AplicacionVixxer, grupoId: String, alNavegar: (String
                     color = colores.error,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                        .pulsable {
                             miembroSel = null
                             alcance.launch {
                                 withContext(Dispatchers.IO) {
@@ -376,7 +372,7 @@ fun PantallaInfoGrupo(app: AplicacionVixxer, grupoId: String, alNavegar: (String
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                                .pulsable {
                                     elegidos = if (marcado) elegidos - a.id else elegidos + a.id
                                 }
                                 .padding(vertical = 8.dp),
@@ -407,7 +403,7 @@ fun PantallaInfoGrupo(app: AplicacionVixxer, grupoId: String, alNavegar: (String
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 10.dp)
                         .background(colores.botonFondo.copy(alpha = if (elegidos.isEmpty()) 0.5f else 1f), RoundedCornerShape(12.dp))
-                        .clickable(enabled = elegidos.isNotEmpty(), indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                        .pulsable(habilitado = elegidos.isNotEmpty()) {
                             agregando = false
                             alcance.launch {
                                 withContext(Dispatchers.IO) {
@@ -468,9 +464,9 @@ fun PantallaInfoGrupo(app: AplicacionVixxer, grupoId: String, alNavegar: (String
                         color = colores.muted,
                         textAlign = TextAlign.Center,
                         modifier = Modifier
+                            .pulsable { renombrando = false }
                             .weight(1f)
                             .border(Vidrio.anchoBorde, colores.borde, RoundedCornerShape(10.dp))
-                            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { renombrando = false }
                             .padding(vertical = 11.dp),
                     )
                     Text(
@@ -483,7 +479,7 @@ fun PantallaInfoGrupo(app: AplicacionVixxer, grupoId: String, alNavegar: (String
                         modifier = Modifier
                             .weight(1f)
                             .background(colores.botonFondo, RoundedCornerShape(10.dp))
-                            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                            .pulsable {
                                 val limpio = borradorNombre.trim()
                                 renombrando = false
                                 if (limpio.isNotEmpty() && limpio != nombre)

@@ -5,8 +5,6 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -290,9 +288,9 @@ private fun BotonLlamada(
     val color = fondo ?: if (claro) Color.White else Color.White.copy(alpha = 0.18f)
     Box(
         modifier = Modifier
+            .pulsable { alPulsar() }
             .size(62.dp)
-            .background(color, CircleShape)
-            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alPulsar() },
+            .background(color, CircleShape),
         contentAlignment = Alignment.Center,
     )
     {

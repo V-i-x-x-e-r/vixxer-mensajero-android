@@ -2,8 +2,6 @@ package dev.vixxer.mensajero.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -73,7 +71,7 @@ fun RespaldoCodigo(visible: Boolean, codigo: String, alCerrar: () -> Unit)
                 modifier = Modifier
                     .fillMaxWidth()
                     .border(1.dp, colores.borde, RoundedCornerShape(12.dp))
-                    .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                    .pulsable {
                         portapapeles.setText(AnnotatedString(codigo))
                         copiado = true
                     }
@@ -98,10 +96,10 @@ fun RespaldoCodigo(visible: Boolean, codigo: String, alCerrar: () -> Unit)
             }
             Box(
                 modifier = Modifier
+                    .pulsable(habilitado = copiado) { alCerrar() }
                     .fillMaxWidth()
                     .alpha(if (copiado) 1f else 0.4f)
                     .background(colores.botonFondo, RoundedCornerShape(12.dp))
-                    .clickable(enabled = copiado, indication = null, interactionSource = remember { MutableInteractionSource() }) { alCerrar() }
                     .padding(vertical = 14.dp),
                 contentAlignment = Alignment.Center,
             )

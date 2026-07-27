@@ -1,8 +1,6 @@
 package dev.vixxer.mensajero.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -96,7 +94,7 @@ fun PantallaSolicitudes(app: AplicacionVixxer, alVolver: () -> Unit)
                 "‹",
                 fontSize = 26.sp,
                 color = colores.texto,
-                modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alVolver() },
+                modifier = Modifier.pulsable { alVolver() },
             )
             Text("Solicitudes", fontSize = 18.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.SemiBold, color = colores.texto)
         }
@@ -131,14 +129,14 @@ fun PantallaSolicitudes(app: AplicacionVixxer, alVolver: () -> Unit)
                             "Rechazar",
                             fontSize = 14.sp,
                             color = colores.muted,
-                            modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                            modifier = Modifier.pulsable {
                                 responder(item.id, false)
                             },
                         )
                         Box(
                             modifier = Modifier
                                 .background(colores.botonFondo, RoundedCornerShape(8.dp))
-                                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                                .pulsable {
                                     responder(item.id, true)
                                 }
                                 .padding(horizontal = 14.dp, vertical = 7.dp),

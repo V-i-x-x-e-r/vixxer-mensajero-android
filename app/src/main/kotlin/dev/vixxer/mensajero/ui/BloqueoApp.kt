@@ -8,8 +8,6 @@ import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -342,7 +340,7 @@ private fun LienzoBloqueo(
                 "Cancelar",
                 fontSize = 15.sp,
                 color = colores.muted,
-                modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alCancelar() },
+                modifier = Modifier.pulsable { alCancelar() },
             )
         }
     }
@@ -387,10 +385,10 @@ private fun TeclaDigito(colores: Paleta, digito: String, alPulsar: () -> Unit)
 {
     Box(
         modifier = Modifier
+            .pulsable { alPulsar() }
             .size(72.dp)
             .background(colores.surface, CircleShape)
-            .border(Vidrio.anchoBorde, colores.borde, CircleShape)
-            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alPulsar() },
+            .border(Vidrio.anchoBorde, colores.borde, CircleShape),
         contentAlignment = Alignment.Center,
     )
     {
@@ -404,7 +402,7 @@ private fun TeclaEspecial(colores: Paleta, simbolo: String, alPulsar: () -> Unit
     Box(
         modifier = Modifier
             .size(72.dp)
-            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alPulsar() },
+            .pulsable { alPulsar() },
         contentAlignment = Alignment.Center,
     )
     {

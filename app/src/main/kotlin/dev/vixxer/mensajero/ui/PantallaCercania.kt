@@ -15,8 +15,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -195,7 +193,7 @@ fun PantallaCercania(app: AplicacionVixxer, alVolver: () -> Unit)
                 "‹",
                 fontSize = 26.sp,
                 color = colores.texto,
-                modifier = Modifier.clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alVolver() },
+                modifier = Modifier.pulsable { alVolver() },
             )
             Text("Radar de cercanía", fontSize = 18.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.SemiBold, color = colores.texto)
         }
@@ -229,10 +227,10 @@ fun PantallaCercania(app: AplicacionVixxer, alVolver: () -> Unit)
                     fontWeight = FontWeight.SemiBold,
                     color = if (corriendo) colores.texto else colores.botonTexto,
                     modifier = Modifier
+                        .pulsable { alternar() }
                         .padding(top = 10.dp)
                         .border(1.dp, colores.borde, RoundedCornerShape(18.dp))
                         .background(if (corriendo) Color.Transparent else colores.botonFondo, RoundedCornerShape(18.dp))
-                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alternar() }
                         .padding(horizontal = 18.dp, vertical = 8.dp),
                 )
             }
@@ -249,8 +247,8 @@ fun PantallaCercania(app: AplicacionVixxer, alVolver: () -> Unit)
                         fontWeight = FontWeight.SemiBold,
                         color = colores.texto,
                         modifier = Modifier
+                            .pulsable { abrirAjustesApp() }
                             .border(1.dp, colores.borde, RoundedCornerShape(18.dp))
-                            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { abrirAjustesApp() }
                             .padding(horizontal = 18.dp, vertical = 8.dp),
                     )
                 }
@@ -324,9 +322,9 @@ private fun RadarLienzo(corriendo: Boolean, color: Color, peers: List<dev.vixxer
         }
         Box(
             modifier = Modifier
+                .pulsable { alTocar() }
                 .align(Alignment.Center)
-                .size(52.dp)
-                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alTocar() },
+                .size(52.dp),
             contentAlignment = Alignment.Center,
         )
         {
