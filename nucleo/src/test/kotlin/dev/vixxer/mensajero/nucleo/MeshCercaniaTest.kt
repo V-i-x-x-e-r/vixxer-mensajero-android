@@ -40,4 +40,35 @@ class MeshCercaniaTest
         val decision = MeshCercania.procesar(sobre, "u-beto", vistos)
         assertEquals(MeshCercania.Accion.ENTREGAR, decision.accion)
     }
+
+    @Test
+    fun elSobreNaceDirectoYConservaElTipoGrupo()
+    {
+        val directo = MeshCercania.crearSobre("u-ana", "u-beto", "c", "n")
+        assertEquals(MeshCercania.TIPO_DIRECTO, directo.tipo)
+        val grupo = MeshCercania.crearSobre("u-ana", "u-beto", "c", "n", tipo = MeshCercania.TIPO_GRUPO)
+        val vuelto = MeshCercania.deJson(MeshCercania.aJson(grupo))
+        assertEquals(MeshCercania.TIPO_GRUPO, vuelto?.tipo)
+    }
+
+    @Test
+    fun elSobreDeUnaVersionViejaSeLeeComoDirecto()
+    {
+        val crudo = """{"id":"a-1","remitenteId":"u-ana","destinatarioId":"u-beto","contenidoCifrado":"c","nonce":"n","ttl":3}"""
+        assertEquals(MeshCercania.TIPO_DIRECTO, MeshCercania.deJson(crudo)?.tipo)
+    }
+
+    @Test
+    fun elTtlDelCableSeRecortaAlMaximo()
+    {
+        val crudo = """{"id":"a-2","remitenteId":"u-ana","destinatarioId":"u-beto","contenidoCifrado":"c","nonce":"n","ttl":9999}"""
+        assertEquals(MeshCercania.TTL_MAXIMO, MeshCercania.deJson(crudo)?.ttl)
+    }
+
+    @Test
+    fun elTtlDeUnSobrePropioNoPasaDelMaximo()
+    {
+        val sobre = MeshCercania.crearSobre("u-ana", "u-beto", "c", "n", ttl = 50)
+        assertEquals(MeshCercania.TTL_MAXIMO, sobre.ttl)
+    }
 }

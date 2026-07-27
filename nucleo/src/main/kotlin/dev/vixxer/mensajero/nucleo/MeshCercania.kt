@@ -18,6 +18,10 @@ object MeshCercania
         DESCARTAR,
     }
 
+    const val TIPO_DIRECTO = "directo"
+    const val TIPO_GRUPO = "grupo"
+    const val TTL_MAXIMO = 5
+
     data class Sobre(
         val id: String,
         val remitenteId: String,
@@ -27,6 +31,7 @@ object MeshCercania
         val ttl: Int,
         val firma: String? = null,
         val clienteId: String? = null,
+        val tipo: String = TIPO_DIRECTO,
     )
 
     data class Decision(val accion: Accion, val sobre: Sobre? = null)
@@ -36,16 +41,18 @@ object MeshCercania
         destinatarioId: String,
         contenidoCifrado: String,
         nonce: String,
-        ttl: Int = 5,
+        ttl: Int = TTL_MAXIMO,
         clienteId: String? = null,
+        tipo: String = TIPO_DIRECTO,
     ): Sobre = Sobre(
         id = "${System.currentTimeMillis()}-${cadenaAleatoria()}",
         remitenteId = remitenteId,
         destinatarioId = destinatarioId,
         contenidoCifrado = contenidoCifrado,
         nonce = nonce,
-        ttl = ttl,
+        ttl = ttl.coerceIn(1, TTL_MAXIMO),
         clienteId = clienteId,
+        tipo = tipo,
     )
 
     fun procesar(sobre: Sobre?, miId: String, vistos: Vistos): Decision
@@ -75,6 +82,7 @@ object MeshCercania
         .put("ttl", sobre.ttl)
         .put("firma", sobre.firma ?: JSONObject.NULL)
         .put("clienteId", sobre.clienteId ?: JSONObject.NULL)
+        .put("tipo", sobre.tipo)
         .toString()
 
     fun deJson(texto: String): Sobre?
@@ -93,9 +101,10 @@ object MeshCercania
                 destinatarioId = obj.optString("destinatarioId"),
                 contenidoCifrado = obj.optString("contenidoCifrado"),
                 nonce = obj.optString("nonce"),
-                ttl = obj.optInt("ttl", 1),
+                ttl = obj.optInt("ttl", 1).coerceIn(0, TTL_MAXIMO),
                 firma = if (obj.isNull("firma")) null else obj.optString("firma"),
                 clienteId = if (obj.isNull("clienteId")) null else obj.optString("clienteId"),
+                tipo = obj.optString("tipo").ifBlank { TIPO_DIRECTO },
             )
         }
         catch (_: Exception)
