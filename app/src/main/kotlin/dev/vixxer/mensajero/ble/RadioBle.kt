@@ -26,6 +26,7 @@ import dev.vixxer.mensajero.nucleo.MeshCercania
 import java.io.ByteArrayOutputStream
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
@@ -56,9 +57,7 @@ class RadioBle(private val contexto: Context)
     private val desbordados = HashSet<String>()
     private val capsConocidas = LinkedHashMap<String, Pair<Int, Long>>()
     private var alMensaje: ((String) -> Unit)? = null
-    private val entrega = Executors.newSingleThreadExecutor { tarea ->
-        Thread(tarea, "vixxer-mesh-entrega").apply { isDaemon = true }
-    }
+    private var entrega: ExecutorService? = null
 
     private val gestor: BluetoothManager?
         get() = contexto.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
@@ -138,6 +137,7 @@ class RadioBle(private val contexto: Context)
             buffers.clear()
             desbordados.clear()
         }
+        cerrarCarril()
     }
 
     fun escanear(soloVixxer: Boolean, alEncontrar: (Cercano) -> Unit, onError: (String) -> Unit): () -> Unit
@@ -543,12 +543,34 @@ class RadioBle(private val contexto: Context)
         }
     }
 
+    @Synchronized
+    private fun carril(): ExecutorService
+    {
+        val actual = entrega
+        if (actual != null && !actual.isShutdown)
+        {
+            return actual
+        }
+        val nuevo = Executors.newSingleThreadExecutor { tarea ->
+            Thread(tarea, "vixxer-mesh-entrega").apply { isDaemon = true }
+        }
+        entrega = nuevo
+        return nuevo
+    }
+
+    @Synchronized
+    private fun cerrarCarril()
+    {
+        entrega?.shutdownNow()
+        entrega = null
+    }
+
     private fun despachar(texto: String)
     {
         val cb = alMensaje ?: return
         try
         {
-            entrega.execute { runCatching { cb(texto) } }
+            carril().execute { runCatching { cb(texto) } }
         }
         catch (_: Exception)
         {

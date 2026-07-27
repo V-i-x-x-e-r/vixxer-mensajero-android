@@ -18,7 +18,7 @@ import java.util.concurrent.TimeUnit
 object RadioWifi
 {
     private const val IP_GRUPO = "192.168.49.1"
-    private const val TOPE_BLOB = 64 * 1024 * 1024
+    private const val TOPE_BLOB = 17 * 1024 * 1024
 
     fun soportado(contexto: Context): Boolean =
         Build.VERSION.SDK_INT >= 29 &&
@@ -243,7 +243,7 @@ object RadioWifi
                 datos
             }
         }
-        catch (_: Exception)
+        catch (_: Throwable)
         {
             null
         }
