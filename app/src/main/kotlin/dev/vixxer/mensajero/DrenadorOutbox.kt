@@ -7,6 +7,7 @@ import dev.vixxer.mensajero.nucleo.Cripto
 import dev.vixxer.mensajero.nucleo.EnvioDirecto
 import dev.vixxer.mensajero.nucleo.ErrorApi
 import dev.vixxer.mensajero.nucleo.EnviosEnVuelo
+import dev.vixxer.mensajero.nucleo.MeshCercania
 import dev.vixxer.mensajero.nucleo.Outbox
 import io.socket.client.Ack
 import io.socket.client.Socket
@@ -238,6 +239,7 @@ object DrenadorOutbox
                 sellado.first,
                 sellado.second,
                 pendiente.clienteId,
+                MeshCercania.TIPO_GRUPO,
             )
             if (resultado.entregados > 0)
             {

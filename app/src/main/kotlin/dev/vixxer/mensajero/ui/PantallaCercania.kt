@@ -236,9 +236,10 @@ fun PantallaCercania(app: AplicacionVixxer, alVolver: () -> Unit)
                         .padding(horizontal = 18.dp, vertical = 8.dp),
                 )
             }
-            if (mensaje.isNotEmpty())
+            val aviso = mensaje.ifEmpty { GestorCercania.avisoEscaneo.orEmpty() }
+            if (aviso.isNotEmpty())
             {
-                Text(mensaje, fontSize = 12.sp, color = colores.muted, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+                Text(aviso, fontSize = 12.sp, color = colores.muted, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
                 if (ofrecerAjustes)
                 {
                     Text(

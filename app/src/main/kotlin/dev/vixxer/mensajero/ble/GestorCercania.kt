@@ -4,10 +4,8 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.core.content.ContextCompat
 import dev.vixxer.mensajero.AplicacionVixxer
 import dev.vixxer.mensajero.DrenadorOutbox
@@ -39,6 +37,7 @@ object GestorCercania
 
     private const val MILIS_ROTACION = 15000L
     private const val TOPE_TOKENS = 128
+    private const val VIDA_PEER_MS = 120_000L
 
     private var radio: RadioBle? = null
     private var mensajeria: MensajeriaBle? = null
@@ -66,7 +65,10 @@ object GestorCercania
     var corriendo by mutableStateOf(false)
         private set
 
-    private val _peers: SnapshotStateList<PeerCercano> = mutableStateListOf()
+    var avisoEscaneo by mutableStateOf<String?>(null)
+        private set
+
+    private var _peers by mutableStateOf<List<PeerCercano>>(emptyList())
     val peers: List<PeerCercano> get() = _peers
 
     fun mensajeria(app: AplicacionVixxer): MensajeriaBle = prepararMensajeria(app)
@@ -167,9 +169,10 @@ object GestorCercania
                     drenarAlAvistar(app, amigoId)
                 }
             },
-            onError = {},
+            onError = { avisoEscaneo = razonEscaneo(it) },
         )
         corriendo = true
+        avisoEscaneo = null
         arrancarRotacion(app)
         return ResultadoActivar(true)
     }
@@ -189,7 +192,8 @@ object GestorCercania
         {
             vistosCercanos.clear()
         }
-        _peers.clear()
+        _peers = emptyList()
+        avisoEscaneo = null
         ultimoTokenAnunciado = null
         synchronized(drenados) { drenados.clear() }
         limpiarTokens()
@@ -318,7 +322,7 @@ object GestorCercania
 
     fun macsDeAmigo(amigoId: String): List<String>
     {
-        val limite = System.currentTimeMillis() - 120_000L
+        val limite = System.currentTimeMillis() - VIDA_PEER_MS
         return _peers.filter { it.amigoId == amigoId && it.visto >= limite }.map { it.id }
     }
 
@@ -326,7 +330,7 @@ object GestorCercania
 
     fun amigoSoportaWifi(amigoId: String): Boolean
     {
-        val limite = System.currentTimeMillis() - 120_000L
+        val limite = System.currentTimeMillis() - VIDA_PEER_MS
         return _peers.any { it.amigoId == amigoId && it.visto >= limite && (it.caps and 2) != 0 }
     }
 
@@ -379,10 +383,21 @@ object GestorCercania
     {
         val instantanea = synchronized(vistosCercanos)
         {
+            val limite = System.currentTimeMillis() - VIDA_PEER_MS
+            vistosCercanos.values.removeAll { it.visto < limite }
             vistosCercanos.values.toList()
         }
-        _peers.clear()
-        _peers.addAll(instantanea)
+        _peers = instantanea
+    }
+
+    private fun razonEscaneo(codigo: String): String = when (codigo)
+    {
+        "error: 1" -> "El radar ya estaba escaneando; apágalo y enciéndelo de nuevo"
+        "error: 2" -> "Android bloqueó el escaneo por reiniciarlo muy seguido. Espera un minuto y vuelve a encenderlo"
+        "error: 3" -> "Error interno del Bluetooth; apágalo y enciéndelo desde los ajustes del sistema"
+        "error: 4" -> "Este teléfono no soporta el escaneo que necesita el radar"
+        "bt-apagado" -> "Enciende el Bluetooth e inténtalo de nuevo"
+        else -> "El radar no pudo escanear ($codigo)"
     }
 
     private fun razonAnuncio(codigo: String): String = when (codigo)

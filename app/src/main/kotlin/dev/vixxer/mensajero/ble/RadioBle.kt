@@ -26,6 +26,7 @@ import dev.vixxer.mensajero.nucleo.MeshCercania
 import java.io.ByteArrayOutputStream
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 data class Cercano(val id: String, val nombre: String, val rssi: Int, val token: String? = null, val caps: Int = 0)
@@ -41,6 +42,9 @@ class RadioBle(private val contexto: Context)
     private val trozo = 180
     private val umbralL2cap = 4096
     private val vidaCapsMs = 5 * 60 * 1000L
+    private val topeSobre = 512 * 1024
+    private val topeBuffers = 16
+    private val topeCaps = 64
 
     private var anunciante: BluetoothLeAdvertiser? = null
     private var callbackAnuncio: AdvertiseCallback? = null
@@ -48,9 +52,13 @@ class RadioBle(private val contexto: Context)
     private var servidorL2cap: android.bluetooth.BluetoothServerSocket? = null
     private var escaner: BluetoothLeScanner? = null
     private var callbackEscaneo: ScanCallback? = null
-    private val buffers = HashMap<String, ByteArrayOutputStream>()
-    private val capsConocidas = HashMap<String, Pair<Int, Long>>()
+    private val buffers = LinkedHashMap<String, ByteArrayOutputStream>()
+    private val desbordados = HashSet<String>()
+    private val capsConocidas = LinkedHashMap<String, Pair<Int, Long>>()
     private var alMensaje: ((String) -> Unit)? = null
+    private val entrega = Executors.newSingleThreadExecutor { tarea ->
+        Thread(tarea, "vixxer-mesh-entrega").apply { isDaemon = true }
+    }
 
     private val gestor: BluetoothManager?
         get() = contexto.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
@@ -128,11 +136,13 @@ class RadioBle(private val contexto: Context)
         synchronized(buffers)
         {
             buffers.clear()
+            desbordados.clear()
         }
     }
 
     fun escanear(soloVixxer: Boolean, alEncontrar: (Cercano) -> Unit, onError: (String) -> Unit): () -> Unit
     {
+        detenerEscaneo()
         val gestorBt = gestor
         val adaptador = gestorBt?.adapter
         if (adaptador == null)
@@ -272,11 +282,12 @@ class RadioBle(private val contexto: Context)
             return false
         }
         var socket: android.bluetooth.BluetoothSocket? = null
+        var guardian: Thread? = null
         return try
         {
             val abierto = dispositivo.createInsecureL2capChannel(psm)
             socket = abierto
-            val guardian = Thread {
+            val vigilante = Thread {
                 try
                 {
                     Thread.sleep(20000)
@@ -293,13 +304,13 @@ class RadioBle(private val contexto: Context)
                 {
                 }
             }
-            guardian.isDaemon = true
-            guardian.start()
+            vigilante.isDaemon = true
+            vigilante.start()
+            guardian = vigilante
             abierto.connect()
             abierto.outputStream.write(bytes)
             abierto.outputStream.flush()
             val ack = abierto.inputStream.read()
-            guardian.interrupt()
             ack == 49
         }
         catch (_: Exception)
@@ -308,6 +319,7 @@ class RadioBle(private val contexto: Context)
         }
         finally
         {
+            guardian?.interrupt()
             try
             {
                 socket?.close()
@@ -334,7 +346,12 @@ class RadioBle(private val contexto: Context)
     private fun recordarCaps(direccion: String, psm: Int)
     {
         synchronized(capsConocidas) {
+            capsConocidas.remove(direccion)
             capsConocidas[direccion] = Pair(psm, System.currentTimeMillis())
+            while (capsConocidas.size > topeCaps)
+            {
+                capsConocidas.remove(capsConocidas.keys.first())
+            }
         }
     }
 
@@ -480,6 +497,7 @@ class RadioBle(private val contexto: Context)
             val entrada = socket.inputStream.buffered()
             val salida = socket.outputStream
             val buffer = ByteArrayOutputStream()
+            var desbordado = false
             while (true)
             {
                 val b = entrada.read()
@@ -491,12 +509,18 @@ class RadioBle(private val contexto: Context)
                 {
                     val completo = buffer.toByteArray()
                     buffer.reset()
-                    if (completo.isNotEmpty())
+                    if (completo.isNotEmpty() && !desbordado)
                     {
-                        alMensaje?.invoke(String(completo, Charsets.UTF_8))
                         salida.write(49)
                         salida.flush()
+                        despachar(String(completo, Charsets.UTF_8))
                     }
+                    desbordado = false
+                }
+                else if (buffer.size() >= topeSobre)
+                {
+                    buffer.reset()
+                    desbordado = true
                 }
                 else
                 {
@@ -519,22 +543,45 @@ class RadioBle(private val contexto: Context)
         }
     }
 
+    private fun despachar(texto: String)
+    {
+        val cb = alMensaje ?: return
+        try
+        {
+            entrega.execute { runCatching { cb(texto) } }
+        }
+        catch (_: Exception)
+        {
+        }
+    }
+
     private fun acumular(direccion: String, trozoBytes: ByteArray)
     {
         val completados = ArrayList<ByteArray>()
         synchronized(buffers)
         {
             val buffer = buffers.getOrPut(direccion) { ByteArrayOutputStream() }
+            while (buffers.size > topeBuffers)
+            {
+                val masViejo = buffers.keys.firstOrNull { it != direccion } ?: break
+                buffers.remove(masViejo)
+                desbordados.remove(masViejo)
+            }
             for (b in trozoBytes)
             {
                 if (b.toInt() == 10)
                 {
                     val completo = buffer.toByteArray()
                     buffer.reset()
-                    if (completo.isNotEmpty())
+                    if (completo.isNotEmpty() && !desbordados.remove(direccion))
                     {
                         completados.add(completo)
                     }
+                }
+                else if (buffer.size() >= topeSobre)
+                {
+                    buffer.reset()
+                    desbordados.add(direccion)
                 }
                 else
                 {
@@ -544,7 +591,7 @@ class RadioBle(private val contexto: Context)
         }
         for (completo in completados)
         {
-            alMensaje?.invoke(String(completo, Charsets.UTF_8))
+            despachar(String(completo, Charsets.UTF_8))
         }
     }
 

@@ -11,6 +11,7 @@ import dev.vixxer.mensajero.nucleo.Vistos
 import io.socket.client.Socket
 import io.socket.emitter.Emitter
 import java.time.Instant
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArraySet
 import org.json.JSONArray
 import org.json.JSONObject
@@ -31,8 +32,9 @@ class MensajeriaBle(
 )
 {
     private val vistos = Vistos()
-    private val peers = CopyOnWriteArraySet<String>()
+    private val peers = ConcurrentHashMap<String, Long>()
     private val oyentes = CopyOnWriteArraySet<(JSONObject) -> Unit>()
+    private val vidaPeerMs = 120_000L
 
     @Volatile
     private var enviados = 0
@@ -63,7 +65,7 @@ class MensajeriaBle(
 
     fun registrarPeer(id: String)
     {
-        peers.add(id)
+        peers[id] = System.currentTimeMillis()
     }
 
     fun olvidarPeers()
@@ -71,7 +73,14 @@ class MensajeriaBle(
         peers.clear()
     }
 
-    fun peersConocidos(): Int = peers.size
+    fun peersConocidos(): Int = peersVigentes().size
+
+    private fun peersVigentes(): List<String>
+    {
+        val limite = System.currentTimeMillis() - vidaPeerMs
+        peers.entries.removeAll { it.value < limite }
+        return peers.keys.toList()
+    }
 
     fun alEntrante(cb: (JSONObject) -> Unit): () -> Unit
     {
@@ -83,7 +92,7 @@ class MensajeriaBle(
     {
         val texto = MeshCercania.aJson(sobre)
         var entregados = 0
-        for (id in peers)
+        for (id in peersVigentes())
         {
             if (id == excepto)
             {
@@ -103,9 +112,17 @@ class MensajeriaBle(
         contenidoCifrado: String,
         nonce: String,
         clienteId: String? = null,
+        tipo: String = MeshCercania.TIPO_DIRECTO,
     ): ResultadoEnvioCercania
     {
-        val sobre = sellarSobre(destinatarioId, contenidoCifrado, nonce, ttl = 5, clienteId = clienteId)
+        val sobre = sellarSobre(
+            destinatarioId,
+            contenidoCifrado,
+            nonce,
+            ttl = MeshCercania.TTL_MAXIMO,
+            clienteId = clienteId,
+            tipo = tipo,
+        )
         val entregados = difundir(sobre, null)
         if (entregados > 0)
         {
@@ -147,11 +164,20 @@ class MensajeriaBle(
         nonce: String,
         ttl: Int,
         clienteId: String?,
+        tipo: String = MeshCercania.TIPO_DIRECTO,
     ): MeshCercania.Sobre
     {
         val miId = app.boveda.leer(ClavesSeguras.MI_ID) ?: ""
-        val base = MeshCercania.crearSobre(miId, destinatarioId, contenidoCifrado, nonce, ttl = ttl, clienteId = clienteId)
-        val canonico = Firma.mensajeCanonico(miId, destinatarioId, contenidoCifrado, nonce, base.id)
+        val base = MeshCercania.crearSobre(
+            miId,
+            destinatarioId,
+            contenidoCifrado,
+            nonce,
+            ttl = ttl,
+            clienteId = clienteId,
+            tipo = tipo,
+        )
+        val canonico = Firma.mensajeCanonico(miId, destinatarioId, contenidoCifrado, nonce, idParaServidor(base))
         val firma = app.firma.firmar(canonico)
         val sobre = base.copy(firma = firma)
         vistos.marcar(sobre.id)
@@ -188,16 +214,19 @@ class MensajeriaBle(
                 MeshCercania.Accion.REENVIAR ->
                 {
                     val reenviar = decision.sobre ?: return@alRecibir
-                    val socket = ConexionSocket.obtener()
-                    if (socket != null && socket.connected())
+                    if (reenviar.tipo == MeshCercania.TIPO_DIRECTO)
                     {
-                        puente += 1
-                        subirComoPuente(reenviar)
-                        drenarCola()
-                    }
-                    else
-                    {
-                        encolar(reenviar)
+                        val socket = ConexionSocket.obtener()
+                        if (socket != null && socket.connected())
+                        {
+                            puente += 1
+                            subirComoPuente(reenviar)
+                            drenarCola()
+                        }
+                        else
+                        {
+                            encolar(reenviar)
+                        }
                     }
                     reenviados += 1
                     difundir(reenviar, null)
@@ -215,6 +244,9 @@ class MensajeriaBle(
         ConexionSocket.obtener()?.off(Socket.EVENT_CONNECT, alConectar)
     }
 
+    private fun idParaServidor(sobre: MeshCercania.Sobre): String =
+        sobre.clienteId?.takeIf { it.isNotBlank() } ?: sobre.id
+
     private fun subirComoPuente(sobre: MeshCercania.Sobre): Boolean =
         runCatching {
             app.api.relayMensaje(
@@ -223,7 +255,7 @@ class MensajeriaBle(
                     destinatarioId = sobre.destinatarioId,
                     contenidoCifrado = sobre.contenidoCifrado,
                     nonce = sobre.nonce,
-                    id = sobre.id,
+                    id = idParaServidor(sobre),
                     firma = sobre.firma,
                 ),
             )
