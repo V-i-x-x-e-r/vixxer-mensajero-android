@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -2150,7 +2152,7 @@ private fun DivisorKebab(colores: Paleta)
 }
 
 @Composable
-private fun Burbuja(
+internal fun Burbuja(
     m: Mensaje,
     mio: Boolean,
     colores: Paleta,
@@ -2209,14 +2211,29 @@ private fun Burbuja(
             {
                 if (m.respuestaTexto != null)
                 {
-                    Text(
-                        m.respuestaTexto,
-                        fontSize = 13.sp,
-                        color = if (mio) colores.botonTexto.copy(alpha = 0.8f) else colores.muted,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(start = 8.dp, bottom = 6.dp),
+                    val tintaCita = if (mio) colores.botonTexto else colores.texto
+                    Row(
+                        modifier = Modifier
+                            .padding(bottom = 6.dp)
+                            .height(IntrinsicSize.Min)
+                            .background(tintaCita.copy(alpha = 0.07f), RoundedCornerShape(6.dp)),
                     )
+                    {
+                        Box(
+                            modifier = Modifier
+                                .width(3.dp)
+                                .fillMaxHeight()
+                                .background(tintaCita.copy(alpha = 0.55f), RoundedCornerShape(6.dp)),
+                        )
+                        Text(
+                            m.respuestaTexto,
+                            fontSize = 13.sp,
+                            color = tintaCita.copy(alpha = 0.75f),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 5.dp, bottom = 5.dp),
+                        )
+                    }
                 }
                 val media = mediaBurbuja
                 if (m.borrado)

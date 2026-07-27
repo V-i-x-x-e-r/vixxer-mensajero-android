@@ -27,7 +27,7 @@ import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [29], application = android.app.Application::class)
+@Config(sdk = [29], application = android.app.Application::class, qualifiers = "w411dp-h891dp-xhdpi")
 class CapturaSinBlurTest
 {
     @get:Rule
@@ -68,7 +68,7 @@ class CapturaSinBlurTest
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [33], application = android.app.Application::class)
+@Config(sdk = [33], application = android.app.Application::class, qualifiers = "w411dp-h891dp-xhdpi")
 class CapturaConBlurTest
 {
     @get:Rule
