@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
@@ -43,6 +44,30 @@ class CapturaSinBlurTest
     fun panelesEnClaroSinBlur()
     {
         capturar(compose, oscuro = false, nombre = "sdk29-claro")
+    }
+
+    @Test
+    fun avataresSinFotoCaenAlMismoRespaldo()
+    {
+        compose.setContent {
+            val tema = EstadoTema(AlmacenEnMemoria(), oscuroSistema = true)
+            CompositionLocalProvider(LocalTema provides tema) {
+                Row(
+                    modifier = Modifier
+                        .background(tema.colores.fondo)
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                )
+                {
+                    Avatar(nombre = "Familia", tamano = 44.dp)
+                    Avatar(nombre = "Equipo Vixxer", tamano = 44.dp)
+                    Avatar(nombre = "César", tamano = 44.dp)
+                    Avatar(nombre = "Sergio", tamano = 44.dp)
+                    Avatar(nombre = "", tamano = 44.dp)
+                }
+            }
+        }
+        compose.onRoot().captureRoboImage("src/test/capturas/avatares-respaldo.png")
     }
 
     @Test
