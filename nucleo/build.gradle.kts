@@ -14,9 +14,9 @@ dependencies {
     api("io.socket:socket.io-client:2.1.2") {
         exclude(group = "org.json", module = "json")
     }
-    compileOnly("org.json:json:20250517")
+    compileOnly("org.json:json:20260719")
     testImplementation(kotlin("test"))
-    testImplementation("org.json:json:20250517")
+    testImplementation("org.json:json:20260719")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
 }
 
