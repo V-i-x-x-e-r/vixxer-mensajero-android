@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -607,7 +608,7 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
 }
 
 @Composable
-private fun Seccion(titulo: String, colores: Paleta)
+internal fun Seccion(titulo: String, colores: Paleta)
 {
     Text(
         titulo,
@@ -620,7 +621,7 @@ private fun Seccion(titulo: String, colores: Paleta)
 }
 
 @Composable
-private fun Tarjeta(contenido: @Composable () -> Unit)
+internal fun Tarjeta(contenido: @Composable () -> Unit)
 {
     Column(modifier = Modifier.fillMaxWidth().panelVidrio()) {
         contenido()
@@ -628,30 +629,33 @@ private fun Tarjeta(contenido: @Composable () -> Unit)
 }
 
 @Composable
-private fun Separador(colores: Paleta)
+internal fun Separador(colores: Paleta)
 {
     Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(1.dp).background(colores.borde))
 }
 
+internal val ALTO_FILA = 52.dp
+
 @Composable
-private fun FilaNav(etiqueta: String, colores: Paleta, alPulsar: () -> Unit)
+internal fun FilaNav(etiqueta: String, colores: Paleta, alPulsar: () -> Unit)
 {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .pulsable { alPulsar() }
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .heightIn(min = ALTO_FILA)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     )
     {
         Text(etiqueta, fontSize = 15.sp, color = colores.texto)
-        Text("›", fontSize = 18.sp, color = colores.muted)
+        Chevron(colores.muted)
     }
 }
 
 @Composable
-private fun FilaSwitch(
+internal fun FilaSwitch(
     etiqueta: String,
     valor: Boolean,
     colores: Paleta,
@@ -660,7 +664,10 @@ private fun FilaSwitch(
 )
 {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = ALTO_FILA)
+            .padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     )
@@ -682,7 +689,7 @@ private fun FilaSwitch(
 }
 
 @Composable
-private fun FilaValor(
+internal fun FilaValor(
     etiqueta: String,
     valor: String,
     colores: Paleta,
@@ -697,7 +704,8 @@ private fun FilaValor(
                 if (apagada) Modifier
                 else Modifier.pulsable { alPulsar() },
             )
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .heightIn(min = ALTO_FILA)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     )

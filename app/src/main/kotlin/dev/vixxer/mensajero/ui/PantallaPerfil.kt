@@ -418,15 +418,3 @@ fun PantallaPerfil(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> U
     )
 }
 
-@Composable
-private fun Seccion(titulo: String, colores: Paleta)
-{
-    Text(
-        titulo,
-        fontSize = 12.sp,
-        fontWeight = FontWeight.SemiBold,
-        letterSpacing = 1.sp,
-        color = colores.muted,
-        modifier = Modifier.padding(top = 24.dp, bottom = 8.dp),
-    )
-}
