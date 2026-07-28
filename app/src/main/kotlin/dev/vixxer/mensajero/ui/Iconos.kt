@@ -421,3 +421,11 @@ fun Visto(color: Color, dos: Boolean = false, tamano: Dp = 14.dp)
         }
     }
 }
+
+@Composable
+fun Chevron(color: Color, tamano: Dp = 16.dp)
+{
+    Icono24(tamano) {
+        trazo("M9 6l6 6-6 6", color)
+    }
+}
