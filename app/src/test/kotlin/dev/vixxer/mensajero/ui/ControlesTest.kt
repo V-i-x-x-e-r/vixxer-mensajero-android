@@ -1,0 +1,58 @@
+package dev.vixxer.mensajero.ui
+
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.performClick
+import dev.vixxer.mensajero.nucleo.AlmacenEnMemoria
+import org.junit.Assert.assertEquals
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [29], application = android.app.Application::class)
+class ControlesTest
+{
+    @get:Rule
+    val compose = createComposeRule()
+
+    @Test
+    fun limpiarBusquedaVaciaElCampo()
+    {
+        var busqueda by mutableStateOf("Vixxer")
+
+        compose.setContent {
+            val tema = EstadoTema(AlmacenEnMemoria(), oscuroSistema = false)
+            CompositionLocalProvider(LocalTema provides tema) {
+                CampoBusqueda(
+                    valor = busqueda,
+                    alCambiar = { busqueda = it },
+                )
+            }
+        }
+
+        compose.onNodeWithContentDescription("Limpiar búsqueda").performClick()
+        compose.runOnIdle { assertEquals("", busqueda) }
+    }
+
+    @Test
+    fun botonTemaAlternaLaApariencia()
+    {
+        val tema = EstadoTema(AlmacenEnMemoria(), oscuroSistema = false)
+
+        compose.setContent {
+            CompositionLocalProvider(LocalTema provides tema) {
+                BotonTema()
+            }
+        }
+
+        compose.onNodeWithContentDescription("Activar tema oscuro").performClick()
+        compose.runOnIdle { assertEquals("oscuro", tema.nombre) }
+    }
+}

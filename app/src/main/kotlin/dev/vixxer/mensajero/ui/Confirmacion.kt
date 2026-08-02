@@ -1,6 +1,5 @@
 package dev.vixxer.mensajero.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -48,8 +47,7 @@ fun Confirmacion(
         Column(
             modifier = Modifier
                 .widthIn(max = 360.dp)
-                .background(colores.surface.copy(alpha = 0.98f), RoundedCornerShape(16.dp))
-                .border(1.dp, colores.borde, RoundedCornerShape(16.dp))
+                .panelVidrio(radio = 16.dp, fuerte = true)
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         )
@@ -77,8 +75,8 @@ private fun BotonDialogo(texto: String, color: androidx.compose.ui.graphics.Colo
 {
     Box(
         modifier = modifier
-            .fillMaxHeight()
             .pulsable(alPulsar = alPulsar)
+            .fillMaxHeight()
             .border(1.dp, borde, RoundedCornerShape(10.dp))
             .heightIn(min = 44.dp)
             .padding(horizontal = 10.dp, vertical = 10.dp),

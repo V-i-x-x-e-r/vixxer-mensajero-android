@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.onRoot
@@ -160,6 +161,24 @@ private fun Muestrario()
         }
         Box(modifier = Modifier.fillMaxWidth().panelVidrio(fuerte = true).padding(16.dp)) {
             Text("Panel fuerte", fontSize = 15.sp, fontFamily = FuenteOutfit, color = colores.texto)
+        }
+        Campo(
+            valor = "",
+            alCambiar = {},
+            placeholder = "Campo de texto",
+        )
+        CampoBusqueda(
+            valor = "Vixxer",
+            alCambiar = {},
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        )
+        {
+            Text("Control de tema", fontSize = 14.sp, color = colores.texto)
+            BotonTema()
         }
         Boton(titulo = "Botón primario", alPulsar = {})
     }

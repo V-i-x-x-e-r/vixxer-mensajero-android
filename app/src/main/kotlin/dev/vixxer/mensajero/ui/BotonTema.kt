@@ -1,9 +1,7 @@
 package dev.vixxer.mensajero.ui
 
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -22,20 +20,20 @@ fun BotonTema(modifier: Modifier = Modifier)
 
     Box(
         modifier = modifier
-            .size(48.dp)
             .pulsable { tema.alternar() }
             .semantics
             {
                 contentDescription = descripcion
                 role = Role.Button
-            },
+            }
+            .size(48.dp),
         contentAlignment = Alignment.Center,
     )
     {
         Box(
             modifier = Modifier
                 .size(38.dp)
-                .border(1.dp, colores.borde, CircleShape),
+                .circuloVidrio(),
             contentAlignment = Alignment.Center,
         )
         {
