@@ -125,7 +125,7 @@ private fun capturar(
                     modifier = Modifier
                         .matchParentSize()
                         .fondoDesenfocable(haze)
-                        .background(tema.colores.fondo),
+                        .fondoVixxer(),
                 )
                 Muestrario()
             }
@@ -140,7 +140,6 @@ private fun Muestrario()
     val colores = LocalTema.current.colores
     Column(
         modifier = Modifier
-            .background(colores.fondo)
             .fillMaxWidth()
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),

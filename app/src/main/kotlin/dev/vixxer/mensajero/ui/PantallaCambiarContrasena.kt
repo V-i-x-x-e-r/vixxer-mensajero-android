@@ -91,7 +91,7 @@ fun PantallaCambiarContrasena(app: AplicacionVixxer, alVolver: () -> Unit)
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(colores.fondo)
+            .fondoVixxer()
             .statusBarsPadding()
             .imePadding()
             .verticalScroll(rememberScrollState())

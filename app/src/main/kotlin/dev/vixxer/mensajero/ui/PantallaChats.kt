@@ -420,7 +420,7 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(colores.fondo)) {
+    Box(modifier = Modifier.fillMaxSize().fondoVixxer()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -499,22 +499,11 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
             }
             else
             {
-                Row(
-                    modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 28.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
+                CabeceraMensajero(
+                    estado = estadoConexion,
+                    conectado = conectado,
+                    alAbrirAjustes = { alNavegar("ajustes") },
                 )
-                {
-                    LogoPenduloFila(alto = 22.dp)
-                    Box(modifier = Modifier.pulsable { alNavegar("ajustes") }) {
-                        Engrane(color = colores.texto)
-                    }
-                }
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(modifier = Modifier.size(8.dp).background(if (conectado) Color(0xFF22C55E) else colores.muted, CircleShape))
-                Text(estadoConexion, fontSize = 12.sp, color = colores.muted)
             }
 
             if (amigos.isNotEmpty() && sel == null)

@@ -128,7 +128,7 @@ fun PantallaPerfil(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> U
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(colores.fondo)
+            .fondoVixxer()
             .statusBarsPadding()
             .verticalScroll(rememberScrollState())
             .padding(bottom = 32.dp),
@@ -417,4 +417,3 @@ fun PantallaPerfil(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> U
         alCancelar = { confirmar = null },
     )
 }
-

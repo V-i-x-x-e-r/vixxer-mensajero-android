@@ -53,7 +53,7 @@ class CapturaCompositorTest
                         modifier = Modifier
                             .matchParentSize()
                             .fondoDesenfocable(haze)
-                            .background(tema.colores.fondo),
+                            .fondoVixxer(),
                     )
                     Row(
                         modifier = Modifier

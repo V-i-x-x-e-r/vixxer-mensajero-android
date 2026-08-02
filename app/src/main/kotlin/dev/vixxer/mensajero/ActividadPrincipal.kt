@@ -50,6 +50,7 @@ import dev.vixxer.mensajero.ui.FuenteOutfit
 import dev.vixxer.mensajero.ui.LocalHazeState
 import dev.vixxer.mensajero.ui.LocalTema
 import dev.vixxer.mensajero.ui.fondoDesenfocable
+import dev.vixxer.mensajero.ui.fondoVixxer
 import dev.vixxer.mensajero.ui.recordarHaze
 import dev.vixxer.mensajero.ui.PantallaAgregar
 import dev.vixxer.mensajero.ui.PantallaAjustes
@@ -435,7 +436,7 @@ private fun PantallaPendiente(nombre: String)
 {
     val colores = LocalTema.current.colores
     Column(
-        modifier = Modifier.fillMaxSize().background(colores.fondo).padding(28.dp),
+        modifier = Modifier.fillMaxSize().fondoVixxer().padding(28.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     )

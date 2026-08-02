@@ -120,7 +120,7 @@ fun PantallaRegistro(app: AplicacionVixxer, alNavegar: (String) -> Unit)
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(colores.fondo),
+            .fondoVixxer(),
     )
     {
         Row(

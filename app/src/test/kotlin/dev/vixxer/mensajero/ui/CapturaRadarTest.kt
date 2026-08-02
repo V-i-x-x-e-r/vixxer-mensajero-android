@@ -63,7 +63,7 @@ class CapturaRadarTest
                 Box(
                     modifier = Modifier
                         .testTag("radar")
-                        .background(tema.colores.fondo)
+                        .fondoVixxer()
                         .padding(16.dp),
                     contentAlignment = Alignment.Center,
                 )

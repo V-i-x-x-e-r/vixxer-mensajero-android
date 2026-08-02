@@ -145,7 +145,7 @@ class CapturaDiagnosticoCampoTest
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(tema.colores.fondo)
+                        .fondoVixxer()
                         .padding(bottom = 18.dp),
                 )
                 {

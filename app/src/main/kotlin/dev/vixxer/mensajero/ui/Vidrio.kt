@@ -66,33 +66,33 @@ private fun aparienciaVidrio(capa: CapaVidrio): AparienciaVidrio
     {
         when (capa)
         {
-            CapaVidrio.PANEL -> Vidrio.solidoPanel
-            CapaVidrio.FUERTE -> Vidrio.solidoFuerte
-            CapaVidrio.PILDORA -> Vidrio.solidoOsd
-            CapaVidrio.FLOTANTE -> Vidrio.solidoFuerte
+            CapaVidrio.PANEL -> Vidrio.solidoPanel.copy(alpha = 0.74f)
+            CapaVidrio.FUERTE -> Vidrio.solidoFuerte.copy(alpha = 0.84f)
+            CapaVidrio.PILDORA -> Vidrio.solidoOsd.copy(alpha = 0.80f)
+            CapaVidrio.FLOTANTE -> Vidrio.solidoFuerte.copy(alpha = 0.90f)
         }
     }
     else
     {
         when (capa)
         {
-            CapaVidrio.PANEL -> Color(0xFFFCFCFE)
-            CapaVidrio.FUERTE -> Color.White
-            CapaVidrio.PILDORA -> Color(0xFFFEFEFF)
-            CapaVidrio.FLOTANTE -> Color.White
+            CapaVidrio.PANEL -> Color.White.copy(alpha = 0.68f)
+            CapaVidrio.FUERTE -> Color.White.copy(alpha = 0.82f)
+            CapaVidrio.PILDORA -> Color.White.copy(alpha = 0.76f)
+            CapaVidrio.FLOTANTE -> Color.White.copy(alpha = 0.90f)
         }
     }
     val alphaTinte = when (capa)
     {
-        CapaVidrio.PANEL -> if (oscuro) 0.44f else 0.56f
-        CapaVidrio.FUERTE -> if (oscuro) 0.58f else 0.68f
-        CapaVidrio.PILDORA -> if (oscuro) 0.56f else 0.72f
-        CapaVidrio.FLOTANTE -> if (oscuro) 0.64f else 0.76f
+        CapaVidrio.PANEL -> if (oscuro) 0.32f else 0.40f
+        CapaVidrio.FUERTE -> if (oscuro) 0.44f else 0.52f
+        CapaVidrio.PILDORA -> if (oscuro) 0.40f else 0.46f
+        CapaVidrio.FLOTANTE -> if (oscuro) 0.52f else 0.60f
     }
     val baseTinte = if (oscuro) Color(0xFF343840) else Color.White
-    val bordeInicial = if (oscuro) Color.White.copy(alpha = 0.24f) else Color.White.copy(alpha = 0.96f)
-    val bordeMedio = if (oscuro) Vidrio.bordeSuave else tema.colores.borde.copy(alpha = 0.86f)
-    val bordeAcento = tema.acento.copy(alpha = if (oscuro) 0.24f else 0.18f)
+    val bordeInicial = if (oscuro) Color.White.copy(alpha = 0.34f) else Color.White
+    val bordeMedio = if (oscuro) Vidrio.borde else tema.colores.borde
+    val bordeAcento = tema.acento.copy(alpha = if (oscuro) 0.34f else 0.30f)
     val borde = Brush.linearGradient(listOf(bordeInicial, bordeMedio, bordeAcento, bordeMedio))
     val brillo = if (oscuro) Color.White.copy(alpha = 0.13f) else Color.White.copy(alpha = 0.72f)
     val radioBlur = when (capa)
@@ -140,6 +140,8 @@ private fun Modifier.conDesenfoque(
         {
             blurRadius = apariencia.radioBlur
             tints = listOf(HazeTint(apariencia.tinte))
+            noiseFactor = 0.08f
+            fallbackTint = HazeTint(apariencia.solido)
         }
         .brilloTope(forma, apariencia.brillo)
         .border(Vidrio.anchoBorde, apariencia.borde, forma)
@@ -163,7 +165,7 @@ private fun Modifier.aplicarVidrio(
 {
     val apariencia = aparienciaVidrio(capa)
     val haze = LocalHazeState.current
-    if (desenfocar && hayBlur && haze != null)
+    if (desenfocar && hayBlurNativo && haze != null)
     {
         return conDesenfoque(haze, forma, apariencia)
     }
@@ -226,7 +228,7 @@ private fun Modifier.brilloTope(forma: Shape, color: Color): Modifier
 fun colorPestanaActiva(): Color
 {
     val tema = LocalTema.current
-    return if (tema.oscuro) Vidrio.activo else tema.colores.botonTexto
+    return if (tema.oscuro) Vidrio.activo else tema.colores.texto
 }
 
 @Composable
@@ -240,5 +242,12 @@ fun colorPestanaInactiva(): Color
 fun colorBrilloPestana(): Color
 {
     val tema = LocalTema.current
-    return if (tema.oscuro) Vidrio.brillo else tema.colores.botonFondo
+    return if (tema.oscuro) Color.White.copy(alpha = 0.13f) else tema.acento.copy(alpha = 0.16f)
+}
+
+@Composable
+fun colorBordePestana(): Color
+{
+    val tema = LocalTema.current
+    return tema.acento.copy(alpha = if (tema.oscuro) 0.34f else 0.30f)
 }

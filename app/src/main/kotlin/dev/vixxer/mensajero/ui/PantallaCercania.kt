@@ -234,7 +234,7 @@ fun PantallaCercania(app: AplicacionVixxer, alVolver: () -> Unit)
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(colores.fondo)
+            .fondoVixxer()
             .statusBarsPadding()
             .verticalScroll(rememberScrollState())
             .padding(bottom = 30.dp),

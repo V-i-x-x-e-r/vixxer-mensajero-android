@@ -56,7 +56,7 @@ private fun Ajustes(colores: Paleta)
 {
     Column(
         modifier = Modifier
-            .background(colores.fondo)
+            .fondoVixxer()
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
     )

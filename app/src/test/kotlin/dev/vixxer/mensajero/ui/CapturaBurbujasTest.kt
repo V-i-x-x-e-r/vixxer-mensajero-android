@@ -114,7 +114,7 @@ private fun Conversacion(colores: Paleta)
     val app = AplicacionVixxer()
     Column(
         modifier = Modifier
-            .background(colores.fondo)
+            .fondoVixxer()
             .fillMaxWidth()
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),

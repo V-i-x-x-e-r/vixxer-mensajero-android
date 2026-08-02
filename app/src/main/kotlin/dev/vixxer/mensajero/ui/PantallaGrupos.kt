@@ -251,7 +251,7 @@ fun PantallaGrupos(app: AplicacionVixxer, alNavegar: (String) -> Unit)
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(colores.fondo)) {
+    Box(modifier = Modifier.fillMaxSize().fondoVixxer()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -261,22 +261,15 @@ fun PantallaGrupos(app: AplicacionVixxer, alNavegar: (String) -> Unit)
             verticalArrangement = Arrangement.spacedBy(12.dp),
         )
         {
-            Row(
-                modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 28.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+            CabeceraPrincipal(
+                titulo = "Grupos",
+                subtitulo = if (grupos.size == 1) "1 grupo" else "${grupos.size} grupos",
+                descripcionAccion = "Crear grupo",
+                alPulsarAccion = { alNavegar("grupo-crear") },
+                accionPrimaria = true,
             )
             {
-                Text("Grupos", fontSize = 18.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.SemiBold, color = colores.texto)
-                Box(
-                    modifier = Modifier
-                        .pulsable { alNavegar("grupo-crear") }
-                        .background(colores.botonFondo, RoundedCornerShape(20.dp))
-                        .padding(horizontal = 14.dp, vertical = 8.dp),
-                )
-                {
-                    Text("+ Nuevo", fontSize = 13.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.SemiBold, color = colores.botonTexto)
-                }
+                Mas(color = it)
             }
 
             PullToRefreshBox(

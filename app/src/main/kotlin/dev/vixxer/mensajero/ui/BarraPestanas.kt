@@ -2,6 +2,7 @@ package dev.vixxer.mensajero.ui
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -44,10 +45,15 @@ fun BarraPestanas(actual: String, alCambiar: (String) -> Unit, modifier: Modifie
                 targetValue = if (activa) colorBrilloPestana() else Color.Transparent,
                 label = "fondoPestana",
             )
+            val borde by animateColorAsState(
+                targetValue = if (activa) colorBordePestana() else Color.Transparent,
+                label = "bordePestana",
+            )
             Row(
                 modifier = Modifier
                     .pulsable { alCambiar(clave) }
                     .background(fondo, RoundedCornerShape(Vidrio.radioPildora))
+                    .border(Vidrio.anchoBorde, borde, RoundedCornerShape(Vidrio.radioPildora))
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
