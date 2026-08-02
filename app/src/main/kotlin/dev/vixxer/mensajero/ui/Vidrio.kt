@@ -1,6 +1,7 @@
 package dev.vixxer.mensajero.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -42,6 +43,7 @@ private data class AparienciaVidrio(
     val solido: Color,
     val tinte: Color,
     val reflejo: Brush,
+    val rim: Brush?,
     val brillo: Color,
     val radioBlur: Dp,
     val elevacion: Dp,
@@ -66,10 +68,10 @@ private fun aparienciaVidrio(capa: CapaVidrio): AparienciaVidrio
     {
         when (capa)
         {
-            CapaVidrio.PANEL -> Color(0xFFFDFEFF).copy(alpha = 0.58f)
-            CapaVidrio.FUERTE -> Color(0xFFFDFEFF).copy(alpha = 0.70f)
-            CapaVidrio.PILDORA -> Color(0xFFFDFEFF).copy(alpha = 0.64f)
-            CapaVidrio.FLOTANTE -> Color(0xFFFBFCFD).copy(alpha = 0.92f)
+            CapaVidrio.PANEL -> Color(0xFFFFFFFF).copy(alpha = 0.46f)
+            CapaVidrio.FUERTE -> Color(0xFFFFFFFF).copy(alpha = 0.58f)
+            CapaVidrio.PILDORA -> Color(0xFFFFFFFF).copy(alpha = 0.52f)
+            CapaVidrio.FLOTANTE -> Color(0xFFFBFCFD).copy(alpha = 0.90f)
         }
     }
     val alphaTinte = when (capa)
@@ -87,9 +89,22 @@ private fun aparienciaVidrio(capa: CapaVidrio): AparienciaVidrio
     else
     {
         Brush.verticalGradient(
-            0f to Color.White.copy(alpha = 0.50f),
-            0.55f to Color.White.copy(alpha = 0.06f),
-            1f to Color.White.copy(alpha = 0.16f),
+            0f to Color.White.copy(alpha = 0.55f),
+            0.45f to Color.White.copy(alpha = 0.05f),
+            0.86f to Color.Transparent,
+            1f to Color(0xFF08090B).copy(alpha = 0.05f),
+        )
+    }
+    val rim = if (oscuro)
+    {
+        null
+    }
+    else
+    {
+        Brush.verticalGradient(
+            0f to Color.White.copy(alpha = 0.95f),
+            0.5f to Color.White.copy(alpha = 0.42f),
+            1f to Color.White.copy(alpha = 0.72f),
         )
     }
     val brillo = if (oscuro) Color.White.copy(alpha = 0.13f) else Color.White.copy(alpha = 0.92f)
@@ -102,15 +117,16 @@ private fun aparienciaVidrio(capa: CapaVidrio): AparienciaVidrio
     }
     val elevacion = when (capa)
     {
-        CapaVidrio.PANEL -> 1.dp
-        CapaVidrio.FUERTE -> 2.dp
-        CapaVidrio.PILDORA -> 3.dp
-        CapaVidrio.FLOTANTE -> 6.dp
+        CapaVidrio.PANEL -> if (oscuro) 1.dp else 2.dp
+        CapaVidrio.FUERTE -> if (oscuro) 2.dp else 3.dp
+        CapaVidrio.PILDORA -> if (oscuro) 3.dp else 4.dp
+        CapaVidrio.FLOTANTE -> if (oscuro) 6.dp else 7.dp
     }
     return AparienciaVidrio(
         solido = solido,
         tinte = baseTinte.copy(alpha = alphaTinte),
         reflejo = reflejo,
+        rim = rim,
         brillo = brillo,
         radioBlur = radioBlur,
         elevacion = elevacion,
@@ -143,6 +159,7 @@ private fun Modifier.conDesenfoque(
         }
         .background(apariencia.reflejo, forma)
         .brilloTope(forma, apariencia.brillo)
+        .conRim(apariencia.rim, forma)
 
 @Composable
 private fun Modifier.sinDesenfoque(
@@ -153,6 +170,10 @@ private fun Modifier.sinDesenfoque(
         .background(apariencia.solido, forma)
         .background(apariencia.reflejo, forma)
         .brilloTope(forma, apariencia.brillo)
+        .conRim(apariencia.rim, forma)
+
+private fun Modifier.conRim(rim: Brush?, forma: Shape): Modifier =
+    if (rim == null) this else border(1.dp, rim, forma)
 
 @Composable
 private fun Modifier.aplicarVidrio(
