@@ -32,13 +32,17 @@ data class PeerCercano(
 
 data class ResultadoActivar(val ok: Boolean, val razon: String? = null, val abrirAjustes: Boolean = false)
 
+internal const val VIDA_PEER_MS = 30_000L
+
+internal fun esPeerVigente(vistoMs: Long, ahoraMs: Long): Boolean =
+    vistoMs >= ahoraMs - VIDA_PEER_MS
+
 object GestorCercania
 {
     private const val CLAVE = "vixxer_modo_cercania"
 
     private const val MILIS_ROTACION = 15000L
     private const val TOPE_TOKENS = 128
-    private const val VIDA_PEER_MS = 120_000L
 
     private var radio: RadioBle? = null
     private var mensajeria: MensajeriaBle? = null
@@ -240,6 +244,7 @@ object GestorCercania
             var indice = 0
             while (corriendo)
             {
+                refrescarPeers()
                 anunciarSiguienteToken(app, indice)
                 indice += 1
                 try
@@ -327,16 +332,16 @@ object GestorCercania
 
     fun macsDeAmigo(amigoId: String): List<String>
     {
-        val limite = System.currentTimeMillis() - VIDA_PEER_MS
-        return _peers.filter { it.amigoId == amigoId && it.visto >= limite }.map { it.id }
+        val ahora = System.currentTimeMillis()
+        return _peers.filter { it.amigoId == amigoId && esPeerVigente(it.visto, ahora) }.map { it.id }
     }
 
     fun amigoVisible(amigoId: String): Boolean = macsDeAmigo(amigoId).isNotEmpty()
 
     fun amigoSoportaWifi(amigoId: String): Boolean
     {
-        val limite = System.currentTimeMillis() - VIDA_PEER_MS
-        return _peers.any { it.amigoId == amigoId && it.visto >= limite && (it.caps and 2) != 0 }
+        val ahora = System.currentTimeMillis()
+        return _peers.any { it.amigoId == amigoId && esPeerVigente(it.visto, ahora) && (it.caps and 2) != 0 }
     }
 
     @Synchronized
@@ -386,10 +391,10 @@ object GestorCercania
 
     private fun refrescarPeers()
     {
+        val ahora = System.currentTimeMillis()
         val instantanea = synchronized(vistosCercanos)
         {
-            val limite = System.currentTimeMillis() - VIDA_PEER_MS
-            vistosCercanos.values.removeAll { it.visto < limite }
+            vistosCercanos.values.removeAll { !esPeerVigente(it.visto, ahora) }
             vistosCercanos.values.toList()
         }
         _peers = instantanea

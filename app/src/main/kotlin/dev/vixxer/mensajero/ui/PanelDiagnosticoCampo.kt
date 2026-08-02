@@ -129,7 +129,12 @@ internal fun PanelDiagnosticoCampo(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     )
     {
-        CabeceraDiagnostico(colores, alCompartir, alLimpiar)
+        CabeceraDiagnostico(
+            colores,
+            estado.instantanea.eventos.isNotEmpty(),
+            alCompartir,
+            alLimpiar,
+        )
         ResumenDiagnostico(estado, colores)
         estado.instantanea.ultimoError?.let {
             UltimoErrorDiagnostico(it, colores)
@@ -148,6 +153,7 @@ internal fun PanelDiagnosticoCampo(
 @Composable
 private fun CabeceraDiagnostico(
     colores: Paleta,
+    hayEventos: Boolean,
     alCompartir: () -> Unit,
     alLimpiar: () -> Unit,
 )
@@ -166,13 +172,16 @@ private fun CabeceraDiagnostico(
             color = colores.muted,
             modifier = Modifier.weight(1f),
         )
-        AccionDiagnostico("Compartir", colores, alCompartir)
+        if (hayEventos)
         {
-            Documento(colores.texto, 15.dp)
-        }
-        AccionDiagnostico("Limpiar", colores, alLimpiar)
-        {
-            Bote(colores.muted, 15.dp)
+            AccionDiagnostico("Compartir", colores, alCompartir)
+            {
+                Documento(colores.texto, 15.dp)
+            }
+            AccionDiagnostico("Limpiar", colores, alLimpiar)
+            {
+                Bote(colores.muted, 15.dp)
+            }
         }
     }
 }

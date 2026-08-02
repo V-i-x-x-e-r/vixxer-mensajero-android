@@ -57,7 +57,6 @@ class MensajeriaBle(
     private val vistos = Vistos()
     private val peers = ConcurrentHashMap<String, Long>()
     private val oyentes = CopyOnWriteArraySet<(JSONObject) -> Unit>()
-    private val vidaPeerMs = 120_000L
 
     @Volatile
     private var enviados = 0
@@ -99,8 +98,8 @@ class MensajeriaBle(
 
     private fun peersVigentes(): List<String>
     {
-        val limite = System.currentTimeMillis() - vidaPeerMs
-        peers.entries.removeAll { it.value < limite }
+        val ahora = System.currentTimeMillis()
+        peers.entries.removeAll { !esPeerVigente(it.value, ahora) }
         return peers.keys.toList()
     }
 

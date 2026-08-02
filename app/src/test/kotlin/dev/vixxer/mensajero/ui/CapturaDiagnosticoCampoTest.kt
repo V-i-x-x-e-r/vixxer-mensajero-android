@@ -7,7 +7,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -90,6 +92,25 @@ class CapturaDiagnosticoCampoTest
 
         assertEquals(1, compartidos)
         assertEquals(1, limpiezas)
+    }
+
+    @Test
+    fun ocultaAccionesSinEventos()
+    {
+        compose.setContent {
+            val tema = EstadoTema(AlmacenEnMemoria(), oscuroSistema = true)
+            CompositionLocalProvider(LocalTema provides tema)
+            {
+                PanelDiagnosticoCampo(
+                    estado = EstadoDiagnosticoCampo.vacio(),
+                    alCompartir = {},
+                    alLimpiar = {},
+                )
+            }
+        }
+
+        compose.onAllNodesWithText("Compartir").assertCountEquals(0)
+        compose.onAllNodesWithText("Limpiar").assertCountEquals(0)
     }
 
     private fun capturar(oscuro: Boolean, nombre: String)
