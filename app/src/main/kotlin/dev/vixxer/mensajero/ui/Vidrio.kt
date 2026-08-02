@@ -20,19 +20,19 @@ import dev.chrisbanes.haze.hazeEffect
 
 object Vidrio
 {
-    val fondoPanel = Color(0xFF17191D).copy(alpha = 0.44f)
-    val fondoFuerte = Color(0xFF17191D).copy(alpha = 0.58f)
-    val fondoOsd = Color(0xFF17191D).copy(alpha = 0.64f)
-    val solidoPanel = Color(0xFF23252A)
-    val solidoFuerte = Color(0xFF2A2D33)
-    val solidoOsd = Color(0xFF272A30)
+    val fondoPanel = Color(0xFF171A1E).copy(alpha = 0.44f)
+    val fondoFuerte = Color(0xFF171A1E).copy(alpha = 0.58f)
+    val fondoOsd = Color(0xFF171A1E).copy(alpha = 0.64f)
+    val solidoPanel = Color(0xFF171A1E)
+    val solidoFuerte = Color(0xFF1C2025)
+    val solidoOsd = Color(0xFF171A1E)
     val bordeSolido = Color(0x2EFFFFFF)
     val borde = Color(0x24FFFFFF)
     val bordeSuave = Color(0x18FFFFFF)
     val brillo = Color(0x30FFFFFF)
-    val sombra = Color(0xFF05070A)
-    val activo = Color(0xFFF5F7FA)
-    val ocupado = Color(0xFFAAAEB6)
+    val sombra = Color(0xFF08090B)
+    val activo = Color(0xFFF5F6F7)
+    val ocupado = Color(0xFFA9AFB8)
     val vacio = Color(0x35FFFFFF)
     val radioVentana = 8.dp
     val radioPanel = 18.dp
@@ -89,11 +89,11 @@ private fun aparienciaVidrio(capa: CapaVidrio): AparienciaVidrio
         CapaVidrio.PILDORA -> if (oscuro) 0.40f else 0.46f
         CapaVidrio.FLOTANTE -> if (oscuro) 0.52f else 0.60f
     }
-    val baseTinte = if (oscuro) Color(0xFF343840) else Color.White
-    val bordeInicial = if (oscuro) Color.White.copy(alpha = 0.34f) else Color.White
+    val baseTinte = if (oscuro) Color(0xFF171A1E) else Color.White
+    val bordeInicial = if (oscuro) Color.White.copy(alpha = 0.30f) else Color.White.copy(alpha = 0.92f)
     val bordeMedio = if (oscuro) Vidrio.borde else tema.colores.borde
-    val bordeAcento = tema.acento.copy(alpha = if (oscuro) 0.34f else 0.30f)
-    val borde = Brush.linearGradient(listOf(bordeInicial, bordeMedio, bordeAcento, bordeMedio))
+    val bordeFinal = if (oscuro) Color.White.copy(alpha = 0.08f) else Color(0xFF08090B).copy(alpha = 0.08f)
+    val borde = Brush.linearGradient(listOf(bordeInicial, bordeMedio, bordeFinal, bordeMedio))
     val brillo = if (oscuro) Color.White.copy(alpha = 0.13f) else Color.White.copy(alpha = 0.72f)
     val radioBlur = when (capa)
     {
@@ -242,12 +242,12 @@ fun colorPestanaInactiva(): Color
 fun colorBrilloPestana(): Color
 {
     val tema = LocalTema.current
-    return if (tema.oscuro) Color.White.copy(alpha = 0.13f) else tema.acento.copy(alpha = 0.16f)
+    return if (tema.oscuro) Color.White.copy(alpha = 0.13f) else Color(0xFF08090B).copy(alpha = 0.07f)
 }
 
 @Composable
 fun colorBordePestana(): Color
 {
     val tema = LocalTema.current
-    return tema.acento.copy(alpha = if (tema.oscuro) 0.34f else 0.30f)
+    return if (tema.oscuro) Color.White.copy(alpha = 0.28f) else Color(0xFF08090B).copy(alpha = 0.22f)
 }

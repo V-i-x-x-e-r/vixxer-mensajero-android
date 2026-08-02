@@ -137,6 +137,6 @@ private fun EstadoConexion(conectado: Boolean)
         modifier = Modifier
             .padding(top = 1.dp)
             .size(7.dp)
-            .background(if (conectado) Color(0xFF22C55E) else colores.muted, CircleShape),
+            .background(if (conectado) Color(0xFF54D49B) else colores.muted, CircleShape),
     )
 }

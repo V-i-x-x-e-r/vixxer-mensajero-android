@@ -8,37 +8,49 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.draw.drawWithCache
 
-private val LUZ_FRIA = Color(0xFF4A78C2)
+private val PAPEL_SUAVE = Color(0xFFDFE1E4)
+private val TINTA_ELEVADA = Color(0xFF171A1E)
 
 @Composable
 fun Modifier.fondoVixxer(): Modifier
 {
     val tema = LocalTema.current
     val colores = tema.colores
-    val alphaAcento = if (tema.oscuro) 0.13f else 0.16f
-    val alphaFrio = if (tema.oscuro) 0.10f else 0.12f
 
     return drawWithCache {
-        val acento = Brush.linearGradient(
-            colors = listOf(tema.acento.copy(alpha = alphaAcento), Color.Transparent),
+        val luz = Brush.linearGradient(
+            colors = listOf(
+                Color.White.copy(alpha = if (tema.oscuro) 0.035f else 0.58f),
+                Color.Transparent,
+            ),
             start = Offset.Zero,
-            end = Offset(size.width * 0.78f, size.height * 0.42f),
+            end = Offset(size.width * 0.76f, size.height * 0.40f),
         )
-        val frio = Brush.linearGradient(
-            colors = listOf(Color.Transparent, LUZ_FRIA.copy(alpha = alphaFrio)),
+        val profundidad = Brush.linearGradient(
+            colors = listOf(
+                Color.Transparent,
+                if (tema.oscuro)
+                {
+                    TINTA_ELEVADA.copy(alpha = 0.72f)
+                }
+                else
+                {
+                    PAPEL_SUAVE.copy(alpha = 0.54f)
+                },
+            ),
             start = Offset(size.width * 0.18f, size.height * 0.40f),
             end = Offset(size.width, size.height),
         )
 
         onDrawBehind {
-            dibujarFondo(colores.fondo, acento, frio)
+            dibujarFondo(colores.fondo, luz, profundidad)
         }
     }
 }
 
-private fun DrawScope.dibujarFondo(base: Color, acento: Brush, frio: Brush)
+private fun DrawScope.dibujarFondo(base: Color, luz: Brush, profundidad: Brush)
 {
     drawRect(base)
-    drawRect(acento)
-    drawRect(frio)
+    drawRect(luz)
+    drawRect(profundidad)
 }

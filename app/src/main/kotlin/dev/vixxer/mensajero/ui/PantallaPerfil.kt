@@ -171,7 +171,7 @@ fun PantallaPerfil(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> U
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (enLinea)
                     {
-                        Box(modifier = Modifier.size(8.dp).background(Color(0xFF22C55E), CircleShape))
+                        Box(modifier = Modifier.size(8.dp).background(Color(0xFF54D49B), CircleShape))
                     }
                     Text(sub, fontSize = 13.sp, color = colores.muted)
                 }
