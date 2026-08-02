@@ -8,8 +8,11 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.dp
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -59,6 +62,30 @@ class CapturaPenduloTest
     fun splashAlConverger()
     {
         capturarSplash(1700, "splash-convergido")
+    }
+
+    @Test
+    fun marcaOrbitalEnElRadar()
+    {
+        compose.mainClock.autoAdvance = false
+        compose.setContent {
+            Box(
+                modifier = Modifier
+                    .testTag("marca-radar")
+                    .background(Color(0xFF121212))
+                    .padding(12.dp),
+                contentAlignment = Alignment.Center,
+            )
+            {
+                MarcaOrbital(lado = 112.dp)
+            }
+        }
+
+        compose.mainClock.advanceTimeBy(1700)
+
+        compose
+            .onNodeWithTag("marca-radar")
+            .captureRoboImage("src/test/capturas/marca-radar.png", roborazziOptions = OPCIONES_CAPTURA)
     }
 
     @Test

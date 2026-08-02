@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import dev.vixxer.mensajero.AplicacionVixxer
 import dev.vixxer.mensajero.nucleo.ClavesSeguras
 import dev.vixxer.mensajero.nucleo.ErrorApi
@@ -174,6 +175,7 @@ fun PantallaLogin(app: AplicacionVixxer, alNavegar: (String) -> Unit)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .zIndex(1f)
                 .statusBarsPadding()
                 .padding(top = 16.dp, start = 28.dp, end = 28.dp),
             horizontalArrangement = Arrangement.End,

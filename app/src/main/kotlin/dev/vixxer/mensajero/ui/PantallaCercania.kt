@@ -45,6 +45,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -63,6 +67,7 @@ private val AZUL = Color(0xFF38BDF8)
 private val VERDE = Color(0xFF22C55E)
 private val AMBAR = Color(0xFFFFD166)
 private const val LADO = 320f
+private val LADO_MARCA_RADAR = 112.dp
 
 private data class Salida(val texto: String, val detalle: String, val color: Color)
 
@@ -322,13 +327,18 @@ private fun RadarLienzo(corriendo: Boolean, color: Color, peers: List<dev.vixxer
         }
         Box(
             modifier = Modifier
-                .pulsable { alTocar() }
                 .align(Alignment.Center)
-                .size(52.dp),
+                .size(LADO_MARCA_RADAR)
+                .pulsable { alTocar() }
+                .semantics
+                {
+                    contentDescription = if (corriendo) "Detener radar de cercanía" else "Iniciar radar de cercanía"
+                    role = Role.Button
+                },
             contentAlignment = Alignment.Center,
         )
         {
-            LogoPendulo(alto = 44.dp, colorTexto = colores.texto, colorBarra = color)
+            MarcaOrbital(lado = LADO_MARCA_RADAR)
         }
     }
 }
