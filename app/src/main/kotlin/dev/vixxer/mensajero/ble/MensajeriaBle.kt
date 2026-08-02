@@ -4,6 +4,7 @@ import dev.vixxer.mensajero.AplicacionVixxer
 import dev.vixxer.mensajero.nucleo.ClavesSeguras
 import dev.vixxer.mensajero.nucleo.ConexionSocket
 import dev.vixxer.mensajero.nucleo.Cripto
+import dev.vixxer.mensajero.nucleo.DiagnosticoMesh
 import dev.vixxer.mensajero.nucleo.Firma
 import dev.vixxer.mensajero.nucleo.MeshCercania
 import dev.vixxer.mensajero.nucleo.Sobre
@@ -24,13 +25,35 @@ data class EstadisticasMesh(
     val ultimaRuta: String? = null,
 )
 
-data class ResultadoEnvioCercania(val id: String, val entregados: Int)
+data class ResultadoEnvioCercania(
+    val id: String,
+    val entregados: Int,
+    val enlace: String? = null,
+    val reintentos: Int = 0,
+    val duracionMs: Long = 0,
+)
+
+private data class ResultadoDifusion(
+    val entregados: Int,
+    val enlace: String?,
+    val reintentos: Int,
+    val duracionMs: Long,
+)
 
 class MensajeriaBle(
     private val app: AplicacionVixxer,
     private val radio: RadioBle,
 )
 {
+    companion object
+    {
+        private const val CLAVE_COLA = "vixxer_cola_relay"
+
+        fun pendientesRelay(app: AplicacionVixxer): Int = runCatching {
+            JSONArray(app.estado.leer(CLAVE_COLA) ?: "[]").length()
+        }.getOrDefault(0)
+    }
+
     private val vistos = Vistos()
     private val peers = ConcurrentHashMap<String, Long>()
     private val oyentes = CopyOnWriteArraySet<(JSONObject) -> Unit>()
@@ -57,7 +80,6 @@ class MensajeriaBle(
     @Volatile
     var chatVisible: String? = null
 
-    private val CLAVE_COLA = "vixxer_cola_relay"
     private val alConectar = Emitter.Listener { drenarCola() }
 
     fun estadisticas(): EstadisticasMesh =
@@ -88,23 +110,37 @@ class MensajeriaBle(
         return { oyentes.remove(cb) }
     }
 
-    private fun difundir(sobre: MeshCercania.Sobre, excepto: String?): Int
+    private fun difundir(sobre: MeshCercania.Sobre, excepto: String?): ResultadoDifusion
     {
+        val inicio = System.nanoTime()
         val texto = MeshCercania.aJson(sobre)
         var entregados = 0
+        var reintentos = 0
+        var enlace: String? = null
         for (id in peersVigentes())
         {
             if (id == excepto)
             {
                 continue
             }
-            if (radio.conectarYEnviar(id, texto))
+            val resultado = radio.conectarYEnviar(id, texto)
+            reintentos += resultado.reintentos
+            if (resultado.exito || enlace == null)
+            {
+                enlace = resultado.enlace
+            }
+            if (resultado.exito)
             {
                 entregados += 1
                 ultimaRuta = id
             }
         }
-        return entregados
+        return ResultadoDifusion(
+            entregados,
+            enlace,
+            reintentos,
+            (System.nanoTime() - inicio).coerceAtLeast(0L) / 1_000_000L,
+        )
     }
 
     fun enviarPorCercania(
@@ -125,12 +161,19 @@ class MensajeriaBle(
             tipo = tipo,
             respuestaA = respuestaA,
         )
-        val entregados = difundir(sobre, null)
-        if (entregados > 0)
+        val resultado = difundir(sobre, null)
+        if (resultado.entregados > 0)
         {
             enviados += 1
         }
-        return ResultadoEnvioCercania(sobre.id, entregados)
+        registrarEnvio(sobre, resultado)
+        return ResultadoEnvioCercania(
+            sobre.id,
+            resultado.entregados,
+            resultado.enlace,
+            resultado.reintentos,
+            resultado.duracionMs,
+        )
     }
 
     fun enviarDirectoA(
@@ -151,10 +194,19 @@ class MensajeriaBle(
             respuestaA = respuestaA,
         )
         val texto = MeshCercania.aJson(sobre)
+        val inicio = System.nanoTime()
         var entregados = 0
+        var reintentos = 0
+        var enlace: String? = null
         for (mac in macs)
         {
-            if (radio.conectarYEnviar(mac, texto))
+            val resultado = radio.conectarYEnviar(mac, texto)
+            reintentos += resultado.reintentos
+            if (resultado.exito || enlace == null)
+            {
+                enlace = resultado.enlace
+            }
+            if (resultado.exito)
             {
                 entregados += 1
                 ultimaRuta = mac
@@ -165,7 +217,34 @@ class MensajeriaBle(
         {
             enviados += 1
         }
-        return ResultadoEnvioCercania(sobre.id, entregados)
+        val resultado = ResultadoDifusion(
+            entregados,
+            enlace,
+            reintentos,
+            (System.nanoTime() - inicio).coerceAtLeast(0L) / 1_000_000L,
+        )
+        registrarEnvio(sobre, resultado)
+        return ResultadoEnvioCercania(
+            sobre.id,
+            entregados,
+            enlace,
+            reintentos,
+            resultado.duracionMs,
+        )
+    }
+
+    private fun registrarEnvio(sobre: MeshCercania.Sobre, resultado: ResultadoDifusion)
+    {
+        app.diagnosticoMesh.registrar(
+            mensajeId = idParaServidor(sobre),
+            etapa = if (resultado.entregados > 0) DiagnosticoMesh.Etapa.ENVIADO else DiagnosticoMesh.Etapa.ERROR,
+            transporte = DiagnosticoMesh.Transporte.BLE,
+            enlace = resultado.enlace,
+            saltos = if (resultado.entregados > 0) 1 else 0,
+            duracionMs = resultado.duracionMs,
+            reintentos = resultado.reintentos,
+            error = if (resultado.entregados == 0) DiagnosticoMesh.CodigoError.SIN_VECINO else null,
+        )
     }
 
     private fun sellarSobre(
@@ -228,6 +307,7 @@ class MensajeriaBle(
                 MeshCercania.Accion.ENTREGAR ->
                 {
                     recibidos += 1
+                    registrarRecepcion(sobre, DiagnosticoMesh.Etapa.RECIBIDO)
                     entregarLocal(sobre)
                 }
                 MeshCercania.Accion.REENVIAR ->
@@ -238,8 +318,14 @@ class MensajeriaBle(
                         val socket = ConexionSocket.obtener()
                         if (socket != null && socket.connected())
                         {
-                            puente += 1
-                            subirComoPuente(reenviar)
+                            if (subirComoPuente(reenviar))
+                            {
+                                puente += 1
+                            }
+                            else
+                            {
+                                encolar(reenviar)
+                            }
                             drenarCola()
                         }
                         else
@@ -248,10 +334,21 @@ class MensajeriaBle(
                         }
                     }
                     reenviados += 1
-                    difundir(reenviar, null)
+                    val resultado = difundir(reenviar, null)
+                    app.diagnosticoMesh.registrar(
+                        mensajeId = idParaServidor(sobre),
+                        etapa = if (resultado.entregados > 0) DiagnosticoMesh.Etapa.REENVIADO else DiagnosticoMesh.Etapa.ERROR,
+                        transporte = DiagnosticoMesh.Transporte.BLE,
+                        enlace = resultado.enlace,
+                        saltos = saltosTrasDifusion(reenviar, resultado),
+                        duracionMs = resultado.duracionMs,
+                        reintentos = resultado.reintentos,
+                        error = if (resultado.entregados == 0) DiagnosticoMesh.CodigoError.SIN_VECINO else null,
+                    )
                 }
                 MeshCercania.Accion.DESCARTAR ->
                 {
+                    registrarRecepcion(sobre, DiagnosticoMesh.Etapa.DESCARTADO)
                 }
             }
         }
@@ -266,8 +363,10 @@ class MensajeriaBle(
     private fun idParaServidor(sobre: MeshCercania.Sobre): String =
         sobre.clienteId?.takeIf { it.isNotBlank() } ?: sobre.id
 
-    private fun subirComoPuente(sobre: MeshCercania.Sobre): Boolean =
-        runCatching {
+    private fun subirComoPuente(sobre: MeshCercania.Sobre): Boolean
+    {
+        val inicio = System.nanoTime()
+        val exito = runCatching {
             app.api.relayMensaje(
                 Sobre(
                     remitenteId = sobre.remitenteId,
@@ -280,6 +379,16 @@ class MensajeriaBle(
                 ),
             )
         }.isSuccess
+        app.diagnosticoMesh.registrar(
+            mensajeId = idParaServidor(sobre),
+            etapa = if (exito) DiagnosticoMesh.Etapa.PUENTE else DiagnosticoMesh.Etapa.ERROR,
+            transporte = DiagnosticoMesh.Transporte.SERVIDOR,
+            saltos = sobre.saltos,
+            duracionMs = (System.nanoTime() - inicio).coerceAtLeast(0L) / 1_000_000L,
+            error = if (exito) null else DiagnosticoMesh.CodigoError.RELAY,
+        )
+        return exito
+    }
 
     private fun encolar(sobre: MeshCercania.Sobre)
     {
@@ -299,10 +408,42 @@ class MensajeriaBle(
                 cola.remove(0)
             }
             app.estado.escribir(CLAVE_COLA, cola.toString())
+            app.diagnosticoMesh.registrar(
+                mensajeId = idParaServidor(sobre),
+                etapa = DiagnosticoMesh.Etapa.ENCOLADO,
+                transporte = DiagnosticoMesh.Transporte.SIN_RUTA,
+                saltos = sobre.saltos,
+                cola = cola.length(),
+            )
         }
         catch (_: Exception)
         {
         }
+    }
+
+    private fun registrarRecepcion(sobre: MeshCercania.Sobre, etapa: DiagnosticoMesh.Etapa)
+    {
+        app.diagnosticoMesh.registrar(
+            mensajeId = idParaServidor(sobre),
+            etapa = etapa,
+            transporte = DiagnosticoMesh.Transporte.BLE,
+            saltos = saltosAlRecibir(sobre),
+        )
+    }
+
+    private fun saltosAlRecibir(sobre: MeshCercania.Sobre): Int =
+        (sobre.saltos + 1).coerceAtMost(MeshCercania.TTL_MAXIMO)
+
+    private fun saltosTrasDifusion(
+        sobre: MeshCercania.Sobre,
+        resultado: ResultadoDifusion,
+    ): Int = if (resultado.entregados > 0)
+    {
+        (sobre.saltos + 1).coerceAtMost(MeshCercania.TTL_MAXIMO)
+    }
+    else
+    {
+        sobre.saltos
     }
 
     fun drenarCola()
@@ -442,7 +583,15 @@ class MensajeriaBle(
         {
             return
         }
-        val caja = RadioWifi.recibir(app, ssid, pass, puerto, 90) ?: return
+        val inicioWifi = System.nanoTime()
+        registrarWifi(sobre, DiagnosticoMesh.Etapa.INTENTO, inicioWifi)
+        val caja = RadioWifi.recibir(app, ssid, pass, puerto, 90)
+        if (caja == null)
+        {
+            registrarWifi(sobre, DiagnosticoMesh.Etapa.ERROR, inicioWifi, DiagnosticoMesh.CodigoError.WIFI)
+            return
+        }
+        registrarWifi(sobre, DiagnosticoMesh.Etapa.RECIBIDO, inicioWifi)
         val datos = runCatching {
             Cripto.descifrar(
                 caja,
@@ -453,6 +602,25 @@ class MensajeriaBle(
         }.getOrNull() ?: return
         dev.vixxer.mensajero.ui.CacheMedia.guardar(app, path, datos.size.toLong()) { datos.inputStream() }
         publicarMensaje(sobre, plano, null)
+    }
+
+    private fun registrarWifi(
+        sobre: MeshCercania.Sobre,
+        etapa: DiagnosticoMesh.Etapa,
+        inicio: Long,
+        error: DiagnosticoMesh.CodigoError? = null,
+    )
+    {
+        app.diagnosticoMesh.registrar(
+            mensajeId = idParaServidor(sobre),
+            etapa = etapa,
+            transporte = DiagnosticoMesh.Transporte.WIFI,
+            enlace = "wifi_direct",
+            duracionMs = if (etapa == DiagnosticoMesh.Etapa.INTENTO) null else
+                (System.nanoTime() - inicio).coerceAtLeast(0L) / 1_000_000L,
+            intento = if (etapa == DiagnosticoMesh.Etapa.INTENTO) 1 else null,
+            error = error,
+        )
     }
 
     private fun notificarEntrante(remitenteId: String, grupoId: String? = null)

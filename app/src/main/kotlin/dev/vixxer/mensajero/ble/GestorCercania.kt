@@ -12,6 +12,7 @@ import dev.vixxer.mensajero.DrenadorOutbox
 import dev.vixxer.mensajero.nucleo.ClavesSeguras
 import dev.vixxer.mensajero.nucleo.ConexionSocket
 import dev.vixxer.mensajero.nucleo.Cripto
+import dev.vixxer.mensajero.nucleo.DiagnosticoMesh
 import dev.vixxer.mensajero.nucleo.IdentidadRotativa
 import dev.vixxer.mensajero.nucleo.Outbox
 import kotlinx.coroutines.CoroutineScope
@@ -142,6 +143,7 @@ object GestorCercania
         val estadoAnuncio = motor.anunciar()
         if (estadoAnuncio != "ok")
         {
+            registrarError(app, DiagnosticoMesh.CodigoError.RADIO)
             return ResultadoActivar(false, razonAnuncio(estadoAnuncio))
         }
         mensajero.iniciarPuente()
@@ -169,7 +171,10 @@ object GestorCercania
                     drenarAlAvistar(app, amigoId)
                 }
             },
-            onError = { avisoEscaneo = razonEscaneo(it) },
+            onError = {
+                avisoEscaneo = razonEscaneo(it)
+                registrarError(app, DiagnosticoMesh.CodigoError.ESCANEO)
+            },
         )
         corriendo = true
         avisoEscaneo = null
@@ -406,5 +411,15 @@ object GestorCercania
         "sin-bluetooth" -> "Este teléfono no tiene Bluetooth disponible"
         "sin-anunciante" -> "Enciende el Bluetooth (o tu teléfono no soporta anunciar BLE)"
         else -> "Enciende el Bluetooth e inténtalo de nuevo"
+    }
+
+    private fun registrarError(app: AplicacionVixxer, codigo: DiagnosticoMesh.CodigoError)
+    {
+        app.diagnosticoMesh.registrar(
+            mensajeId = null,
+            etapa = DiagnosticoMesh.Etapa.ERROR,
+            transporte = DiagnosticoMesh.Transporte.BLE,
+            error = codigo,
+        )
     }
 }

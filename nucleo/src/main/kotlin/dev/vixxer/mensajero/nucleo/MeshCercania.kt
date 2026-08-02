@@ -29,6 +29,7 @@ object MeshCercania
         val contenidoCifrado: String,
         val nonce: String,
         val ttl: Int,
+        val saltos: Int = 0,
         val firma: String? = null,
         val clienteId: String? = null,
         val tipo: String = TIPO_DIRECTO,
@@ -43,6 +44,7 @@ object MeshCercania
         contenidoCifrado: String,
         nonce: String,
         ttl: Int = TTL_MAXIMO,
+        saltos: Int = 0,
         clienteId: String? = null,
         tipo: String = TIPO_DIRECTO,
         respuestaA: String? = null,
@@ -53,6 +55,7 @@ object MeshCercania
         contenidoCifrado = contenidoCifrado,
         nonce = nonce,
         ttl = ttl.coerceIn(1, TTL_MAXIMO),
+        saltos = saltos.coerceIn(0, TTL_MAXIMO),
         clienteId = clienteId,
         tipo = tipo,
         respuestaA = respuestaA,
@@ -73,7 +76,13 @@ object MeshCercania
         {
             return Decision(Accion.DESCARTAR)
         }
-        return Decision(Accion.REENVIAR, sobre.copy(ttl = sobre.ttl - 1))
+        return Decision(
+            Accion.REENVIAR,
+            sobre.copy(
+                ttl = sobre.ttl - 1,
+                saltos = (sobre.saltos + 1).coerceAtMost(TTL_MAXIMO),
+            ),
+        )
     }
 
     fun aJson(sobre: Sobre): String = JSONObject()
@@ -83,6 +92,7 @@ object MeshCercania
         .put("contenidoCifrado", sobre.contenidoCifrado)
         .put("nonce", sobre.nonce)
         .put("ttl", sobre.ttl)
+        .put("saltos", sobre.saltos)
         .put("firma", sobre.firma ?: JSONObject.NULL)
         .put("clienteId", sobre.clienteId ?: JSONObject.NULL)
         .put("tipo", sobre.tipo)
@@ -106,6 +116,7 @@ object MeshCercania
                 contenidoCifrado = obj.optString("contenidoCifrado"),
                 nonce = obj.optString("nonce"),
                 ttl = obj.optInt("ttl", 1).coerceIn(0, TTL_MAXIMO),
+                saltos = obj.optInt("saltos", 0).coerceIn(0, TTL_MAXIMO),
                 firma = if (obj.isNull("firma")) null else obj.optString("firma"),
                 clienteId = if (obj.isNull("clienteId")) null else obj.optString("clienteId"),
                 tipo = obj.optString("tipo").ifBlank { TIPO_DIRECTO },
