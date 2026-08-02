@@ -18,6 +18,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -32,6 +33,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -59,6 +64,7 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
     var confirmarSalir by remember { mutableStateOf(false) }
     var mostrarQr by remember { mutableStateOf(false) }
     var subiendoFoto by remember { mutableStateOf(false) }
+    var errorFoto by remember { mutableStateOf("") }
     val contexto = androidx.compose.ui.platform.LocalContext.current
     var capturas by remember { mutableStateOf(Seguridad.capturasBloqueadas(app.estado)) }
     var pinPuesto by remember { mutableStateOf(Seguridad.pinConfigurado(app.boveda)) }
@@ -124,19 +130,32 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
         if (uri != null)
         {
             subiendoFoto = true
+            errorFoto = ""
             alcance.launch {
-                val nueva = withContext(Dispatchers.IO) {
+                val resultado = withContext(Dispatchers.IO) {
                     runCatching {
-                        val imagen = comprimirImagen(contexto, uri) ?: return@runCatching null
+                        val imagen = comprimirAvatar(contexto, uri)
+                            ?: error("No se pudo leer la imagen")
                         val b64 = android.util.Base64.encodeToString(imagen.bytes, android.util.Base64.NO_WRAP)
-                        val r = app.api.subirAvatar(b64, "image/jpeg") as JSONObject
-                        r.textoO("avatar_url").ifEmpty { null }
-                    }.getOrNull()
+                        val respuesta = app.api.subirAvatar(b64, "image/jpeg") as? JSONObject
+                            ?: error("El servidor no confirmó la foto")
+                        respuesta.textoO("avatar_url").ifEmpty {
+                            error("El servidor no devolvió la foto")
+                        }
+                    }
                 }
                 subiendoFoto = false
+                val nueva = resultado.getOrNull()
                 if (nueva != null)
                 {
                     avatar = nueva
+                    withContext(Dispatchers.IO) {
+                        guardarCachePerfil(app, usuario, codigo, nueva)
+                    }
+                }
+                else
+                {
+                    errorFoto = mensajeErrorAvatar(resultado.exceptionOrNull())
                 }
             }
         }
@@ -270,28 +289,68 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
         }
 
         Column(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         )
         {
             Box(
-                modifier = Modifier.pulsable {
-                    app.saltarBloqueo = true
-                    selectorFoto.launch(androidx.activity.result.PickVisualMediaRequest(
-                        androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly,
-                    ))
-                },
+                modifier = Modifier
+                    .pulsable(habilitado = !subiendoFoto) {
+                        app.saltarBloqueo = true
+                        selectorFoto.launch(androidx.activity.result.PickVisualMediaRequest(
+                            androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly,
+                        ))
+                    }
+                    .semantics
+                    {
+                        contentDescription = "Cambiar foto de perfil"
+                        role = Role.Button
+                    },
             )
             {
-                Avatar(nombre = usuario, uri = avatar, tamano = 92.dp)
+                Avatar(
+                    nombre = usuario,
+                    uri = avatar,
+                    tamano = 80.dp,
+                    alFallarCarga = {
+                        if (errorFoto.isEmpty())
+                        {
+                            errorFoto = "La foto está guardada, pero no se pudo mostrar."
+                        }
+                    },
+                )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .size(28.dp)
+                        .circuloVidrio(fuerte = true, desenfocar = false),
+                    contentAlignment = Alignment.Center,
+                )
+                {
+                    if (subiendoFoto)
+                    {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(14.dp),
+                            color = colores.texto,
+                            strokeWidth = 1.5.dp,
+                        )
+                    }
+                    else
+                    {
+                        Lapiz(color = colores.texto, tamano = 13.dp)
+                    }
+                }
             }
-            Text(usuario.ifEmpty { "…" }, fontSize = 20.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.SemiBold, color = colores.texto)
-            Text(
-                if (subiendoFoto) "subiendo foto…" else "toca la foto para cambiarla",
-                fontSize = 12.sp,
-                color = colores.muted,
-            )
+            Text(usuario.ifEmpty { "…" }, fontSize = 19.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.SemiBold, color = colores.texto)
+            if (subiendoFoto || errorFoto.isNotEmpty())
+            {
+                Text(
+                    if (subiendoFoto) "Actualizando foto…" else errorFoto,
+                    fontSize = 12.sp,
+                    color = if (errorFoto.isEmpty()) colores.muted else colores.error,
+                )
+            }
         }
 
         Seccion("TU CÓDIGO DE AMIGO", colores)
@@ -303,7 +362,7 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
                         portapapeles.setText(AnnotatedString(codigo))
                         copiado = true
                     }
-                    .padding(vertical = 16.dp, horizontal = 16.dp),
+                    .padding(vertical = 12.dp, horizontal = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             )
@@ -318,7 +377,7 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
         Seccion("APARIENCIA", colores)
         Tarjeta {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             )
@@ -345,7 +404,7 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
             {
                 Separador(colores)
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 )
@@ -607,6 +666,27 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
     )
 }
 
+private fun guardarCachePerfil(
+    app: AplicacionVixxer,
+    usuario: String,
+    codigo: String,
+    avatar: String,
+)
+{
+    val guardado = app.estado.leer("vixxer_perfil_cache")
+    val cache = runCatching { JSONObject(guardado ?: "{}") }.getOrElse { JSONObject() }
+    if (usuario.isNotEmpty())
+    {
+        cache.put("usuario", usuario)
+    }
+    if (codigo.isNotEmpty())
+    {
+        cache.put("codigo", codigo)
+    }
+    cache.put("avatar", avatar)
+    app.estado.escribir("vixxer_perfil_cache", cache.toString())
+}
+
 @Composable
 internal fun Seccion(titulo: String, colores: Paleta)
 {
@@ -616,7 +696,7 @@ internal fun Seccion(titulo: String, colores: Paleta)
         fontWeight = FontWeight.SemiBold,
         letterSpacing = 1.sp,
         color = colores.muted,
-        modifier = Modifier.padding(top = 24.dp, bottom = 8.dp),
+        modifier = Modifier.padding(top = 20.dp, bottom = 6.dp),
     )
 }
 
@@ -634,7 +714,7 @@ internal fun Separador(colores: Paleta)
     Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(1.dp).background(colores.borde))
 }
 
-internal val ALTO_FILA = 52.dp
+internal val ALTO_FILA = 48.dp
 
 @Composable
 internal fun FilaNav(etiqueta: String, colores: Paleta, alPulsar: () -> Unit)
@@ -644,7 +724,7 @@ internal fun FilaNav(etiqueta: String, colores: Paleta, alPulsar: () -> Unit)
             .fillMaxWidth()
             .pulsable { alPulsar() }
             .heightIn(min = ALTO_FILA)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 14.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     )
@@ -667,7 +747,7 @@ internal fun FilaSwitch(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = ALTO_FILA)
-            .padding(horizontal = 16.dp),
+            .padding(horizontal = 14.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     )
@@ -705,7 +785,7 @@ internal fun FilaValor(
                 else Modifier.pulsable { alPulsar() },
             )
             .heightIn(min = ALTO_FILA)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 14.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     )

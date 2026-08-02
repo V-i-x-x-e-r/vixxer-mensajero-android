@@ -33,8 +33,8 @@ fun CabeceraPrincipal(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .panelVidrio(radio = 18.dp, fuerte = true, desenfocar = true)
-            .padding(start = 16.dp, end = 10.dp, top = 11.dp, bottom = 11.dp),
+            .panelVidrio(radio = 12.dp, fuerte = true, desenfocar = true)
+            .padding(start = 14.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     )
@@ -90,8 +90,8 @@ fun CabeceraMensajero(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .panelVidrio(radio = 18.dp, fuerte = true, desenfocar = true)
-            .padding(start = 16.dp, end = 10.dp, top = 11.dp, bottom = 11.dp),
+            .panelVidrio(radio = 12.dp, fuerte = true, desenfocar = true)
+            .padding(start = 14.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     )

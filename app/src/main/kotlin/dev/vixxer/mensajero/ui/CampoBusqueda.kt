@@ -35,8 +35,8 @@ fun CampoBusqueda(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = 44.dp)
-            .panelVidrio(radio = 14.dp, desenfocar = true)
-            .padding(start = 14.dp, end = 6.dp),
+            .panelVidrio(radio = 12.dp, desenfocar = true)
+            .padding(start = 12.dp, end = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     )

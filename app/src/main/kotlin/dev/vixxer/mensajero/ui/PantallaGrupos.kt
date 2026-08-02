@@ -257,8 +257,8 @@ fun PantallaGrupos(app: AplicacionVixxer, alNavegar: (String) -> Unit)
                 .fillMaxSize()
                 .statusBarsPadding()
                 .padding(horizontal = 20.dp)
-                .padding(top = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(top = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         )
         {
             CabeceraPrincipal(
@@ -308,15 +308,15 @@ fun PantallaGrupos(app: AplicacionVixxer, alNavegar: (String) -> Unit)
                                         alMantener = { sel = item },
                                         alPulsar = { alNavegar("grupo/${item.id}") },
                                     )
-                                    .padding(vertical = 12.dp, horizontal = 10.dp),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    .padding(vertical = 8.dp, horizontal = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             )
                             {
                                 Avatar(
                                     nombre = item.nombre,
                                     uri = item.avatarUrl.ifEmpty { null },
-                                    tamano = 44.dp,
+                                    tamano = 40.dp,
                                 )
                                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                     Text(item.nombre, fontSize = 16.sp, color = colores.texto, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -346,7 +346,7 @@ fun PantallaGrupos(app: AplicacionVixxer, alNavegar: (String) -> Unit)
                                     }
                                 }
                             }
-                            Box(modifier = Modifier.fillMaxWidth().padding(start = 66.dp).height(1.dp).background(colores.borde))
+                            Box(modifier = Modifier.fillMaxWidth().padding(start = 58.dp).height(1.dp).background(colores.borde))
                         }
                     }
                     item {

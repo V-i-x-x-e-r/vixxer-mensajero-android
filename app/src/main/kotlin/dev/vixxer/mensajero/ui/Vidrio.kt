@@ -35,7 +35,7 @@ object Vidrio
     val ocupado = Color(0xFFA9AFB8)
     val vacio = Color(0x35FFFFFF)
     val radioVentana = 8.dp
-    val radioPanel = 18.dp
+    val radioPanel = 8.dp
     val radioPildora = 80.dp
     val anchoBorde = 0.7.dp
 }
@@ -52,6 +52,7 @@ private data class AparienciaVidrio(
     val solido: Color,
     val tinte: Color,
     val borde: Brush,
+    val reflejo: Brush,
     val brillo: Color,
     val radioBlur: Dp,
     val elevacion: Dp,
@@ -76,24 +77,32 @@ private fun aparienciaVidrio(capa: CapaVidrio): AparienciaVidrio
     {
         when (capa)
         {
-            CapaVidrio.PANEL -> Color.White.copy(alpha = 0.68f)
-            CapaVidrio.FUERTE -> Color.White.copy(alpha = 0.82f)
-            CapaVidrio.PILDORA -> Color.White.copy(alpha = 0.76f)
-            CapaVidrio.FLOTANTE -> Color.White.copy(alpha = 0.90f)
+            CapaVidrio.PANEL -> Color(0xFFD7DADF).copy(alpha = 0.46f)
+            CapaVidrio.FUERTE -> Color(0xFFE2E4E7).copy(alpha = 0.62f)
+            CapaVidrio.PILDORA -> Color(0xFFD5D9DE).copy(alpha = 0.50f)
+            CapaVidrio.FLOTANTE -> Color(0xFFEEF0F2).copy(alpha = 0.80f)
         }
     }
     val alphaTinte = when (capa)
     {
-        CapaVidrio.PANEL -> if (oscuro) 0.32f else 0.40f
-        CapaVidrio.FUERTE -> if (oscuro) 0.44f else 0.52f
-        CapaVidrio.PILDORA -> if (oscuro) 0.40f else 0.46f
-        CapaVidrio.FLOTANTE -> if (oscuro) 0.52f else 0.60f
+        CapaVidrio.PANEL -> if (oscuro) 0.32f else 0.24f
+        CapaVidrio.FUERTE -> if (oscuro) 0.44f else 0.32f
+        CapaVidrio.PILDORA -> if (oscuro) 0.40f else 0.28f
+        CapaVidrio.FLOTANTE -> if (oscuro) 0.52f else 0.42f
     }
-    val baseTinte = if (oscuro) Color(0xFF171A1E) else Color.White
-    val bordeInicial = if (oscuro) Color.White.copy(alpha = 0.30f) else Color.White.copy(alpha = 0.92f)
+    val baseTinte = if (oscuro) Color(0xFF171A1E) else Color(0xFFD7DADF)
+    val bordeInicial = if (oscuro) Color.White.copy(alpha = 0.30f) else Color.White.copy(alpha = 0.76f)
     val bordeMedio = if (oscuro) Vidrio.borde else tema.colores.borde
-    val bordeFinal = if (oscuro) Color.White.copy(alpha = 0.08f) else Color(0xFF08090B).copy(alpha = 0.08f)
+    val bordeFinal = if (oscuro) Color.White.copy(alpha = 0.08f) else Color(0xFF08090B).copy(alpha = 0.12f)
     val borde = Brush.linearGradient(listOf(bordeInicial, bordeMedio, bordeFinal, bordeMedio))
+    val reflejo = if (oscuro)
+    {
+        Brush.linearGradient(listOf(Color.White.copy(alpha = 0.07f), Color.Transparent, Color.White.copy(alpha = 0.025f)))
+    }
+    else
+    {
+        Brush.linearGradient(listOf(Color.White.copy(alpha = 0.24f), Color.Transparent, Color.White.copy(alpha = 0.06f)))
+    }
     val brillo = if (oscuro) Color.White.copy(alpha = 0.13f) else Color.White.copy(alpha = 0.72f)
     val radioBlur = when (capa)
     {
@@ -104,15 +113,16 @@ private fun aparienciaVidrio(capa: CapaVidrio): AparienciaVidrio
     }
     val elevacion = when (capa)
     {
-        CapaVidrio.PANEL -> 3.dp
-        CapaVidrio.FUERTE -> 7.dp
-        CapaVidrio.PILDORA -> 9.dp
-        CapaVidrio.FLOTANTE -> 12.dp
+        CapaVidrio.PANEL -> 1.dp
+        CapaVidrio.FUERTE -> 2.dp
+        CapaVidrio.PILDORA -> 3.dp
+        CapaVidrio.FLOTANTE -> 6.dp
     }
     return AparienciaVidrio(
         solido = solido,
         tinte = baseTinte.copy(alpha = alphaTinte),
         borde = borde,
+        reflejo = reflejo,
         brillo = brillo,
         radioBlur = radioBlur,
         elevacion = elevacion,
@@ -143,6 +153,7 @@ private fun Modifier.conDesenfoque(
             noiseFactor = 0.08f
             fallbackTint = HazeTint(apariencia.solido)
         }
+        .background(apariencia.reflejo, forma)
         .brilloTope(forma, apariencia.brillo)
         .border(Vidrio.anchoBorde, apariencia.borde, forma)
 
@@ -153,6 +164,7 @@ private fun Modifier.sinDesenfoque(
 ): Modifier =
     elevar(apariencia.elevacion, forma)
         .background(apariencia.solido, forma)
+        .background(apariencia.reflejo, forma)
         .brilloTope(forma, apariencia.brillo)
         .border(Vidrio.anchoBorde, apariencia.borde, forma)
 

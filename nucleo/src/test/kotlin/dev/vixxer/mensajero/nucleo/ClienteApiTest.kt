@@ -141,6 +141,37 @@ class ClienteApiTest
     }
 
     @Test
+    fun subirAvatarMandaImagenYTipo()
+    {
+        servidor.enqueue(MockResponse().setBody("""{"avatar_url":"https://cdn/avatar.jpg"}"""))
+
+        val salida = api().subirAvatar("aW1hZ2Vu", "image/jpeg") as JSONObject
+
+        assertEquals("https://cdn/avatar.jpg", salida.getString("avatar_url"))
+        val recibido = servidor.takeRequest()
+        assertEquals("POST", recibido.method)
+        assertEquals("/api/usuarios/avatar", recibido.path)
+        assertEquals("Bearer tok123", recibido.getHeader("Authorization"))
+        val cuerpo = JSONObject(recibido.body.readUtf8())
+        assertEquals("aW1hZ2Vu", cuerpo.getString("imagen"))
+        assertEquals("image/jpeg", cuerpo.getString("tipo"))
+    }
+
+    @Test
+    fun subirAvatarDeGrupoUsaRutaDelGrupo()
+    {
+        servidor.enqueue(MockResponse().setBody("""{"avatar_url":"https://cdn/grupo.jpg"}"""))
+
+        val salida = api().avatarGrupo("grupo-7", "aW1hZ2Vu", "image/jpeg") as JSONObject
+
+        assertEquals("https://cdn/grupo.jpg", salida.getString("avatar_url"))
+        val recibido = servidor.takeRequest()
+        assertEquals("POST", recibido.method)
+        assertEquals("/api/grupos/grupo-7/avatar", recibido.path)
+        assertEquals("Bearer tok123", recibido.getHeader("Authorization"))
+    }
+
+    @Test
     fun errorConDetailPropagaStatusYMensaje()
     {
         servidor.enqueue(MockResponse().setResponseCode(400).setBody("""{"detail":"Usuario ya existe"}"""))

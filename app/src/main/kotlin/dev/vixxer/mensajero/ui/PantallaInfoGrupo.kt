@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -67,6 +68,7 @@ fun PantallaInfoGrupo(app: AplicacionVixxer, grupoId: String, alNavegar: (String
     var candidatos by remember { mutableStateOf(listOf<Amigo>()) }
     var elegidos by remember { mutableStateOf(listOf<String>()) }
     var subiendoFoto by remember { mutableStateOf(false) }
+    var errorFoto by remember { mutableStateOf("") }
 
     suspend fun cargar()
     {
@@ -97,16 +99,30 @@ fun PantallaInfoGrupo(app: AplicacionVixxer, grupoId: String, alNavegar: (String
         if (uri != null)
         {
             subiendoFoto = true
+            errorFoto = ""
             alcance.launch {
-                withContext(Dispatchers.IO) {
+                val resultado = withContext(Dispatchers.IO) {
                     runCatching {
-                        val imagen = comprimirImagen(contexto, uri) ?: return@runCatching
+                        val imagen = comprimirAvatar(contexto, uri)
+                            ?: error("No se pudo leer la imagen")
                         val b64 = android.util.Base64.encodeToString(imagen.bytes, android.util.Base64.NO_WRAP)
-                        app.api.avatarGrupo(grupoId, b64, "image/jpeg")
+                        val respuesta = app.api.avatarGrupo(grupoId, b64, "image/jpeg") as? JSONObject
+                            ?: error("El servidor no confirmó la foto")
+                        respuesta.textoO("avatar_url").ifEmpty {
+                            error("El servidor no devolvió la foto")
+                        }
                     }
                 }
                 subiendoFoto = false
-                cargar()
+                val nueva = resultado.getOrNull()
+                if (nueva != null)
+                {
+                    avatarGrupo = nueva
+                }
+                else
+                {
+                    errorFoto = mensajeErrorAvatar(resultado.exceptionOrNull())
+                }
             }
         }
     }
@@ -147,6 +163,16 @@ fun PantallaInfoGrupo(app: AplicacionVixxer, grupoId: String, alNavegar: (String
             )
             {
                 Avatar(nombre = nombre, uri = avatarGrupo, tamano = 84.dp)
+                if (subiendoFoto)
+                {
+                    CircularProgressIndicator(
+                        color = colores.texto,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .size(24.dp),
+                    )
+                }
             }
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -164,9 +190,10 @@ fun PantallaInfoGrupo(app: AplicacionVixxer, grupoId: String, alNavegar: (String
                 }
             }
             Text(
-                "${miembros.size} miembros${if (subiendoFoto) " · subiendo foto…" else ""}",
+                if (errorFoto.isNotEmpty()) errorFoto else "${miembros.size} miembros",
                 fontSize = 13.sp,
-                color = colores.muted,
+                color = if (errorFoto.isNotEmpty()) colores.error else colores.muted,
+                textAlign = TextAlign.Center,
             )
         }
 
