@@ -16,6 +16,23 @@ class MeshCercaniaTest
     }
 
     @Test
+    fun elSobreConservaLaRespuestaAlIrYVolverDeJson()
+    {
+        val respuesta = "550e8400-e29b-41d4-a716-446655440000"
+        val sobre = MeshCercania.crearSobre(
+            "u-ana",
+            "u-beto",
+            "cifrado",
+            "nonce",
+            respuestaA = respuesta,
+        )
+
+        val vuelto = MeshCercania.deJson(MeshCercania.aJson(sobre))
+
+        assertEquals(respuesta, vuelto?.respuestaA)
+    }
+
+    @Test
     fun elSobreSinClienteIdSigueSiendoNulo()
     {
         val sobre = MeshCercania.crearSobre("u-ana", "u-beto", "cifrado", "nonce")

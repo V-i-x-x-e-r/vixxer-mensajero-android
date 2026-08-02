@@ -42,9 +42,17 @@ class Firma(
 
     companion object
     {
-        fun mensajeCanonico(remitenteId: String, destinatarioId: String, contenidoCifrado: String, nonce: String, id: String): String
+        fun mensajeCanonico(
+            remitenteId: String,
+            destinatarioId: String,
+            contenidoCifrado: String,
+            nonce: String,
+            id: String,
+            respuestaA: String? = null,
+        ): String
         {
-            return "$remitenteId|$destinatarioId|$contenidoCifrado|$nonce|$id"
+            val base = "$remitenteId|$destinatarioId|$contenidoCifrado|$nonce|$id"
+            return if (respuestaA.isNullOrBlank()) base else "$base|$respuestaA"
         }
     }
 }

@@ -102,7 +102,15 @@ class ClienteApiTest
     fun relayMensajeMapeaCamposComoRN()
     {
         servidor.enqueue(MockResponse().setBody("""{"id":"m1"}"""))
-        api().relayMensaje(Sobre("u-a", "u-b", "Q2lmcmFkbw==", "Tm9uY2U=", "cli-1", "RmlybWE="))
+        api().relayMensaje(Sobre(
+            "u-a",
+            "u-b",
+            "Q2lmcmFkbw==",
+            "Tm9uY2U=",
+            "cli-1",
+            "RmlybWE=",
+            "550e8400-e29b-41d4-a716-446655440000",
+        ))
         val cuerpo = JSONObject(servidor.takeRequest().body.readUtf8())
         assertEquals("u-a", cuerpo.getString("remitente_id"))
         assertEquals("u-b", cuerpo.getString("destinatario_id"))
@@ -110,6 +118,7 @@ class ClienteApiTest
         assertEquals("Tm9uY2U=", cuerpo.getString("nonce"))
         assertEquals("cli-1", cuerpo.getString("cliente_id"))
         assertEquals("RmlybWE=", cuerpo.getString("firma"))
+        assertEquals("550e8400-e29b-41d4-a716-446655440000", cuerpo.getString("respuesta_a"))
     }
 
     @Test

@@ -22,7 +22,9 @@ data class Sobre(
     val contenidoCifrado: String,
     val nonce: String,
     val id: String,
-    val firma: String?)
+    val firma: String?,
+    val respuestaA: String? = null,
+)
 
 class ClienteApi(
     private val baseUrl: String,
@@ -143,7 +145,8 @@ class ClienteApi(
             .put("contenido_cifrado", sobre.contenidoCifrado)
             .put("nonce", sobre.nonce)
             .put("cliente_id", sobre.id)
-            .put("firma", sobre.firma ?: JSONObject.NULL))
+            .put("firma", sobre.firma ?: JSONObject.NULL)
+            .put("respuesta_a", sobre.respuestaA ?: JSONObject.NULL))
 
     fun subirRespaldo(respaldo: JSONObject): Any? = pedir("/api/usuarios/respaldo", "PUT", respaldo)
 

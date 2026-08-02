@@ -32,6 +32,7 @@ object MeshCercania
         val firma: String? = null,
         val clienteId: String? = null,
         val tipo: String = TIPO_DIRECTO,
+        val respuestaA: String? = null,
     )
 
     data class Decision(val accion: Accion, val sobre: Sobre? = null)
@@ -44,6 +45,7 @@ object MeshCercania
         ttl: Int = TTL_MAXIMO,
         clienteId: String? = null,
         tipo: String = TIPO_DIRECTO,
+        respuestaA: String? = null,
     ): Sobre = Sobre(
         id = "${System.currentTimeMillis()}-${cadenaAleatoria()}",
         remitenteId = remitenteId,
@@ -53,6 +55,7 @@ object MeshCercania
         ttl = ttl.coerceIn(1, TTL_MAXIMO),
         clienteId = clienteId,
         tipo = tipo,
+        respuestaA = respuestaA,
     )
 
     fun procesar(sobre: Sobre?, miId: String, vistos: Vistos): Decision
@@ -83,6 +86,7 @@ object MeshCercania
         .put("firma", sobre.firma ?: JSONObject.NULL)
         .put("clienteId", sobre.clienteId ?: JSONObject.NULL)
         .put("tipo", sobre.tipo)
+        .put("respuestaA", sobre.respuestaA ?: JSONObject.NULL)
         .toString()
 
     fun deJson(texto: String): Sobre?
@@ -105,6 +109,7 @@ object MeshCercania
                 firma = if (obj.isNull("firma")) null else obj.optString("firma"),
                 clienteId = if (obj.isNull("clienteId")) null else obj.optString("clienteId"),
                 tipo = obj.optString("tipo").ifBlank { TIPO_DIRECTO },
+                respuestaA = if (obj.isNull("respuestaA")) null else obj.optString("respuestaA"),
             )
         }
         catch (_: Exception)
