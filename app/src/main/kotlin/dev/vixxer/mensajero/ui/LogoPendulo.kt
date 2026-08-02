@@ -415,7 +415,7 @@ fun LogoPendulo(
     alto: Dp,
     colorTexto: Color,
     colorBarra: Color = Color(0xFF9AA2AD),
-    duracionCiclo: Int = 1500,
+    duracionCiclo: Int = 1800,
 )
 {
     val ancho = alto * (LOGO_ANCHO / LOGO_ALTO)

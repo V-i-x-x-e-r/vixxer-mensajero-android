@@ -127,15 +127,15 @@ fun SplashOrbita(
     LaunchedEffect(Unit)
     {
         launch {
-            avance.animateTo(1f, tween(1100, easing = entradaSalidaCubica))
+            avance.animateTo(1f, tween(1650, easing = entradaSalidaCubica))
         }
         launch {
-            delay(760)
-            opacidadV.animateTo(1f, tween(280))
+            delay(1320)
+            opacidadV.animateTo(1f, tween(350))
         }
-        delay(1200)
+        delay(1800)
         snapshotFlow { salir }.first { it }
-        visible.animateTo(0f, tween(260))
+        visible.animateTo(0f, tween(320))
         alTerminar()
     }
 

@@ -42,13 +42,13 @@ class CapturaPenduloTest
     @Test
     fun splashDuranteLaOrbita()
     {
-        capturarSplash(520, "splash-orbita")
+        capturarSplash(780, "splash-orbita")
     }
 
     @Test
     fun splashAlConverger()
     {
-        capturarSplash(1100, "splash-convergido")
+        capturarSplash(1700, "splash-convergido")
     }
 
     private fun capturar(oscuro: Boolean, nombre: String)
