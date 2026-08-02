@@ -89,7 +89,7 @@ fun PantallaAgregar(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(colores.fondo)
+            .fondoVixxer()
             .statusBarsPadding()
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),

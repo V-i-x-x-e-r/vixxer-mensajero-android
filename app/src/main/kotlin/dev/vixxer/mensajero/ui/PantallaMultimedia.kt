@@ -186,7 +186,7 @@ fun PantallaMultimedia(app: AplicacionVixxer, amigoId: String, alVolver: () -> U
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(colores.fondo)
+            .fondoVixxer()
             .statusBarsPadding(),
     )
     {

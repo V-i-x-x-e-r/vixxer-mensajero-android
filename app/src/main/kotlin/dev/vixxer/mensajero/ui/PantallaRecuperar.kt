@@ -184,7 +184,7 @@ fun PantallaRecuperar(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(colores.fondo),
+            .fondoVixxer(),
     )
     {
         Row(

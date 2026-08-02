@@ -1346,7 +1346,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
     }
     val fijadoActual = if (fijados.isEmpty()) null else fijados[indiceFijado % fijados.size]
 
-    Box(modifier = Modifier.fillMaxSize().background(colores.fondo)) {
+    Box(modifier = Modifier.fillMaxSize().fondoVixxer()) {
         Column(modifier = Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
             if (buscando)
             {

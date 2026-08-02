@@ -90,7 +90,7 @@ fun PantallaCrearGrupo(app: AplicacionVixxer, alVolver: () -> Unit)
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(colores.fondo)
+            .fondoVixxer()
             .statusBarsPadding()
             .imePadding()
             .padding(20.dp),

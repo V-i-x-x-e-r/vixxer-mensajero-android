@@ -30,19 +30,26 @@ class CapturaAjustesTest
     @Test
     fun ajustesEnOscuro()
     {
-        capturar(oscuro = true, nombre = "ajustes-oscuro")
+        capturar(temaNombre = "oscuro", nombre = "ajustes-oscuro")
     }
 
     @Test
     fun ajustesEnClaro()
     {
-        capturar(oscuro = false, nombre = "ajustes-claro")
+        capturar(temaNombre = "claro", nombre = "ajustes-claro")
     }
 
-    private fun capturar(oscuro: Boolean, nombre: String)
+    @Test
+    fun ajustesEnColorido()
+    {
+        capturar(temaNombre = "colorido", nombre = "ajustes-colorido")
+    }
+
+    private fun capturar(temaNombre: String, nombre: String)
     {
         compose.setContent {
-            val tema = EstadoTema(AlmacenEnMemoria(), oscuroSistema = oscuro)
+            val tema = EstadoTema(AlmacenEnMemoria(), oscuroSistema = false)
+            tema.elegirTema(temaNombre)
             CompositionLocalProvider(LocalTema provides tema) {
                 Ajustes(tema.colores)
             }
@@ -56,7 +63,7 @@ private fun Ajustes(colores: Paleta)
 {
     Column(
         modifier = Modifier
-            .background(colores.fondo)
+            .fondoVixxer()
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
     )

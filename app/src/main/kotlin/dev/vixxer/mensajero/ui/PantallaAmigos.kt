@@ -96,7 +96,7 @@ fun PantallaAmigos(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCh
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(colores.fondo)
+            .fondoVixxer()
             .statusBarsPadding()
             .padding(horizontal = 20.dp)
             .padding(top = 12.dp),
@@ -104,13 +104,13 @@ fun PantallaAmigos(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCh
     )
     {
         val seleccionado = sel
-        Row(
-            modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 28.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        )
+        if (seleccionado != null)
         {
-            if (seleccionado != null)
+            Row(
+                modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 44.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            )
             {
                 Text(
                     "✕",
@@ -128,12 +128,17 @@ fun PantallaAmigos(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCh
                     Text("Borrar amigo", fontSize = 15.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.Medium, color = colores.error)
                 }
             }
-            else
+        }
+        else
+        {
+            CabeceraPrincipal(
+                titulo = "Amigos",
+                subtitulo = if (lista.size == 1) "1 contacto" else "${lista.size} contactos",
+                descripcionAccion = "Abrir ajustes",
+                alPulsarAccion = { alNavegar("ajustes") },
+            )
             {
-                Text("Amigos", fontSize = 18.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.SemiBold, color = colores.texto)
-                Box(modifier = Modifier.pulsable { alNavegar("ajustes") }) {
-                    Engrane(color = colores.texto)
-                }
+                Engrane(color = it)
             }
         }
 

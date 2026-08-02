@@ -216,6 +216,15 @@ fun PersonaMas(color: Color, tamano: Dp = 18.dp)
 }
 
 @Composable
+fun Mas(color: Color, tamano: Dp = 20.dp)
+{
+    Icono24(tamano) {
+        drawLine(color, Offset(12f, 5f), Offset(12f, 19f), strokeWidth = 2f, cap = StrokeCap.Round)
+        drawLine(color, Offset(5f, 12f), Offset(19f, 12f), strokeWidth = 2f, cap = StrokeCap.Round)
+    }
+}
+
+@Composable
 fun IconoSticker(color: Color, tamano: Dp = 20.dp)
 {
     Icono24(tamano) {

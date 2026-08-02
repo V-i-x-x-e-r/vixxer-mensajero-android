@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import dev.vixxer.mensajero.nucleo.AlmacenEnMemoria
 import org.junit.Assert.assertEquals
@@ -76,5 +77,41 @@ class ControlesTest
 
         compose.onNodeWithContentDescription("Enviar mensaje").performClick()
         compose.runOnIdle { assertEquals(1, pulsaciones) }
+    }
+
+    @Test
+    fun cabeceraAbreAjustes()
+    {
+        var aperturas = 0
+
+        compose.setContent {
+            val tema = EstadoTema(AlmacenEnMemoria(), oscuroSistema = false)
+            CompositionLocalProvider(LocalTema provides tema) {
+                CabeceraMensajero(
+                    estado = "conectado",
+                    conectado = true,
+                    alAbrirAjustes = { aperturas++ },
+                )
+            }
+        }
+
+        compose.onNodeWithContentDescription("Abrir ajustes").performClick()
+        compose.runOnIdle { assertEquals(1, aperturas) }
+    }
+
+    @Test
+    fun barraCambiaDePestana()
+    {
+        var destino = "chats"
+
+        compose.setContent {
+            val tema = EstadoTema(AlmacenEnMemoria(), oscuroSistema = false)
+            CompositionLocalProvider(LocalTema provides tema) {
+                BarraPestanas(actual = destino, alCambiar = { destino = it })
+            }
+        }
+
+        compose.onNodeWithText("Grupos").performClick()
+        compose.runOnIdle { assertEquals("grupos", destino) }
     }
 }

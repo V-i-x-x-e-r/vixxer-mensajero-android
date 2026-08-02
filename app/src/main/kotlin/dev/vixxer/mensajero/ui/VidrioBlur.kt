@@ -10,9 +10,11 @@ import dev.chrisbanes.haze.hazeSource
 
 val LocalHazeState = staticCompositionLocalOf<HazeState?> { null }
 
-val hayBlur: Boolean = Build.VERSION.SDK_INT >= 31
+val hayBlurNativo: Boolean = Build.VERSION.SDK_INT >= 31
 
 @Composable
-fun recordarHaze(): HazeState = remember { HazeState() }
+fun recordarHaze(): HazeState = remember {
+    HazeState(initialBlurEnabled = hayBlurNativo)
+}
 
 fun Modifier.fondoDesenfocable(estado: HazeState): Modifier = this.hazeSource(estado)

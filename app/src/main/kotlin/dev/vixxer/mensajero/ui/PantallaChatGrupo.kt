@@ -1056,7 +1056,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(colores.fondo)) {
+    Box(modifier = Modifier.fillMaxSize().fondoVixxer()) {
     Column(modifier = Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
         Row(
             modifier = Modifier

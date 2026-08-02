@@ -114,7 +114,7 @@ fun PantallaInfoGrupo(app: AplicacionVixxer, grupoId: String, alNavegar: (String
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(colores.fondo)
+            .fondoVixxer()
             .statusBarsPadding()
             .padding(horizontal = 20.dp)
             .padding(top = 20.dp),

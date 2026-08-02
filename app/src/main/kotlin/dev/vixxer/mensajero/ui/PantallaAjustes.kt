@@ -246,7 +246,7 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(colores.fondo)
+            .fondoVixxer()
             .statusBarsPadding()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp)

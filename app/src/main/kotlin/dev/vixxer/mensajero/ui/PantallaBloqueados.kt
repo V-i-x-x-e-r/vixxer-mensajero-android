@@ -73,7 +73,7 @@ fun PantallaBloqueados(app: AplicacionVixxer, alVolver: () -> Unit)
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(colores.fondo)
+            .fondoVixxer()
             .statusBarsPadding()
             .padding(horizontal = 20.dp)
             .padding(top = 20.dp),
