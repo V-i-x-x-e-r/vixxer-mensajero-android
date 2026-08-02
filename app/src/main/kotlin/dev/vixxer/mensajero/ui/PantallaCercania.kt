@@ -224,6 +224,7 @@ fun PantallaCercania(app: AplicacionVixxer, alVolver: () -> Unit)
         corriendo -> Salida("Buscando vixxers cerca…", "Sin internet y sin vixxers al alcance todavía.", AMBAR)
         else -> Salida("Modo cercanía apagado", "Enciéndelo para mensajear sin red.", colores.muted)
     }
+    val ultimaRutaVisible = stats.ultimaRuta?.takeIf { ruta -> peers.any { it.id == ruta } }
 
     Column(
         modifier = Modifier
@@ -306,7 +307,7 @@ fun PantallaCercania(app: AplicacionVixxer, alVolver: () -> Unit)
             }
         }
 
-        PanelSalida(salida, stats.ultimaRuta, colores)
+        PanelSalida(salida, ultimaRutaVisible, colores)
         FilaStats(stats, colores)
         PanelDiagnosticoCampo(
             estado = diagnostico,
