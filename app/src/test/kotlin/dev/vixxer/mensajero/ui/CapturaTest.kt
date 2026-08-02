@@ -114,8 +114,20 @@ private fun capturar(
 {
     compose.setContent {
         val tema = EstadoTema(AlmacenEnMemoria(), oscuroSistema = oscuro)
-        CompositionLocalProvider(LocalTema provides tema) {
-            Muestrario()
+        val haze = recordarHaze()
+        CompositionLocalProvider(LocalTema provides tema, LocalHazeState provides haze) {
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+            )
+            {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .fondoDesenfocable(haze)
+                        .background(tema.colores.fondo),
+                )
+                Muestrario()
+            }
         }
     }
     compose.onRoot().captureRoboImage("src/test/capturas/$nombre.png", roborazziOptions = OPCIONES_CAPTURA)
@@ -134,7 +146,7 @@ private fun Muestrario()
     )
     {
         Text("Tarjeta sobre el fondo", fontSize = 13.sp, fontFamily = FuenteOutfit, color = colores.muted)
-        Box(modifier = Modifier.fillMaxWidth().panelVidrio().padding(16.dp)) {
+        Box(modifier = Modifier.fillMaxWidth().panelVidrio(desenfocar = true).padding(16.dp)) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     "Texto principal",
