@@ -22,6 +22,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -33,7 +34,7 @@ private const val CX = 150f
 private const val CY = 150f
 private const val R = 76f
 private const val SP = 40f
-private const val LADO_SPLASH = 220f
+private val LADO_SPLASH = 220.dp
 
 private val entradaSalidaCubica = Easing { t ->
     if (t < 0.5f)
@@ -60,11 +61,11 @@ private fun posicionOrbe(indice: Int, avance: Float): Offset
 }
 
 @Composable
-private fun BoxScope.OrbeSplash(indice: Int, avance: () -> Float)
+private fun BoxScope.OrbeOrbital(indice: Int, lado: Dp, avance: () -> Float)
 {
     val central = indice == 2
     val radio = if (central) 20f else 19f
-    val diametro = (LADO_SPLASH * radio * 2f / 300f).dp
+    val diametro = lado * radio * 2f / 300f
     Canvas(
         modifier = Modifier
             .align(Alignment.Center)
@@ -72,7 +73,7 @@ private fun BoxScope.OrbeSplash(indice: Int, avance: () -> Float)
             .graphicsLayer
             {
                 val posicion = posicionOrbe(indice, avance())
-                val escala = LADO_SPLASH.dp.toPx() / 300f
+                val escala = lado.toPx() / 300f
                 translationX = (posicion.x - CX) * escala
                 translationY = (posicion.y - CY) * escala
             },
@@ -93,10 +94,10 @@ private fun BoxScope.OrbeSplash(indice: Int, avance: () -> Float)
 }
 
 @Composable
-private fun BoxScope.MarcaSplash(opacidad: () -> Float)
+private fun BoxScope.MarcaCentral(lado: Dp, opacidad: () -> Float)
 {
     val radio = 20f
-    val diametro = (LADO_SPLASH * radio * 2f / 300f).dp
+    val diametro = lado * radio * 2f / 300f
     Canvas(
         modifier = Modifier
             .align(Alignment.Center)
@@ -113,16 +114,13 @@ private fun BoxScope.MarcaSplash(opacidad: () -> Float)
 }
 
 @Composable
-fun SplashOrbita(
-    fondo: Color = Color(0xFF0C1015),
-    listoParaSalir: Boolean = true,
-    alTerminar: () -> Unit,
+fun MarcaOrbital(
+    lado: Dp,
+    modifier: Modifier = Modifier,
 )
 {
     val avance = remember { Animatable(0f) }
     val opacidadV = remember { Animatable(0f) }
-    val visible = remember { Animatable(1f) }
-    val salir by rememberUpdatedState(listoParaSalir)
 
     LaunchedEffect(Unit)
     {
@@ -133,6 +131,30 @@ fun SplashOrbita(
             delay(1320)
             opacidadV.animateTo(1f, tween(350))
         }
+    }
+
+    Box(modifier = modifier.size(lado))
+    {
+        for (indice in 0..4)
+        {
+            OrbeOrbital(indice, lado) { avance.value }
+        }
+        MarcaCentral(lado) { opacidadV.value }
+    }
+}
+
+@Composable
+fun SplashOrbita(
+    fondo: Color = Color(0xFF0C1015),
+    listoParaSalir: Boolean = true,
+    alTerminar: () -> Unit,
+)
+{
+    val visible = remember { Animatable(1f) }
+    val salir by rememberUpdatedState(listoParaSalir)
+
+    LaunchedEffect(Unit)
+    {
         delay(1800)
         snapshotFlow { salir }.first { it }
         visible.animateTo(0f, tween(320))
@@ -147,13 +169,6 @@ fun SplashOrbita(
         contentAlignment = Alignment.Center,
     )
     {
-        Box(modifier = Modifier.size(LADO_SPLASH.dp))
-        {
-            for (indice in 0..4)
-            {
-                OrbeSplash(indice) { avance.value }
-            }
-            MarcaSplash { opacidadV.value }
-        }
+        MarcaOrbital(lado = LADO_SPLASH)
     }
 }
