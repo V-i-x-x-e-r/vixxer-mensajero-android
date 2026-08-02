@@ -57,6 +57,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.unit.sp
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -1356,203 +1357,212 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
 
     Box(modifier = Modifier.fillMaxSize().fondoVixxer()) {
         Column(modifier = Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
-            if (buscando)
-            {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                )
-                {
-                    Text(
-                        "‹",
-                        fontSize = 26.sp,
-                        color = colores.texto,
-                        modifier = Modifier.pulsable {
-                            buscando = false
-                            consulta = ""
-                        },
-                    )
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .panelVidrio(radio = 20.dp, desenfocar = true)
-                            .padding(horizontal = 14.dp, vertical = 10.dp),
-                    )
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                Column(modifier = Modifier.fillMaxWidth().zIndex(1f)) {
+                    if (buscando)
                     {
-                        if (consulta.isEmpty())
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        )
                         {
-                            Text("Buscar en el chat", fontSize = 14.sp, color = colores.placeholder)
+                            Text(
+                                "‹",
+                                fontSize = 26.sp,
+                                color = colores.texto,
+                                modifier = Modifier.pulsable {
+                                    buscando = false
+                                    consulta = ""
+                                },
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .panelVidrio(radio = 20.dp, desenfocar = true)
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                            )
+                            {
+                                if (consulta.isEmpty())
+                                {
+                                    Text("Buscar en el chat", fontSize = 14.sp, color = colores.placeholder)
+                                }
+                                BasicTextField(
+                                    value = consulta,
+                                    onValueChange = { consulta = it },
+                                    singleLine = true,
+                                    textStyle = TextStyle(fontSize = 14.sp, color = colores.texto),
+                                    cursorBrush = SolidColor(colores.texto),
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                            if (consulta.trim().isNotEmpty())
+                            {
+                                Text(
+                                    if (coincidencias.isEmpty()) "0/0" else "${indiceCoincidencia + 1}/${coincidencias.size}",
+                                    fontSize = 12.sp,
+                                    color = colores.muted,
+                                )
+                                Text(
+                                    "‹",
+                                    fontSize = 22.sp,
+                                    color = if (indiceCoincidencia > 0) colores.texto else colores.placeholder,
+                                    modifier = Modifier
+                                        .rotate(90f)
+                                        .pulsable {
+                                            if (indiceCoincidencia > 0) indiceCoincidencia--
+                                        },
+                                )
+                                Text(
+                                    "‹",
+                                    fontSize = 22.sp,
+                                    color = if (indiceCoincidencia < coincidencias.lastIndex) colores.texto else colores.placeholder,
+                                    modifier = Modifier
+                                        .rotate(-90f)
+                                        .pulsable {
+                                            if (indiceCoincidencia < coincidencias.lastIndex) indiceCoincidencia++
+                                        },
+                                )
+                            }
                         }
-                        BasicTextField(
-                            value = consulta,
-                            onValueChange = { consulta = it },
-                            singleLine = true,
-                            textStyle = TextStyle(fontSize = 14.sp, color = colores.texto),
-                            cursorBrush = SolidColor(colores.texto),
-                            modifier = Modifier.fillMaxWidth(),
-                        )
                     }
-                    if (consulta.trim().isNotEmpty())
+                    else
                     {
-                        Text(
-                            if (coincidencias.isEmpty()) "0/0" else "${indiceCoincidencia + 1}/${coincidencias.size}",
-                            fontSize = 12.sp,
-                            color = colores.muted,
-                        )
-                        Text(
-                            "‹",
-                            fontSize = 22.sp,
-                            color = if (indiceCoincidencia > 0) colores.texto else colores.placeholder,
+                        Row(
                             modifier = Modifier
-                                .rotate(90f)
-                                .pulsable {
-                                    if (indiceCoincidencia > 0) indiceCoincidencia--
-                                },
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 5.dp)
+                                .pildoraVidrio()
+                                .padding(horizontal = 10.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
                         )
-                        Text(
-                            "‹",
-                            fontSize = 22.sp,
-                            color = if (indiceCoincidencia < coincidencias.lastIndex) colores.texto else colores.placeholder,
-                            modifier = Modifier
-                                .rotate(-90f)
-                                .pulsable {
-                                    if (indiceCoincidencia < coincidencias.lastIndex) indiceCoincidencia++
-                                },
-                        )
-                    }
-                }
-            }
-            else
-            {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 5.dp)
-                        .pildoraVidrio()
-                        .padding(horizontal = 10.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                )
-                {
-                    Text(
-                        "‹",
-                        fontSize = 26.sp,
-                        color = colores.texto,
-                        modifier = Modifier.pulsable { alVolver() },
-                    )
-                    Avatar(nombre = nombre, uri = amigo.avatarUrl.ifEmpty { null }, tamano = 32.dp)
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .pulsable { alNavegar("perfil") },
-                    ) {
-                        Text(nombre, fontSize = 16.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.SemiBold, color = colores.texto)
-                        if (sub != null)
                         {
-                            Text(sub, fontSize = 12.sp, color = colores.muted)
+                            Text(
+                                "‹",
+                                fontSize = 26.sp,
+                                color = colores.texto,
+                                modifier = Modifier.pulsable { alVolver() },
+                            )
+                            Avatar(nombre = nombre, uri = amigo.avatarUrl.ifEmpty { null }, tamano = 32.dp)
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .pulsable { alNavegar("perfil") },
+                            ) {
+                                Text(nombre, fontSize = 16.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.SemiBold, color = colores.texto)
+                                if (sub != null)
+                                {
+                                    Text(sub, fontSize = 12.sp, color = colores.muted)
+                                }
+                            }
+                            if (GestorLlamadas.llamadasDisponibles())
+                            {
+                                Box(modifier = Modifier.pulsable { alNavegar("llamada/$otroId|$nombre|0|0") }) {
+                                    Telefono(color = colores.texto, tamano = 20.dp)
+                                }
+                                Box(modifier = Modifier.pulsable { alNavegar("llamada/$otroId|$nombre|1|0") }) {
+                                    IconoVideo(color = colores.texto, tamano = 20.dp)
+                                }
+                            }
+                            Box(modifier = Modifier.pulsable { buscando = true }) {
+                                Lupa(color = colores.texto, tamano = 20.dp)
+                            }
+                            Box(modifier = Modifier.pulsable { menu = true }) {
+                                Kebab(color = if (temporizador > 0) colores.botonFondo else colores.texto)
+                            }
                         }
                     }
-                    if (GestorLlamadas.llamadasDisponibles())
+
+                    if (fijadoActual != null && !buscando)
                     {
-                        Box(modifier = Modifier.pulsable { alNavegar("llamada/$otroId|$nombre|0|0") }) {
-                            Telefono(color = colores.texto, tamano = 20.dp)
+                        Row(
+                            modifier = Modifier
+                                .pulsable { irAFijado() }
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp)
+                                .panelVidrio(radio = 12.dp, desenfocar = true)
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        )
+                        {
+                            Pin(color = colores.muted, tamano = 16.dp)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "Mensaje fijado${if (fijados.size > 1) " · ${(indiceFijado % fijados.size) + 1}/${fijados.size}" else ""}",
+                                    fontSize = 11.sp,
+                                    fontFamily = FuenteOutfit,
+                                    fontWeight = FontWeight.Medium,
+                                    color = colores.muted,
+                                )
+                                Text(
+                                    textoVisible(fijadoActual.texto),
+                                    fontSize = 13.sp,
+                                    color = colores.texto,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
                         }
-                        Box(modifier = Modifier.pulsable { alNavegar("llamada/$otroId|$nombre|1|0") }) {
-                            IconoVideo(color = colores.texto, tamano = 20.dp)
-                        }
-                    }
-                    Box(modifier = Modifier.pulsable { buscando = true }) {
-                        Lupa(color = colores.texto, tamano = 20.dp)
-                    }
-                    Box(modifier = Modifier.pulsable { menu = true }) {
-                        Kebab(color = if (temporizador > 0) colores.botonFondo else colores.texto)
                     }
                 }
-            }
 
-            if (fijadoActual != null && !buscando)
-            {
-                Row(
-                    modifier = Modifier
-                        .pulsable { irAFijado() }
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp)
-                        .panelVidrio(radio = 12.dp, desenfocar = true)
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                LazyColumn(
+                    state = listaEstado,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(
+                        start = 12.dp,
+                        end = 12.dp,
+                        top = if (fijadoActual != null && !buscando) 120.dp else 64.dp,
+                        bottom = 8.dp,
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
                 )
                 {
-                    Pin(color = colores.muted, tamano = 16.dp)
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            "Mensaje fijado${if (fijados.size > 1) " · ${(indiceFijado % fijados.size) + 1}/${fijados.size}" else ""}",
-                            fontSize = 11.sp,
-                            fontFamily = FuenteOutfit,
-                            fontWeight = FontWeight.Medium,
-                            color = colores.muted,
-                        )
-                        Text(
-                            textoVisible(fijadoActual.texto),
-                            fontSize = 13.sp,
-                            color = colores.texto,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
+                    itemsIndexed(visibles, key = { _, m -> m.id }) { i, m ->
+                        val mio = m.remitenteId == miId
+                        val cita = m.respuestaTexto ?: m.respuestaA?.let { respuestaId ->
+                            mensajesPorId[respuestaId]?.texto?.let { Resumen.resumenMensaje(it) } ?: "Mensaje"
+                        }
+                        val resaltado = buscando && coincidencias.getOrNull(indiceCoincidencia) == i
+                        var limites by remember { mutableStateOf(Rect.Zero) }
+                        Box(
+                            modifier = Modifier
+                                .animateItem()
+                                .then(if (resaltado) Modifier.background(colores.botonFondo.copy(alpha = 0.12f)) else Modifier)
+                                .onGloballyPositioned { limites = it.boundsInRoot() },
+                        ) {
+                            Burbuja(
+                                m = if (cita == m.respuestaTexto) m else m.copy(respuestaTexto = cita),
+                                mio = mio,
+                                colores = colores,
+                                app = app,
+                                alAbrirImagen = { visor = it },
+                                alAbrirVideo = { visorVideo = it },
+                                miId = miId,
+                                seleccionando = seleccionando,
+                                seleccionado = seleccionados.contains(m.id),
+                                alReintentar = { reintentar(m) },
+                                alPulsar = {
+                                    if (seleccionando)
+                                    {
+                                        seleccionados = if (seleccionados.contains(m.id)) seleccionados - m.id else seleccionados + m.id
+                                    }
+                                },
+                                alMantener = {
+                                    if (!seleccionando && !m.borrado && (m.estado == null || m.estado == "cercania"))
+                                    {
+                                        vibrador.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                                        sel = AccionesDe(m, limites)
+                                    }
+                                },
+                            )
+                        }
                     }
-                }
-            }
-
-            LazyColumn(
-                state = listaEstado,
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            )
-            {
-                itemsIndexed(visibles, key = { _, m -> m.id }) { i, m ->
-                    val mio = m.remitenteId == miId
-                    val cita = m.respuestaTexto ?: m.respuestaA?.let { respuestaId ->
-                        mensajesPorId[respuestaId]?.texto?.let { Resumen.resumenMensaje(it) } ?: "Mensaje"
+                    item {
+                        Box(modifier = Modifier.padding(bottom = 2.dp))
                     }
-                    val resaltado = buscando && coincidencias.getOrNull(indiceCoincidencia) == i
-                    var limites by remember { mutableStateOf(Rect.Zero) }
-                    Box(
-                        modifier = Modifier
-                            .animateItem()
-                            .then(if (resaltado) Modifier.background(colores.botonFondo.copy(alpha = 0.12f)) else Modifier)
-                            .onGloballyPositioned { limites = it.boundsInRoot() },
-                    ) {
-                        Burbuja(
-                            m = if (cita == m.respuestaTexto) m else m.copy(respuestaTexto = cita),
-                            mio = mio,
-                            colores = colores,
-                            app = app,
-                            alAbrirImagen = { visor = it },
-                            alAbrirVideo = { visorVideo = it },
-                            miId = miId,
-                            seleccionando = seleccionando,
-                            seleccionado = seleccionados.contains(m.id),
-                            alReintentar = { reintentar(m) },
-                            alPulsar = {
-                                if (seleccionando)
-                                {
-                                    seleccionados = if (seleccionados.contains(m.id)) seleccionados - m.id else seleccionados + m.id
-                                }
-                            },
-                            alMantener = {
-                                if (!seleccionando && !m.borrado && (m.estado == null || m.estado == "cercania"))
-                                {
-                                    vibrador.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
-                                    sel = AccionesDe(m, limites)
-                                }
-                            },
-                        )
-                    }
-                }
-                item {
-                    Box(modifier = Modifier.padding(bottom = 2.dp))
                 }
             }
 

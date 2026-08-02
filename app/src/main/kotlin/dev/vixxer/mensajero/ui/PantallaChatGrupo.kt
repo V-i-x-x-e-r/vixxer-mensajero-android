@@ -56,6 +56,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.unit.sp
 import dev.vixxer.mensajero.AplicacionVixxer
 import dev.vixxer.mensajero.DrenadorOutbox
@@ -1068,91 +1069,100 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
 
     Box(modifier = Modifier.fillMaxSize().fondoVixxer()) {
     Column(modifier = Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 5.dp)
-                .pildoraVidrio()
-                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alNavegar("grupo-info/$grupoId") }
-                .padding(horizontal = 10.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        )
-        {
-            Text(
-                "‹",
-                fontSize = 26.sp,
-                color = colores.texto,
-                modifier = Modifier.pulsable { alNavegar("grupos") },
-            )
-            Avatar(nombre = nombreGrupo, uri = avatarGrupo, tamano = 32.dp)
-            Column {
-                Text(nombreGrupo, fontSize = 16.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.SemiBold, color = colores.texto)
-                Text(
-                    escribiendoDe?.let { "$it escribe…" } ?: if (numMiembros > 0) "$numMiembros miembros" else "",
-                    fontSize = 12.sp,
-                    color = if (escribiendoDe != null) colores.botonFondo else colores.muted,
-                )
-            }
-        }
-
         val fijadoActual = if (fijados.isEmpty()) null else fijados[indiceFijado % fijados.size]
-        if (fijadoActual != null)
-        {
-            Row(
-                modifier = Modifier
-                    .pulsable { irAFijado() }
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp)
-                    .panelVidrio(radio = 12.dp, desenfocar = true)
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
+        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            Column(modifier = Modifier.fillMaxWidth().zIndex(1f)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 5.dp)
+                        .pildoraVidrio()
+                        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alNavegar("grupo-info/$grupoId") }
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                )
+                {
+                    Text(
+                        "‹",
+                        fontSize = 26.sp,
+                        color = colores.texto,
+                        modifier = Modifier.pulsable { alNavegar("grupos") },
+                    )
+                    Avatar(nombre = nombreGrupo, uri = avatarGrupo, tamano = 32.dp)
+                    Column {
+                        Text(nombreGrupo, fontSize = 16.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.SemiBold, color = colores.texto)
+                        Text(
+                            escribiendoDe?.let { "$it escribe…" } ?: if (numMiembros > 0) "$numMiembros miembros" else "",
+                            fontSize = 12.sp,
+                            color = if (escribiendoDe != null) colores.botonFondo else colores.muted,
+                        )
+                    }
+                }
+
+                if (fijadoActual != null)
+                {
+                    Row(
+                        modifier = Modifier
+                            .pulsable { irAFijado() }
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp)
+                            .panelVidrio(radio = 12.dp, desenfocar = true)
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    )
+                    {
+                        Pin(color = colores.muted, tamano = 16.dp)
+                        Text(
+                            Resumen.resumenMensaje(fijadoActual.texto),
+                            fontSize = 13.sp,
+                            color = colores.texto,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+            }
+
+            val porId = remember(mensajes) { mensajes.associateBy { it.id } }
+            LazyColumn(
+                state = listaEstado,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = 12.dp,
+                    end = 12.dp,
+                    top = if (fijadoActual != null) 120.dp else 64.dp,
+                    bottom = 8.dp,
+                ),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             )
             {
-                Pin(color = colores.muted, tamano = 16.dp)
-                Text(
-                    Resumen.resumenMensaje(fijadoActual.texto),
-                    fontSize = 13.sp,
-                    color = colores.texto,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
-
-        val porId = remember(mensajes) { mensajes.associateBy { it.id } }
-        LazyColumn(
-            state = listaEstado,
-            modifier = Modifier.weight(1f).fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        )
-        {
-            items(visibles, key = { it.id }) { m ->
-                var limites by remember { mutableStateOf(Rect.Zero) }
-                Box(modifier = Modifier.animateItem().onGloballyPositioned { limites = it.boundsInRoot() }) {
-                    BurbujaGrupo(
-                        m = m,
-                        mio = m.remitenteId == miId,
-                        numMiembros = numMiembros,
-                        colores = colores,
-                        app = app,
-                        alAbrirImagen = { visor = it },
-                        alAbrirVideo = { visorVideo = it },
-                        cita = m.respuestaTexto ?: m.respuestaA?.let { respuestaId ->
-                            porId[respuestaId]?.let { Resumen.resumenMensaje(it.texto) } ?: "Mensaje"
-                        },
-                        alReintentar = { reintentar(m) },
-                        alMantener = {
-                            if (!m.borrado && (m.estado == null || m.estado == "cercania"))
-                            {
-                                vibrador.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
-                                sel = AccionesDe(m, limites)
-                            }
-                        },
-                    )
+                items(visibles, key = { it.id }) { m ->
+                    var limites by remember { mutableStateOf(Rect.Zero) }
+                    Box(modifier = Modifier.animateItem().onGloballyPositioned { limites = it.boundsInRoot() }) {
+                        BurbujaGrupo(
+                            m = m,
+                            mio = m.remitenteId == miId,
+                            numMiembros = numMiembros,
+                            colores = colores,
+                            app = app,
+                            alAbrirImagen = { visor = it },
+                            alAbrirVideo = { visorVideo = it },
+                            cita = m.respuestaTexto ?: m.respuestaA?.let { respuestaId ->
+                                porId[respuestaId]?.let { Resumen.resumenMensaje(it.texto) } ?: "Mensaje"
+                            },
+                            alReintentar = { reintentar(m) },
+                            alMantener = {
+                                if (!m.borrado && (m.estado == null || m.estado == "cercania"))
+                                {
+                                    vibrador.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                                    sel = AccionesDe(m, limites)
+                                }
+                            },
+                        )
+                    }
                 }
             }
         }
