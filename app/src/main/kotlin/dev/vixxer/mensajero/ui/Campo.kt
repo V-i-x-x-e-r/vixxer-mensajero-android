@@ -1,6 +1,5 @@
 package dev.vixxer.mensajero.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -44,6 +43,7 @@ fun Campo(
     val interaccion = remember { MutableInteractionSource() }
     val enfocado by interaccion.collectIsFocusedAsState()
     val oculto = esContrasena && !ver
+    val forma = RoundedCornerShape(12.dp)
 
     Box {
         BasicTextField(
@@ -68,8 +68,8 @@ fun Campo(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(colores.surface, RoundedCornerShape(10.dp))
-                        .border(1.dp, if (enfocado) colores.bordeFoco else colores.borde, RoundedCornerShape(10.dp))
+                        .panelVidrio(radio = 12.dp, desenfocar = true)
+                        .then(if (enfocado) Modifier.border(1.dp, colores.bordeFoco, forma) else Modifier)
                         .padding(PaddingValues(start = 16.dp, end = if (esContrasena) 44.dp else 16.dp, top = 12.dp, bottom = 12.dp)),
                     contentAlignment = Alignment.CenterStart,
                 )
@@ -86,9 +86,9 @@ fun Campo(
         {
             Box(
                 modifier = Modifier
+                    .pulsable { ver = !ver }
                     .align(Alignment.CenterEnd)
-                    .padding(end = 14.dp)
-                    .pulsable { ver = !ver },
+                    .padding(end = 14.dp),
             )
             {
                 Ojo(mostrando = ver, color = colores.placeholder)

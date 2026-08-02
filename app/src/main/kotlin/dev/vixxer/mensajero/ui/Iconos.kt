@@ -164,6 +164,15 @@ fun Lupa(color: Color, tamano: Dp = 20.dp)
 }
 
 @Composable
+fun Cerrar(color: Color, tamano: Dp = 20.dp)
+{
+    Icono24(tamano) {
+        drawLine(color, Offset(6f, 6f), Offset(18f, 18f), strokeWidth = 2f, cap = StrokeCap.Round)
+        drawLine(color, Offset(18f, 6f), Offset(6f, 18f), strokeWidth = 2f, cap = StrokeCap.Round)
+    }
+}
+
+@Composable
 fun IconoAmigos(color: Color, tamano: Dp = 16.dp)
 {
     Icono24(tamano) {

@@ -2,6 +2,7 @@ package dev.vixxer.mensajero.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -184,6 +185,23 @@ fun Modifier.panelVidrio(
 fun Modifier.pildoraVidrio(): Modifier = aplicarVidrio(
     capa = CapaVidrio.PILDORA,
     forma = RoundedCornerShape(Vidrio.radioPildora),
+    desenfocar = true,
+)
+
+@Composable
+fun Modifier.circuloVidrio(
+    fuerte: Boolean = false,
+    desenfocar: Boolean = true,
+): Modifier = aplicarVidrio(
+    capa = if (fuerte) CapaVidrio.FUERTE else CapaVidrio.PANEL,
+    forma = CircleShape,
+    desenfocar = desenfocar,
+)
+
+@Composable
+fun Modifier.hojaVidrio(radio: Dp = 22.dp): Modifier = aplicarVidrio(
+    capa = CapaVidrio.FLOTANTE,
+    forma = RoundedCornerShape(topStart = radio, topEnd = radio),
     desenfocar = true,
 )
 
