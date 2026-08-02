@@ -20,7 +20,7 @@ fun Modifier.fondoVixxer(): Modifier
     return drawWithCache {
         val luz = Brush.linearGradient(
             colors = listOf(
-                Color.White.copy(alpha = if (tema.oscuro) 0.035f else 0.30f),
+                Color.White.copy(alpha = if (tema.oscuro) 0.035f else 0.45f),
                 Color.Transparent,
             ),
             start = Offset.Zero,
@@ -35,7 +35,7 @@ fun Modifier.fondoVixxer(): Modifier
                 }
                 else
                 {
-                    PAPEL_SUAVE.copy(alpha = 0.66f)
+                    PAPEL_SUAVE.copy(alpha = 0.85f)
                 },
             ),
             start = Offset(size.width * 0.18f, size.height * 0.40f),
