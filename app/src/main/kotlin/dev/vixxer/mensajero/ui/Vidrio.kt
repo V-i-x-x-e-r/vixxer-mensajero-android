@@ -1,7 +1,6 @@
 package dev.vixxer.mensajero.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -20,21 +19,12 @@ import dev.chrisbanes.haze.hazeEffect
 
 object Vidrio
 {
-    val fondoPanel = Color(0xFF171A1E).copy(alpha = 0.44f)
-    val fondoFuerte = Color(0xFF171A1E).copy(alpha = 0.58f)
-    val fondoOsd = Color(0xFF171A1E).copy(alpha = 0.64f)
     val solidoPanel = Color(0xFF171A1E)
     val solidoFuerte = Color(0xFF1C2025)
     val solidoOsd = Color(0xFF171A1E)
-    val bordeSolido = Color(0x2EFFFFFF)
-    val borde = Color(0x24FFFFFF)
-    val bordeSuave = Color(0x18FFFFFF)
-    val brillo = Color(0x30FFFFFF)
     val sombra = Color(0xFF08090B)
     val activo = Color(0xFFF5F6F7)
     val ocupado = Color(0xFFA9AFB8)
-    val vacio = Color(0x35FFFFFF)
-    val radioVentana = 8.dp
     val radioPanel = 8.dp
     val radioPildora = 80.dp
     val anchoBorde = 0.7.dp
@@ -51,7 +41,6 @@ private enum class CapaVidrio
 private data class AparienciaVidrio(
     val solido: Color,
     val tinte: Color,
-    val borde: Brush,
     val reflejo: Brush,
     val brillo: Color,
     val radioBlur: Dp,
@@ -77,33 +66,33 @@ private fun aparienciaVidrio(capa: CapaVidrio): AparienciaVidrio
     {
         when (capa)
         {
-            CapaVidrio.PANEL -> Color(0xFFD7DADF).copy(alpha = 0.46f)
-            CapaVidrio.FUERTE -> Color(0xFFE2E4E7).copy(alpha = 0.62f)
-            CapaVidrio.PILDORA -> Color(0xFFD5D9DE).copy(alpha = 0.50f)
-            CapaVidrio.FLOTANTE -> Color(0xFFEEF0F2).copy(alpha = 0.80f)
+            CapaVidrio.PANEL -> Color(0xFFFDFEFF).copy(alpha = 0.58f)
+            CapaVidrio.FUERTE -> Color(0xFFFDFEFF).copy(alpha = 0.70f)
+            CapaVidrio.PILDORA -> Color(0xFFFDFEFF).copy(alpha = 0.64f)
+            CapaVidrio.FLOTANTE -> Color(0xFFFBFCFD).copy(alpha = 0.92f)
         }
     }
     val alphaTinte = when (capa)
     {
-        CapaVidrio.PANEL -> if (oscuro) 0.32f else 0.24f
-        CapaVidrio.FUERTE -> if (oscuro) 0.44f else 0.32f
-        CapaVidrio.PILDORA -> if (oscuro) 0.40f else 0.28f
-        CapaVidrio.FLOTANTE -> if (oscuro) 0.52f else 0.42f
+        CapaVidrio.PANEL -> if (oscuro) 0.32f else 0.30f
+        CapaVidrio.FUERTE -> if (oscuro) 0.44f else 0.40f
+        CapaVidrio.PILDORA -> if (oscuro) 0.40f else 0.34f
+        CapaVidrio.FLOTANTE -> if (oscuro) 0.52f else 0.50f
     }
-    val baseTinte = if (oscuro) Color(0xFF171A1E) else Color(0xFFD7DADF)
-    val bordeInicial = if (oscuro) Color.White.copy(alpha = 0.30f) else Color.White.copy(alpha = 0.76f)
-    val bordeMedio = if (oscuro) Vidrio.borde else tema.colores.borde
-    val bordeFinal = if (oscuro) Color.White.copy(alpha = 0.08f) else Color(0xFF08090B).copy(alpha = 0.12f)
-    val borde = Brush.linearGradient(listOf(bordeInicial, bordeMedio, bordeFinal, bordeMedio))
+    val baseTinte = if (oscuro) Color(0xFF171A1E) else Color(0xFFF2F5F8)
     val reflejo = if (oscuro)
     {
         Brush.linearGradient(listOf(Color.White.copy(alpha = 0.07f), Color.Transparent, Color.White.copy(alpha = 0.025f)))
     }
     else
     {
-        Brush.linearGradient(listOf(Color.White.copy(alpha = 0.24f), Color.Transparent, Color.White.copy(alpha = 0.06f)))
+        Brush.verticalGradient(
+            0f to Color.White.copy(alpha = 0.50f),
+            0.55f to Color.White.copy(alpha = 0.06f),
+            1f to Color.White.copy(alpha = 0.16f),
+        )
     }
-    val brillo = if (oscuro) Color.White.copy(alpha = 0.13f) else Color.White.copy(alpha = 0.72f)
+    val brillo = if (oscuro) Color.White.copy(alpha = 0.13f) else Color.White.copy(alpha = 0.92f)
     val radioBlur = when (capa)
     {
         CapaVidrio.PANEL -> 20.dp
@@ -121,7 +110,6 @@ private fun aparienciaVidrio(capa: CapaVidrio): AparienciaVidrio
     return AparienciaVidrio(
         solido = solido,
         tinte = baseTinte.copy(alpha = alphaTinte),
-        borde = borde,
         reflejo = reflejo,
         brillo = brillo,
         radioBlur = radioBlur,
@@ -155,7 +143,6 @@ private fun Modifier.conDesenfoque(
         }
         .background(apariencia.reflejo, forma)
         .brilloTope(forma, apariencia.brillo)
-        .border(Vidrio.anchoBorde, apariencia.borde, forma)
 
 @Composable
 private fun Modifier.sinDesenfoque(
@@ -166,7 +153,6 @@ private fun Modifier.sinDesenfoque(
         .background(apariencia.solido, forma)
         .background(apariencia.reflejo, forma)
         .brilloTope(forma, apariencia.brillo)
-        .border(Vidrio.anchoBorde, apariencia.borde, forma)
 
 @Composable
 private fun Modifier.aplicarVidrio(
@@ -254,12 +240,22 @@ fun colorPestanaInactiva(): Color
 fun colorBrilloPestana(): Color
 {
     val tema = LocalTema.current
-    return if (tema.oscuro) Color.White.copy(alpha = 0.13f) else Color(0xFF08090B).copy(alpha = 0.07f)
+    return when
+    {
+        tema.oscuro -> Color.White.copy(alpha = 0.13f)
+        tema.nombre == "colorido" -> tema.acento.copy(alpha = 0.28f)
+        else -> Color(0xFF08090B).copy(alpha = 0.07f)
+    }
 }
 
 @Composable
 fun colorBordePestana(): Color
 {
     val tema = LocalTema.current
-    return if (tema.oscuro) Color.White.copy(alpha = 0.28f) else Color(0xFF08090B).copy(alpha = 0.22f)
+    return when
+    {
+        tema.oscuro -> Color.White.copy(alpha = 0.28f)
+        tema.nombre == "colorido" -> tema.acento.copy(alpha = 0.72f)
+        else -> Color(0xFF08090B).copy(alpha = 0.22f)
+    }
 }

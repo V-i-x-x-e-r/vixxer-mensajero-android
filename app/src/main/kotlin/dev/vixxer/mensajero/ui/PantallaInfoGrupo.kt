@@ -104,7 +104,6 @@ fun PantallaInfoGrupo(app: AplicacionVixxer, grupoId: String, alNavegar: (String
                 val resultado = withContext(Dispatchers.IO) {
                     runCatching {
                         val imagen = comprimirAvatar(contexto, uri)
-                            ?: error("No se pudo leer la imagen")
                         val b64 = android.util.Base64.encodeToString(imagen.bytes, android.util.Base64.NO_WRAP)
                         val respuesta = app.api.avatarGrupo(grupoId, b64, "image/jpeg") as? JSONObject
                             ?: error("El servidor no confirmó la foto")

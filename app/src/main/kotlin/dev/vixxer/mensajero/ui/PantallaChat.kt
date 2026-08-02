@@ -1428,9 +1428,9 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                        .panelVidrio(radio = 12.dp, fuerte = true, desenfocar = true)
-                        .padding(horizontal = 10.dp, vertical = 7.dp),
+                        .padding(horizontal = 12.dp, vertical = 5.dp)
+                        .pildoraVidrio()
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 )

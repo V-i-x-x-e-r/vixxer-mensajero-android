@@ -55,16 +55,26 @@ class CapturaPrincipalTest
     }
 
     @Test
+    fun principalColoridoAndroid10()
+    {
+        capturar("principal-colorido-sdk29", oscuro = false, temaNombre = "colorido")
+    }
+
+    @Test
     @Config(sdk = [33], application = android.app.Application::class, qualifiers = "w411dp-h891dp-xhdpi")
     fun principalAndroid13()
     {
         capturar("principal-sdk33", oscuro = false)
     }
 
-    private fun capturar(nombre: String, oscuro: Boolean)
+    private fun capturar(nombre: String, oscuro: Boolean, temaNombre: String? = null)
     {
         compose.setContent {
             val tema = EstadoTema(AlmacenEnMemoria(), oscuroSistema = oscuro)
+            if (temaNombre != null)
+            {
+                tema.elegirTema(temaNombre)
+            }
             val haze = recordarHaze()
             CompositionLocalProvider(LocalTema provides tema, LocalHazeState provides haze)
             {

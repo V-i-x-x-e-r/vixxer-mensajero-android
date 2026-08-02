@@ -1,5 +1,10 @@
 package dev.vixxer.mensajero.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -21,9 +26,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
@@ -34,7 +37,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -109,7 +117,7 @@ private fun previewDe(texto: String): String
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirChat: (Amigo) -> Unit)
 {
@@ -121,14 +129,38 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
     var estados by remember { mutableStateOf(EstadosChat.Estados(emptyList(), emptyList(), emptyList(), emptyList(), emptyList())) }
     var verArchivados by remember { mutableStateOf(false) }
     var cargando by remember { mutableStateOf(true) }
-    var refrescando by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf(false) }
     var estadoConexion by remember { mutableStateOf("conectando…") }
     var sel by remember { mutableStateOf<String?>(null) }
     var tecleando by remember { mutableStateOf(mapOf<String, Boolean>()) }
     var borrando by remember { mutableStateOf(false) }
     var busqueda by remember { mutableStateOf("") }
+    var buscadorVisible by remember { mutableStateOf(false) }
     var alias by remember { mutableStateOf(mapOf<String, String>()) }
+    val focos = LocalFocusManager.current
+    val conexionBusqueda = remember {
+        object : NestedScrollConnection
+        {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset
+            {
+                if (available.y < -6f && buscadorVisible && busqueda.isEmpty())
+                {
+                    buscadorVisible = false
+                    focos.clearFocus()
+                }
+                return Offset.Zero
+            }
+
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset
+            {
+                if (source == NestedScrollSource.UserInput && available.y > 6f && !buscadorVisible && sel == null)
+                {
+                    buscadorVisible = true
+                }
+                return Offset.Zero
+            }
+        }
+    }
     val trabajosTecleo = remember { HashMap<String, Job>() }
     val recarga = remember { arrayOf<Job?>(null) }
     var socketActivo by remember { mutableStateOf(ConexionSocket.obtener()) }
@@ -427,7 +459,6 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
                 .statusBarsPadding()
                 .padding(horizontal = 20.dp)
                 .padding(top = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
         )
         {
             val seleccionado = sel
@@ -508,22 +539,25 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
 
             if (amigos.isNotEmpty() && sel == null)
             {
-                CampoBusqueda(
-                    valor = busqueda,
-                    alCambiar = { busqueda = it },
+                AnimatedVisibility(
+                    visible = buscadorVisible,
+                    enter = expandVertically() + fadeIn(),
+                    exit = shrinkVertically() + fadeOut(),
                 )
+                {
+                    CampoBusqueda(
+                        valor = busqueda,
+                        alCambiar = { busqueda = it },
+                        modifier = Modifier.padding(top = 10.dp),
+                    )
+                }
             }
 
-            PullToRefreshBox(
-                isRefreshing = refrescando,
-                onRefresh = {
-                    alcance.launch {
-                        refrescando = true
-                        cargar()
-                        refrescando = false
-                    }
-                },
-                modifier = Modifier.weight(1f),
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(top = 10.dp)
+                    .nestedScroll(conexionBusqueda),
             )
             {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
