@@ -203,10 +203,9 @@ fun PantallaLogin(app: AplicacionVixxer, alNavegar: (String) -> Unit)
                     fontSize = 24.sp,
                     fontFamily = FuenteOutfit,
                     fontWeight = FontWeight.SemiBold,
-                    letterSpacing = (-0.5).sp,
                     color = colores.texto,
                 )
-                Text("Bienvenido de vuelta", fontSize = 14.sp, color = colores.muted, modifier = Modifier.padding(top = 4.dp))
+                Text("Continúa tus conversaciones", fontSize = 14.sp, color = colores.muted, modifier = Modifier.padding(top = 4.dp))
             }
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Campo(valor = usuario, alCambiar = { usuario = it }, placeholder = "Usuario", sinMayusculas = true)
@@ -223,7 +222,7 @@ fun PantallaLogin(app: AplicacionVixxer, alNavegar: (String) -> Unit)
                 {
                     Text(error, fontSize = 13.sp, color = colores.error)
                 }
-                Boton(titulo = "Entrar", alPulsar = { entrar() }, cargando = cargando, glass = true)
+                Boton(titulo = "Entrar", alPulsar = { entrar() }, cargando = cargando)
             }
             val pie = buildAnnotatedString {
                 append("¿No tienes cuenta? ")
@@ -245,7 +244,7 @@ fun PantallaLogin(app: AplicacionVixxer, alNavegar: (String) -> Unit)
         Confirmacion(
             visible = olvido,
             titulo = "¿Olvidaste tu contraseña?",
-            mensaje = "Vixxer no pide correo ni teléfono, así que nadie puede restablecerla por ti. Si la recuerdas más tarde, entra normal. Si no, crea una cuenta nueva y comparte tu código de amigo otra vez.",
+            mensaje = "Tu código de recuperación es la única forma de recuperar tus chats cifrados. Si no recuerdas tu contraseña, crea una cuenta nueva y vuelve a compartir tu código de amigo.",
             textoConfirmar = "Crear cuenta",
             textoCancelar = "Entendido",
             alConfirmar = {

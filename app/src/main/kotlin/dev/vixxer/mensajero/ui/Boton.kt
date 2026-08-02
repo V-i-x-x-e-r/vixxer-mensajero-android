@@ -4,7 +4,6 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -21,7 +20,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -33,7 +31,6 @@ fun Boton(
     alPulsar: () -> Unit,
     cargando: Boolean = false,
     deshabilitado: Boolean = false,
-    glass: Boolean = false,
 )
 {
     val tema = LocalTema.current
@@ -46,18 +43,16 @@ fun Boton(
         label = "escalaBoton",
     )
     val inactivo = deshabilitado || cargando
-    val forma = RoundedCornerShape(if (glass) 12.dp else 10.dp)
+    val forma = RoundedCornerShape(10.dp)
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .scale(escala)
             .graphicsLayer { alpha = if (inactivo) 0.6f else 1f }
-            .then(if (glass) Modifier.shadow(6.dp, forma) else Modifier)
             .background(colores.botonFondo, forma)
-            .then(if (glass) Modifier.border(1.dp, colores.bordeFoco, forma) else Modifier)
             .clickable(enabled = !inactivo, interactionSource = interaccion, indication = null) { alPulsar() }
-            .padding(vertical = if (glass) 12.dp else 11.dp),
+            .padding(vertical = 11.dp),
         contentAlignment = Alignment.Center,
     )
     {
@@ -76,7 +71,7 @@ fun Boton(
                 color = colores.botonTexto,
                 fontFamily = FuenteOutfit,
                 fontWeight = FontWeight.SemiBold,
-                fontSize = if (glass) 15.sp else 14.sp,
+                fontSize = 14.sp,
             )
         }
     }

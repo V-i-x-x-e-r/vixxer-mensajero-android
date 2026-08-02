@@ -55,4 +55,26 @@ class ControlesTest
         compose.onNodeWithContentDescription("Activar tema oscuro").performClick()
         compose.runOnIdle { assertEquals("oscuro", tema.nombre) }
     }
+
+    @Test
+    fun botonCircularEjecutaLaAccion()
+    {
+        var pulsaciones = 0
+
+        compose.setContent {
+            val tema = EstadoTema(AlmacenEnMemoria(), oscuroSistema = false)
+            CompositionLocalProvider(LocalTema provides tema) {
+                BotonCircularPrimario(
+                    descripcion = "Enviar mensaje",
+                    alPulsar = { pulsaciones++ },
+                )
+                {
+                    Enviar(color = tema.colores.botonTexto)
+                }
+            }
+        }
+
+        compose.onNodeWithContentDescription("Enviar mensaje").performClick()
+        compose.runOnIdle { assertEquals(1, pulsaciones) }
+    }
 }

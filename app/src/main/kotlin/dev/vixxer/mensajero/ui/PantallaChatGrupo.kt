@@ -30,7 +30,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.Text
@@ -46,7 +45,6 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -55,7 +53,6 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -1316,11 +1313,11 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
         {
             Box(
                 modifier = Modifier
-                    .size(44.dp)
                     .pulsable(habilitado = !subiendo) {
                         enfoque.clearFocus()
                         adjuntando = true
-                    },
+                    }
+                    .size(44.dp),
                 contentAlignment = Alignment.Center,
             )
             {
@@ -1338,38 +1335,17 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                     Clip(color = colores.muted)
                 }
             }
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .background(colores.surface, RoundedCornerShape(22.dp))
-                    .border(Vidrio.anchoBorde, colores.borde, RoundedCornerShape(22.dp))
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+            CampoMensaje(
+                valor = texto,
+                alCambiar = { escribir(it) },
+                modifier = Modifier.weight(1f),
             )
-            {
-                if (texto.isEmpty())
-                {
-                    Text("Mensaje", fontSize = 15.sp, color = colores.placeholder)
-                }
-                BasicTextField(
-                    value = texto,
-                    onValueChange = { escribir(it) },
-                    textStyle = TextStyle(fontSize = 15.sp, color = colores.texto),
-                    cursorBrush = SolidColor(colores.texto),
-                    maxLines = 5,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
             if (texto.isBlank() && editando == null)
             {
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .background(colores.surface, CircleShape)
-                        .border(Vidrio.anchoBorde, colores.borde, CircleShape)
-                        .pulsable(habilitado = !subiendo) {
-                            permisoMicRef[0]?.invoke()
-                        },
-                    contentAlignment = Alignment.Center,
+                BotonCircularVidrio(
+                    descripcion = "Grabar nota de voz",
+                    habilitado = !subiendo,
+                    alPulsar = { permisoMicRef[0]?.invoke() },
                 )
                 {
                     Microfono(color = colores.texto, tamano = 20.dp)
@@ -1377,15 +1353,12 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
             }
             else
             {
-                Box(
-                    modifier = Modifier
-                        .pulsable { enviar() }
-                        .size(44.dp)
-                        .background(colores.botonFondo, CircleShape),
-                    contentAlignment = Alignment.Center,
+                BotonCircularPrimario(
+                    descripcion = "Enviar mensaje",
+                    alPulsar = { enviar() },
                 )
                 {
-                    Text("➤", fontSize = 18.sp, color = colores.botonTexto)
+                    Enviar(color = colores.botonTexto, tamano = 19.dp)
                 }
             }
         }
@@ -1483,20 +1456,17 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                 color = colores.texto,
                 modifier = Modifier.weight(1f),
             )
-            Box(
-                modifier = Modifier
-                    .size(34.dp)
-                    .background(colores.surface, CircleShape)
-                    .border(Vidrio.anchoBorde, colores.borde, CircleShape)
-                    .pulsable {
-                        val activa = grabadora[0]
-                        if (activa != null)
-                        {
-                            if (activa.pausada) activa.continuar() else activa.pausar()
-                            grabacionPausada = activa.pausada
-                        }
-                    },
-                contentAlignment = Alignment.Center,
+            BotonCircularVidrio(
+                descripcion = if (grabacionPausada) "Continuar grabación" else "Pausar grabación",
+                tamano = 34.dp,
+                alPulsar = {
+                    val activa = grabadora[0]
+                    if (activa != null)
+                    {
+                        if (activa.pausada) activa.continuar() else activa.pausar()
+                        grabacionPausada = activa.pausada
+                    }
+                },
             )
             {
                 if (grabacionPausada)
@@ -1516,17 +1486,13 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
                     terminarGrabacion(false)
                 },
             )
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(colores.botonFondo, CircleShape)
-                    .pulsable {
-                        terminarGrabacion(true)
-                    },
-                contentAlignment = Alignment.Center,
+            BotonCircularPrimario(
+                descripcion = "Enviar nota de voz",
+                tamano = 40.dp,
+                alPulsar = { terminarGrabacion(true) },
             )
             {
-                Text("➤", fontSize = 16.sp, color = colores.botonTexto)
+                Enviar(color = colores.botonTexto, tamano = 17.dp)
             }
         }
         }

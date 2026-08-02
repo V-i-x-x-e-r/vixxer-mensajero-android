@@ -216,7 +216,6 @@ fun PantallaRecuperar(
                     fontSize = 24.sp,
                     fontFamily = FuenteOutfit,
                     fontWeight = FontWeight.SemiBold,
-                    letterSpacing = (-0.5).sp,
                     color = colores.texto,
                 )
                 Text(

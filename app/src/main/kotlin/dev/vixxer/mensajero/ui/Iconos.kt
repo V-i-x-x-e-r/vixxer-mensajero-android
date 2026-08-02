@@ -287,6 +287,15 @@ fun Microfono(color: Color, tamano: Dp = 20.dp)
 }
 
 @Composable
+fun Enviar(color: Color, tamano: Dp = 20.dp)
+{
+    Icono24(tamano) {
+        trazo("M22 2 15 22 11 13 2 9 22 2z", color)
+        trazo("M22 2 11 13", color)
+    }
+}
+
+@Composable
 fun Telefono(color: Color, tamano: Dp = 22.dp)
 {
     Icono24(tamano) {
