@@ -18,7 +18,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -44,7 +46,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.cos
@@ -291,6 +295,17 @@ private suspend fun asentarPendulo(
     }
 }
 
+private suspend fun detenerPendulo(
+    izquierda: Animatable<Float, *>,
+    derecha: Animatable<Float, *>,
+    giro: Animatable<Float, *>,
+)
+{
+    izquierda.snapTo(0f)
+    derecha.snapTo(0f)
+    giro.snapTo(0f)
+}
+
 private suspend fun animarCiclo(
     izquierda: Animatable<Float, *>,
     derecha: Animatable<Float, *>,
@@ -415,7 +430,7 @@ fun LogoPendulo(
     alto: Dp,
     colorTexto: Color,
     colorBarra: Color = Color(0xFF9AA2AD),
-    duracionCiclo: Int = 1800,
+    duracionCiclo: Int = 3200,
 )
 {
     val ancho = alto * (LOGO_ANCHO / LOGO_ALTO)
@@ -429,16 +444,24 @@ fun LogoPendulo(
 
     LaunchedEffect(orden, duracionCiclo)
     {
-        when (orden.movimiento)
-        {
-            MovimientoPendulo.CICLO -> animarCiclo(izquierda, derecha, giro, duracionCiclo)
-            MovimientoPendulo.GOLPE -> animarGolpe(izquierda, derecha, giro)
-            MovimientoPendulo.CAOS -> animarCaos(izquierda, derecha, giro)
-        }
-        if (orden.movimiento != MovimientoPendulo.CICLO)
-        {
-            delay(260)
-            orden = OrdenPendulo(System.nanoTime(), MovimientoPendulo.CICLO)
+        val escalaMovimiento = currentCoroutineContext()[MotionDurationScale]
+        snapshotFlow { escalaMovimiento?.scaleFactor ?: 1f }.collectLatest { escala ->
+            if (escala <= 0f)
+            {
+                detenerPendulo(izquierda, derecha, giro)
+                return@collectLatest
+            }
+            when (orden.movimiento)
+            {
+                MovimientoPendulo.CICLO -> animarCiclo(izquierda, derecha, giro, duracionCiclo)
+                MovimientoPendulo.GOLPE -> animarGolpe(izquierda, derecha, giro)
+                MovimientoPendulo.CAOS -> animarCaos(izquierda, derecha, giro)
+            }
+            if (orden.movimiento != MovimientoPendulo.CICLO)
+            {
+                delay(260)
+                orden = OrdenPendulo(System.nanoTime(), MovimientoPendulo.CICLO)
+            }
         }
     }
 
