@@ -113,6 +113,7 @@ class MensajeriaBle(
         nonce: String,
         clienteId: String? = null,
         tipo: String = MeshCercania.TIPO_DIRECTO,
+        respuestaA: String? = null,
     ): ResultadoEnvioCercania
     {
         val sobre = sellarSobre(
@@ -122,6 +123,7 @@ class MensajeriaBle(
             ttl = MeshCercania.TTL_MAXIMO,
             clienteId = clienteId,
             tipo = tipo,
+            respuestaA = respuestaA,
         )
         val entregados = difundir(sobre, null)
         if (entregados > 0)
@@ -137,9 +139,17 @@ class MensajeriaBle(
         contenidoCifrado: String,
         nonce: String,
         clienteId: String? = null,
+        respuestaA: String? = null,
     ): ResultadoEnvioCercania
     {
-        val sobre = sellarSobre(destinatarioId, contenidoCifrado, nonce, ttl = 1, clienteId = clienteId)
+        val sobre = sellarSobre(
+            destinatarioId,
+            contenidoCifrado,
+            nonce,
+            ttl = 1,
+            clienteId = clienteId,
+            respuestaA = respuestaA,
+        )
         val texto = MeshCercania.aJson(sobre)
         var entregados = 0
         for (mac in macs)
@@ -165,6 +175,7 @@ class MensajeriaBle(
         ttl: Int,
         clienteId: String?,
         tipo: String = MeshCercania.TIPO_DIRECTO,
+        respuestaA: String? = null,
     ): MeshCercania.Sobre
     {
         val miId = app.boveda.leer(ClavesSeguras.MI_ID) ?: ""
@@ -176,8 +187,16 @@ class MensajeriaBle(
             ttl = ttl,
             clienteId = clienteId,
             tipo = tipo,
+            respuestaA = respuestaA,
         )
-        val canonico = Firma.mensajeCanonico(miId, destinatarioId, contenidoCifrado, nonce, idParaServidor(base))
+        val canonico = Firma.mensajeCanonico(
+            miId,
+            destinatarioId,
+            contenidoCifrado,
+            nonce,
+            idParaServidor(base),
+            respuestaA,
+        )
         val firma = app.firma.firmar(canonico)
         val sobre = base.copy(firma = firma)
         vistos.marcar(sobre.id)
@@ -257,6 +276,7 @@ class MensajeriaBle(
                     nonce = sobre.nonce,
                     id = idParaServidor(sobre),
                     firma = sobre.firma,
+                    respuestaA = sobre.respuestaA,
                 ),
             )
         }.isSuccess
@@ -336,10 +356,15 @@ class MensajeriaBle(
             return
         }
         val entregado = claro?.let { desenvolver(it) }
-        publicarMensaje(sobre, entregado?.texto, entregado?.grupoId)
+        publicarMensaje(sobre, entregado?.texto, entregado?.grupoId, entregado?.respuestaA)
     }
 
-    private fun publicarMensaje(sobre: MeshCercania.Sobre, texto: String?, grupoId: String?)
+    private fun publicarMensaje(
+        sobre: MeshCercania.Sobre,
+        texto: String?,
+        grupoId: String?,
+        respuestaA: String? = sobre.respuestaA,
+    )
     {
         val idMensaje = sobre.clienteId ?: sobre.id
         val claveChat = grupoId?.let { "g-$it" } ?: sobre.remitenteId
@@ -353,6 +378,10 @@ class MensajeriaBle(
             .put("enviado_en", Instant.now().toString())
             .put("estado", "cercania")
             .put("porBle", true)
+        if (!respuestaA.isNullOrBlank())
+        {
+            mensaje.put("respuesta_a", respuestaA)
+        }
         grupoId?.let {
             mensaje.put("grupo_id", it)
             mensaje.put("autor", GestorCercania.nombreDe(sobre.remitenteId) ?: JSONObject.NULL)
@@ -462,7 +491,11 @@ class MensajeriaBle(
         }
     }
 
-    private data class Desenvuelto(val texto: String, val grupoId: String? = null)
+    private data class Desenvuelto(
+        val texto: String,
+        val grupoId: String? = null,
+        val respuestaA: String? = null,
+    )
 
     private fun desenvolver(claro: String): Desenvuelto
     {
@@ -480,7 +513,19 @@ class MensajeriaBle(
                 val plano = obj.optString("plano")
                 if (grupoId.isNotBlank() && plano.isNotBlank())
                 {
-                    Desenvuelto(plano, grupoId)
+                    val respuestaA = if (obj.isNull("respuestaA"))
+                    {
+                        null
+                    }
+                    else
+                    {
+                        obj.optString("respuestaA").takeIf { it.isNotBlank() }
+                    }
+                    Desenvuelto(
+                        plano,
+                        grupoId,
+                        respuestaA,
+                    )
                 }
                 else
                 {

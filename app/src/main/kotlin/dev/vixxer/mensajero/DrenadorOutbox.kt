@@ -150,11 +150,13 @@ object DrenadorOutbox
             ?: return@withContext false
         val (cifrado, nonce) = runCatching { Cripto.cifrarTexto(plano, publica, privada) }.getOrNull()
             ?: return@withContext false
+        val respuestaA = pendiente.datos.optString("respuestaA").takeIf { it.isNotBlank() }
         val resultado = GestorCercania.mensajeria(app).enviarPorCercania(
             pendiente.destinoId,
             cifrado,
             nonce,
             pendiente.clienteId,
+            respuestaA = respuestaA,
         )
         resultado.entregados > 0
     }
@@ -219,6 +221,7 @@ object DrenadorOutbox
             .put("t", "cercania-grupo")
             .put("grupoId", pendiente.destinoId)
             .put("plano", plano)
+            .put("respuestaA", pendiente.datos.opt("respuestaA") ?: JSONObject.NULL)
             .toString()
         var entregadoAlguno = false
         for (id in pubs.keys())
