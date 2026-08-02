@@ -6,11 +6,14 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.EaseOut
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.StartOffset
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -36,6 +39,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -58,6 +62,7 @@ import androidx.compose.ui.unit.sp
 import dev.vixxer.mensajero.AplicacionVixxer
 import dev.vixxer.mensajero.ble.EstadisticasMesh
 import dev.vixxer.mensajero.ble.GestorCercania
+import dev.vixxer.mensajero.ble.PeerCercano
 import dev.vixxer.mensajero.nucleo.ConexionSocket
 import kotlin.math.PI
 import kotlin.math.cos
@@ -272,19 +277,28 @@ fun PantallaCercania(app: AplicacionVixxer, alVolver: () -> Unit)
             )
             if (soportado)
             {
-                Text(
-                    if (corriendo) "Apagar radar" else "Encender radar",
-                    fontSize = 13.sp,
-                    fontFamily = FuenteOutfit,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (corriendo) colores.texto else colores.botonTexto,
-                    modifier = Modifier
-                        .pulsable { alternar() }
-                        .padding(top = 10.dp)
-                        .border(1.dp, colores.borde, RoundedCornerShape(18.dp))
-                        .background(if (corriendo) Color.Transparent else colores.botonFondo, RoundedCornerShape(18.dp))
-                        .padding(horizontal = 18.dp, vertical = 8.dp),
-                )
+                val superficieControl = if (corriendo)
+                {
+                    Modifier.panelVidrio(radio = 18.dp, desenfocar = true)
+                }
+                else
+                {
+                    Modifier.background(colores.botonFondo, RoundedCornerShape(18.dp))
+                }
+                Box(modifier = Modifier.padding(top = 10.dp))
+                {
+                    Text(
+                        if (corriendo) "Apagar radar" else "Encender radar",
+                        fontSize = 13.sp,
+                        fontFamily = FuenteOutfit,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (corriendo) colores.texto else colores.botonTexto,
+                        modifier = Modifier
+                            .pulsable { alternar() }
+                            .then(superficieControl)
+                            .padding(horizontal = 18.dp, vertical = 8.dp),
+                    )
+                }
             }
             val aviso = mensaje.ifEmpty { GestorCercania.avisoEscaneo.orEmpty() }
             if (aviso.isNotEmpty())
@@ -332,49 +346,29 @@ fun PantallaCercania(app: AplicacionVixxer, alVolver: () -> Unit)
 }
 
 @Composable
-private fun RadarLienzo(corriendo: Boolean, color: Color, peers: List<dev.vixxer.mensajero.ble.PeerCercano>, colores: Paleta, alTocar: () -> Unit)
+internal fun RadarLienzo(
+    corriendo: Boolean,
+    color: Color,
+    peers: List<PeerCercano>,
+    colores: Paleta,
+    modifier: Modifier = Modifier,
+    alTocar: () -> Unit,
+)
 {
-    val transicion = rememberInfiniteTransition(label = "ondas")
-    val onda1 by transicion.animateFloat(0f, 1f, infiniteRepeatable(tween(2600, easing = EaseOut), RepeatMode.Restart, StartOffset(0)), label = "o1")
-    val onda2 by transicion.animateFloat(0f, 1f, infiniteRepeatable(tween(2600, easing = EaseOut), RepeatMode.Restart, StartOffset(870)), label = "o2")
-    val onda3 by transicion.animateFloat(0f, 1f, infiniteRepeatable(tween(2600, easing = EaseOut), RepeatMode.Restart, StartOffset(1740)), label = "o3")
     val centro = LADO / 2f
 
-    Box(modifier = Modifier.size(LADO.dp))
+    Box(modifier = modifier.size(LADO.dp))
     {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val c = Offset(size.width / 2f, size.height / 2f)
-            val rmax = size.minDimension / 2f
-            for (f in listOf(0.32f, 0.62f, 0.94f))
-            {
-                drawCircle(colores.borde, rmax * f, c, style = Stroke(1.dp.toPx()))
-            }
-            drawLine(colores.borde, Offset(c.x, 6f), Offset(c.x, size.height - 6f), 0.5.dp.toPx())
-            drawLine(colores.borde, Offset(6f, c.y), Offset(size.width - 6f, c.y), 0.5.dp.toPx())
-            if (corriendo)
-            {
-                for (t in listOf(onda1, onda2, onda3))
-                {
-                    val rad = (0.16f + t * (1.04f - 0.16f)) * rmax
-                    drawCircle(color.copy(alpha = 0.42f * (1f - t)), rad, c, style = Stroke(1.5.dp.toPx()))
-                }
-            }
-        }
-        for (p in peers)
+        FondoRadar(colores)
+        if (corriendo)
         {
-            val ang = anguloDe(p.id)
-            val r = radioDe(p.rssi, centro - 16f)
-            val x = centro + (r * cos(ang)).toFloat()
-            val y = centro + (r * sin(ang)).toFloat()
-            Box(
-                modifier = Modifier
-                    .offset((x - 7f).dp, (y - 7f).dp)
-                    .size(14.dp)
-                    .background(if (p.amigoId != null) VERDE else AZUL, CircleShape),
-                contentAlignment = Alignment.Center,
-            )
+            OndasRadar(color)
+        }
+        for (peer in peers)
+        {
+            key(peer.id)
             {
-                Box(modifier = Modifier.size(6.dp).background(Color.White, CircleShape))
+                NodoRadar(peer, centro)
             }
         }
         Box(
@@ -396,6 +390,85 @@ private fun RadarLienzo(corriendo: Boolean, color: Color, peers: List<dev.vixxer
 }
 
 @Composable
+private fun FondoRadar(colores: Paleta)
+{
+    Canvas(modifier = Modifier.fillMaxSize())
+    {
+        val centro = Offset(size.width / 2f, size.height / 2f)
+        val radioMaximo = size.minDimension / 2f
+        for (factor in listOf(0.32f, 0.62f, 0.94f))
+        {
+            drawCircle(colores.borde, radioMaximo * factor, centro, style = Stroke(1.dp.toPx()))
+        }
+        drawLine(colores.borde, Offset(centro.x, 6f), Offset(centro.x, size.height - 6f), 0.5.dp.toPx())
+        drawLine(colores.borde, Offset(6f, centro.y), Offset(size.width - 6f, centro.y), 0.5.dp.toPx())
+    }
+}
+
+@Composable
+private fun OndasRadar(color: Color)
+{
+    val transicion = rememberInfiniteTransition(label = "ondasRadar")
+    val onda1 by transicion.animateFloat(0f, 1f, animacionOnda(0), label = "ondaRadar1")
+    val onda2 by transicion.animateFloat(0f, 1f, animacionOnda(870), label = "ondaRadar2")
+    val onda3 by transicion.animateFloat(0f, 1f, animacionOnda(1740), label = "ondaRadar3")
+
+    Canvas(modifier = Modifier.fillMaxSize())
+    {
+        val centro = Offset(size.width / 2f, size.height / 2f)
+        val radioMaximo = size.minDimension / 2f
+        for (avance in listOf(onda1, onda2, onda3))
+        {
+            val radio = (0.16f + avance * 0.88f) * radioMaximo
+            drawCircle(
+                color.copy(alpha = 0.42f * (1f - avance)),
+                radio,
+                centro,
+                style = Stroke(1.5.dp.toPx()),
+            )
+        }
+    }
+}
+
+private fun animacionOnda(retraso: Int) = infiniteRepeatable<Float>(
+    animation = tween(2600, easing = EaseOut),
+    repeatMode = RepeatMode.Restart,
+    initialStartOffset = StartOffset(retraso),
+)
+
+@Composable
+private fun NodoRadar(peer: PeerCercano, centro: Float)
+{
+    val angulo = anguloDe(peer.id)
+    val radio = radioDe(peer.rssi, centro - 18f)
+    val destinoX = centro + (radio * cos(angulo)).toFloat() - 9f
+    val destinoY = centro + (radio * sin(angulo)).toFloat() - 9f
+    val x by animateDpAsState(
+        targetValue = destinoX.dp,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessLow),
+        label = "nodoRadarX",
+    )
+    val y by animateDpAsState(
+        targetValue = destinoY.dp,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessLow),
+        label = "nodoRadarY",
+    )
+    val color = if (peer.amigoId != null) VERDE else AZUL
+
+    Box(
+        modifier = Modifier
+            .offset(x, y)
+            .size(18.dp)
+            .background(color.copy(alpha = 0.18f), CircleShape)
+            .border(1.dp, color.copy(alpha = 0.82f), CircleShape),
+        contentAlignment = Alignment.Center,
+    )
+    {
+        Box(modifier = Modifier.size(7.dp).background(color, CircleShape))
+    }
+}
+
+@Composable
 private fun PanelSalida(salida: Salida, ultimaRuta: String?, colores: Paleta)
 {
     Column(
@@ -403,8 +476,7 @@ private fun PanelSalida(salida: Salida, ultimaRuta: String?, colores: Paleta)
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
             .padding(top = 18.dp)
-            .border(1.dp, colores.borde, RoundedCornerShape(14.dp))
-            .background(colores.surface, RoundedCornerShape(14.dp))
+            .panelVidrio(radio = 14.dp, desenfocar = true)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     )
@@ -427,23 +499,24 @@ private fun PanelSalida(salida: Salida, ultimaRuta: String?, colores: Paleta)
 private fun FilaStats(stats: EstadisticasMesh, colores: Paleta)
 {
     val celdas = listOf(
-        Pair(stats.enviados, "enviados\npor mesh"),
-        Pair(stats.recibidos, "recibidos\npor mesh"),
-        Pair(stats.reenviados, "reenviados\npara otros"),
-        Pair(stats.puente, "subidos como\npuente"),
+        Pair(stats.enviados, "Enviados"),
+        Pair(stats.recibidos, "Recibidos"),
+        Pair(stats.reenviados, "Reenvíos"),
+        Pair(stats.puente, "Puentes"),
     )
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .padding(top = 12.dp)
+            .panelVidrio(radio = 12.dp),
     )
     {
-        for (celda in celdas)
+        for ((indice, celda) in celdas.withIndex())
         {
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .border(1.dp, colores.borde, RoundedCornerShape(12.dp))
-                    .background(colores.surface, RoundedCornerShape(12.dp))
                     .padding(vertical = 10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -452,12 +525,21 @@ private fun FilaStats(stats: EstadisticasMesh, colores: Paleta)
                 Text(celda.first.toString(), fontSize = 18.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.Bold, color = colores.texto)
                 Text(celda.second, fontSize = 9.sp, color = colores.muted, textAlign = TextAlign.Center)
             }
+            if (indice < celdas.lastIndex)
+            {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterVertically)
+                        .size(width = 1.dp, height = 34.dp)
+                        .background(colores.borde),
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun ListaPeers(peers: List<dev.vixxer.mensajero.ble.PeerCercano>, colores: Paleta)
+private fun ListaPeers(peers: List<PeerCercano>, colores: Paleta)
 {
     Column(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(top = 14.dp),
@@ -485,7 +567,7 @@ private fun ListaPeers(peers: List<dev.vixxer.mensajero.ble.PeerCercano>, colore
                     }
                 }
                 Text(
-                    p.nombre?.takeIf { it.isNotEmpty() } ?: "Vixxer ${etiquetaPeer(p.id, 6)}",
+                    p.nombre?.takeIf { it.isNotEmpty() } ?: "Nodo Vixxer · ${etiquetaPeer(p.id, 6)}",
                     fontSize = 14.sp,
                     fontFamily = FuenteOutfit,
                     fontWeight = FontWeight.Medium,

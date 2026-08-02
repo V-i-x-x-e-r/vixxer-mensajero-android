@@ -10,6 +10,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -83,6 +84,7 @@ class CapturaDiagnosticoCampoTest
                     estado = estadoMuestra(),
                     alCompartir = { compartidos += 1 },
                     alLimpiar = { limpiezas += 1 },
+                    iniciarExpandido = true,
                 )
             }
         }
@@ -105,12 +107,33 @@ class CapturaDiagnosticoCampoTest
                     estado = EstadoDiagnosticoCampo.vacio(),
                     alCompartir = {},
                     alLimpiar = {},
+                    iniciarExpandido = true,
                 )
             }
         }
 
         compose.onAllNodesWithText("Compartir").assertCountEquals(0)
         compose.onAllNodesWithText("Limpiar").assertCountEquals(0)
+    }
+
+    @Test
+    fun diagnosticoIniciaPlegado()
+    {
+        compose.setContent {
+            val tema = EstadoTema(AlmacenEnMemoria(), oscuroSistema = true)
+            CompositionLocalProvider(LocalTema provides tema)
+            {
+                PanelDiagnosticoCampo(
+                    estado = estadoMuestra(),
+                    alCompartir = {},
+                    alLimpiar = {},
+                )
+            }
+        }
+
+        compose.onNodeWithText("EVENTOS RECIENTES").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Mostrar diagnóstico de campo").performClick()
+        compose.onNodeWithText("EVENTOS RECIENTES").assertExists()
     }
 
     private fun capturar(oscuro: Boolean, nombre: String)
@@ -131,6 +154,7 @@ class CapturaDiagnosticoCampoTest
                         alCompartir = {},
                         alLimpiar = {},
                         modifier = Modifier.testTag("diagnostico-campo"),
+                        iniciarExpandido = true,
                     )
                 }
             }

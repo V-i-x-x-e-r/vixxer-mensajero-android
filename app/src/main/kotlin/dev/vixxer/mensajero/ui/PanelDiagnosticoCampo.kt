@@ -1,9 +1,10 @@
 package dev.vixxer.mensajero.ui
 
-import android.content.Context
 import android.content.ClipData
+import android.content.Context
 import android.content.Intent
 import android.os.Build
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -17,11 +18,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -29,7 +37,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.material3.Text
 import androidx.core.content.FileProvider
 import dev.vixxer.mensajero.AplicacionVixxer
 import dev.vixxer.mensajero.BuildConfig
@@ -118,9 +125,11 @@ internal fun PanelDiagnosticoCampo(
     alCompartir: () -> Unit,
     alLimpiar: () -> Unit,
     modifier: Modifier = Modifier,
+    iniciarExpandido: Boolean = false,
 )
 {
     val colores = LocalTema.current.colores
+    var expandido by rememberSaveable { mutableStateOf(iniciarExpandido) }
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -131,56 +140,109 @@ internal fun PanelDiagnosticoCampo(
     {
         CabeceraDiagnostico(
             colores,
-            estado.instantanea.eventos.isNotEmpty(),
+            cantidadEventos = estado.instantanea.eventos.size,
+            expandido = expandido,
+            alAlternar = { expandido = !expandido },
             alCompartir,
             alLimpiar,
         )
-        ResumenDiagnostico(estado, colores)
-        estado.instantanea.ultimoError?.let {
-            UltimoErrorDiagnostico(it, colores)
+        if (expandido)
+        {
+            ResumenDiagnostico(estado, colores)
+            estado.instantanea.ultimoError?.let {
+                UltimoErrorDiagnostico(it, colores)
+            }
+            Text(
+                text = "EVENTOS RECIENTES",
+                fontSize = 10.sp,
+                fontFamily = FuenteOutfit,
+                fontWeight = FontWeight.SemiBold,
+                color = colores.muted,
+            )
+            ListaEventosDiagnostico(estado.instantanea.eventos.take(8), colores)
         }
-        Text(
-            text = "EVENTOS RECIENTES",
-            fontSize = 10.sp,
-            fontFamily = FuenteOutfit,
-            fontWeight = FontWeight.SemiBold,
-            color = colores.muted,
-        )
-        ListaEventosDiagnostico(estado.instantanea.eventos.take(8), colores)
     }
 }
 
 @Composable
 private fun CabeceraDiagnostico(
     colores: Paleta,
-    hayEventos: Boolean,
+    cantidadEventos: Int,
+    expandido: Boolean,
+    alAlternar: () -> Unit,
     alCompartir: () -> Unit,
     alLimpiar: () -> Unit,
 )
 {
-    Row(
+    val giro by animateFloatAsState(
+        targetValue = if (expandido) 90f else 0f,
+        label = "giroDiagnostico",
+    )
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     )
     {
-        Text(
-            text = "DIAGNÓSTICO DE CAMPO",
-            fontSize = 11.sp,
-            fontFamily = FuenteOutfit,
-            fontWeight = FontWeight.SemiBold,
-            color = colores.muted,
-            modifier = Modifier.weight(1f),
+        Row(
+            modifier = Modifier
+                .pulsable(alPulsar = alAlternar)
+                .semantics
+                {
+                    contentDescription = if (expandido) "Ocultar diagnóstico de campo" else "Mostrar diagnóstico de campo"
+                    role = Role.Button
+                }
+                .fillMaxWidth()
+                .heightIn(min = 44.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         )
-        if (hayEventos)
         {
-            AccionDiagnostico("Compartir", colores, alCompartir)
+            Text(
+                text = "DIAGNÓSTICO DE CAMPO",
+                fontSize = 11.sp,
+                fontFamily = FuenteOutfit,
+                fontWeight = FontWeight.SemiBold,
+                color = colores.muted,
+            )
+            if (!expandido)
             {
-                Documento(colores.texto, 15.dp)
+                Text(
+                    text = if (cantidadEventos == 0) "Sin eventos" else "$cantidadEventos eventos",
+                    fontSize = 10.sp,
+                    color = colores.muted,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                )
             }
-            AccionDiagnostico("Limpiar", colores, alLimpiar)
+            else
             {
-                Bote(colores.muted, 15.dp)
+                Box(modifier = Modifier.weight(1f))
+            }
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .graphicsLayer { rotationZ = giro },
+                contentAlignment = Alignment.Center,
+            )
+            {
+                Chevron(colores.muted, 15.dp)
+            }
+        }
+        if (expandido && cantidadEventos > 0)
+        {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+            )
+            {
+                AccionDiagnostico("Compartir", colores, alCompartir)
+                {
+                    Documento(colores.texto, 15.dp)
+                }
+                AccionDiagnostico("Limpiar", colores, alLimpiar)
+                {
+                    Bote(colores.muted, 15.dp)
+                }
             }
         }
     }
@@ -230,8 +292,7 @@ private fun ResumenDiagnostico(estado: EstadoDiagnosticoCampo, colores: Paleta)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, colores.borde, FORMA_DIAGNOSTICO)
-            .background(colores.surface, FORMA_DIAGNOSTICO),
+            .panelVidrio(radio = 8.dp),
     )
     {
         for ((indice, dato) in datos.withIndex())
@@ -311,8 +372,7 @@ private fun ListaEventosDiagnostico(eventos: List<DiagnosticoMesh.Evento>, color
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, colores.borde, FORMA_DIAGNOSTICO)
-            .background(colores.surface, FORMA_DIAGNOSTICO),
+            .panelVidrio(radio = 8.dp),
     )
     {
         if (eventos.isEmpty())
