@@ -33,8 +33,8 @@ fun CabeceraPrincipal(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .panelVidrio(radio = 12.dp, fuerte = true, desenfocar = true)
-            .padding(start = 14.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+            .pildoraVidrio()
+            .padding(start = 16.dp, end = 4.dp, top = 3.dp, bottom = 3.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     )
@@ -46,12 +46,12 @@ fun CabeceraPrincipal(
         {
             Text(
                 titulo,
-                fontSize = 19.sp,
+                fontSize = 18.sp,
                 fontFamily = FuenteOutfit,
                 fontWeight = FontWeight.SemiBold,
                 color = colores.texto,
             )
-            Text(subtitulo, fontSize = 12.sp, color = colores.muted)
+            Text(subtitulo, fontSize = 11.sp, color = colores.muted)
         }
         if (accionPrimaria)
         {
@@ -90,13 +90,13 @@ fun CabeceraMensajero(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .panelVidrio(radio = 12.dp, fuerte = true, desenfocar = true)
-            .padding(start = 14.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+            .pildoraVidrio()
+            .padding(start = 16.dp, end = 4.dp, top = 3.dp, bottom = 3.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     )
     {
-        LogoPenduloFila(alto = 24.dp)
+        LogoPenduloFila(alto = 22.dp)
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -104,7 +104,7 @@ fun CabeceraMensajero(
         {
             Text(
                 "Mensajero",
-                fontSize = 16.sp,
+                fontSize = 15.sp,
                 fontFamily = FuenteOutfit,
                 fontWeight = FontWeight.SemiBold,
                 color = colores.texto,
@@ -115,7 +115,7 @@ fun CabeceraMensajero(
             )
             {
                 EstadoConexion(conectado)
-                Text(estado, fontSize = 12.sp, color = colores.muted)
+                Text(estado, fontSize = 11.sp, color = colores.muted)
             }
         }
         BotonCircularVidrio(

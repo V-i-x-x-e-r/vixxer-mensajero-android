@@ -8,7 +8,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.draw.drawWithCache
 
-private val PAPEL_SUAVE = Color(0xFFDFE1E4)
+private val PAPEL_SUAVE = Color(0xFFCDD1D6)
 private val TINTA_ELEVADA = Color(0xFF171A1E)
 
 @Composable
@@ -20,7 +20,7 @@ fun Modifier.fondoVixxer(): Modifier
     return drawWithCache {
         val luz = Brush.linearGradient(
             colors = listOf(
-                Color.White.copy(alpha = if (tema.oscuro) 0.035f else 0.58f),
+                Color.White.copy(alpha = if (tema.oscuro) 0.035f else 0.30f),
                 Color.Transparent,
             ),
             start = Offset.Zero,
@@ -35,7 +35,7 @@ fun Modifier.fondoVixxer(): Modifier
                 }
                 else
                 {
-                    PAPEL_SUAVE.copy(alpha = 0.54f)
+                    PAPEL_SUAVE.copy(alpha = 0.66f)
                 },
             ),
             start = Offset(size.width * 0.18f, size.height * 0.40f),

@@ -135,7 +135,6 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
                 val resultado = withContext(Dispatchers.IO) {
                     runCatching {
                         val imagen = comprimirAvatar(contexto, uri)
-                            ?: error("No se pudo leer la imagen")
                         val b64 = android.util.Base64.encodeToString(imagen.bytes, android.util.Base64.NO_WRAP)
                         val respuesta = app.api.subirAvatar(b64, "image/jpeg") as? JSONObject
                             ?: error("El servidor no confirmó la foto")

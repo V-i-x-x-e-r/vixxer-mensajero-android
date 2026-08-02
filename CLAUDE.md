@@ -45,10 +45,13 @@ regraba con `-Pcapturas=grabar` y **mira los PNG** antes de subirlos: son la
   de stickers.
 - Los avatares siempre pasan por `Avatar`, que cae a inicial con color. Nunca
   un glifo genérico distinto por pantalla.
-- Abajo de Android 12 no hay blur (`hayBlur = SDK >= 31`): ahí la superficie
-  es sólida con borde, no translúcida. Translucidez sin desenfoque se ve
-  turbia, no premium.
-- Tema claro invertido tipo iOS: tarjeta blanca sobre fondo gris.
+- Abajo de Android 12 no hay blur (`hayBlur = SDK >= 31`): ahí el vidrio es
+  un relleno casi opaco sobre el fondo estático, nunca translucidez turbia
+  sobre contenido en movimiento.
+- El vidrio no lleva marco en ningún tema: la definición sale del contraste
+  del relleno, el brillo del tope y la sombra. El único contorno vivo es la
+  lente de la pestaña activa.
+- Tema claro invertido tipo iOS: vidrio blanco sobre fondo gris.
 
 ## Trampas que ya costaron
 

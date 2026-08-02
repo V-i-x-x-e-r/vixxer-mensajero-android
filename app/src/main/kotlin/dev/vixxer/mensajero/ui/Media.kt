@@ -3,6 +3,7 @@ package dev.vixxer.mensajero.ui
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.ImageDecoder
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -486,25 +487,117 @@ fun comprimirImagen(contexto: Context, uri: Uri): ImagenLista?
     }
 }
 
-fun comprimirAvatar(contexto: Context, uri: Uri): ImagenLista?
+internal class ErrorImagenAvatar(mensaje: String, causa: Throwable? = null) : Exception(mensaje, causa)
+
+fun comprimirAvatar(contexto: Context, uri: Uri): ImagenLista
 {
-    val original = comprimirImagen(contexto, uri) ?: return null
-    return miniaturaDe(
-        imagen = original,
-        ladoMax = 720,
-        topeBytes = 700 * 1024,
-    )
+    val mapa = try
+    {
+        decodificarAvatar(contexto, uri)
+    }
+    catch (error: OutOfMemoryError)
+    {
+        throw ErrorImagenAvatar("La imagen es demasiado grande para este dispositivo.", error)
+    }
+    catch (error: Exception)
+    {
+        throw ErrorImagenAvatar("No pudimos abrir este formato de imagen.", error)
+    } ?: throw ErrorImagenAvatar("La imagen elegida no contiene datos válidos.")
+
+    return try
+    {
+        codificarAvatar(mapa)
+            ?: throw ErrorImagenAvatar("No pudimos reducir la imagen elegida.")
+    }
+    finally
+    {
+        if (!mapa.isRecycled)
+        {
+            mapa.recycle()
+        }
+    }
+}
+
+private fun decodificarAvatar(contexto: Context, uri: Uri): Bitmap?
+{
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
+    {
+        val fuente = ImageDecoder.createSource(contexto.contentResolver, uri)
+        return ImageDecoder.decodeBitmap(fuente)
+        { decodificador, info, _ ->
+            val ancho = info.size.width
+            val alto = info.size.height
+            val mayor = maxOf(ancho, alto)
+            if (mayor > 720)
+            {
+                val factor = 720f / mayor
+                decodificador.setTargetSize(
+                    (ancho * factor).toInt().coerceAtLeast(1),
+                    (alto * factor).toInt().coerceAtLeast(1),
+                )
+            }
+            decodificador.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+        }
+    }
+
+    val imagen = comprimirImagen(contexto, uri) ?: return null
+    return BitmapFactory.decodeByteArray(imagen.bytes, 0, imagen.bytes.size)
+}
+
+internal fun codificarAvatar(mapa: Bitmap): ImagenLista?
+{
+    val mayor = maxOf(mapa.width, mapa.height)
+    val reducido = if (mayor > 720)
+    {
+        val factor = 720f / mayor
+        Bitmap.createScaledBitmap(
+            mapa,
+            (mapa.width * factor).toInt().coerceAtLeast(1),
+            (mapa.height * factor).toInt().coerceAtLeast(1),
+            true,
+        )
+    }
+    else
+    {
+        mapa
+    }
+
+    try
+    {
+        for (calidad in listOf(86, 76, 64, 52))
+        {
+            val salida = ByteArrayOutputStream()
+            if (!reducido.compress(Bitmap.CompressFormat.JPEG, calidad, salida))
+            {
+                return null
+            }
+            if (salida.size() <= 700 * 1024)
+            {
+                return ImagenLista(salida.toByteArray(), reducido.width, reducido.height)
+            }
+        }
+        return null
+    }
+    finally
+    {
+        if (reducido !== mapa && !reducido.isRecycled)
+        {
+            reducido.recycle()
+        }
+    }
 }
 
 internal fun mensajeErrorAvatar(error: Throwable?): String = when (error)
 {
+    is ErrorImagenAvatar -> error.message ?: "No pudimos procesar la imagen elegida."
     is ErrorApi -> when (error.status)
     {
         0 -> "No hay conexión para actualizar la foto."
         413 -> "La imagen elegida es demasiado grande."
         else -> error.message ?: "No pudimos actualizar la foto."
     }
-    else -> "No pudimos procesar la imagen elegida."
+    is IllegalStateException -> error.message ?: "El servidor no confirmó la foto."
+    else -> "No pudimos actualizar la foto."
 }
 
 @Composable
