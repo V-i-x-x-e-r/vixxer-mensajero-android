@@ -19,19 +19,19 @@ import dev.chrisbanes.haze.hazeEffect
 
 object Vidrio
 {
-    val fondoPanel = Color(0xFF121212).copy(alpha = 0.48f)
-    val fondoFuerte = Color(0xFF121212).copy(alpha = 0.74f)
-    val fondoOsd = Color(0xFF121212).copy(alpha = 0.78f)
-    val solidoPanel = Color(0xFF262626)
-    val solidoFuerte = Color(0xFF303030)
-    val solidoOsd = Color(0xFF2B2B2B)
-    val bordeSolido = Color(0x33FFFFFF)
-    val borde = Color(0x22FFFFFF)
-    val bordeSuave = Color(0x14FFFFFF)
-    val brillo = Color(0x2EF8F8F8)
-    val sombra = Color(0xFF00040A)
-    val activo = Color(0xE8F8F8F8)
-    val ocupado = Color(0xA8D8D8D8)
+    val fondoPanel = Color(0xFF17191D).copy(alpha = 0.44f)
+    val fondoFuerte = Color(0xFF17191D).copy(alpha = 0.58f)
+    val fondoOsd = Color(0xFF17191D).copy(alpha = 0.64f)
+    val solidoPanel = Color(0xFF23252A)
+    val solidoFuerte = Color(0xFF2A2D33)
+    val solidoOsd = Color(0xFF272A30)
+    val bordeSolido = Color(0x2EFFFFFF)
+    val borde = Color(0x24FFFFFF)
+    val bordeSuave = Color(0x18FFFFFF)
+    val brillo = Color(0x30FFFFFF)
+    val sombra = Color(0xFF05070A)
+    val activo = Color(0xFFF5F7FA)
+    val ocupado = Color(0xFFAAAEB6)
     val vacio = Color(0x35FFFFFF)
     val radioVentana = 8.dp
     val radioPanel = 18.dp
@@ -39,103 +39,166 @@ object Vidrio
     val anchoBorde = 0.7.dp
 }
 
-private fun Modifier.conBlur(estado: HazeState, forma: Shape, tinte: Color, radioBlur: Dp, borde: Color): Modifier =
-    this
-        .clip(forma)
-        .hazeEffect(estado) {
-            blurRadius = radioBlur
-            tints = listOf(HazeTint(tinte))
-        }
-        .border(Vidrio.anchoBorde, borde, forma)
+private enum class CapaVidrio
+{
+    PANEL,
+    FUERTE,
+    PILDORA,
+    FLOTANTE,
+}
+
+private data class AparienciaVidrio(
+    val solido: Color,
+    val tinte: Color,
+    val borde: Brush,
+    val brillo: Color,
+    val radioBlur: Dp,
+    val elevacion: Dp,
+)
 
 @Composable
-fun Modifier.panelVidrio(radio: Dp = Vidrio.radioPanel, fuerte: Boolean = false, desenfocar: Boolean = false): Modifier
+private fun aparienciaVidrio(capa: CapaVidrio): AparienciaVidrio
 {
     val tema = LocalTema.current
-    val forma = RoundedCornerShape(radio)
+    val oscuro = tema.oscuro
+    val solido = if (oscuro)
+    {
+        when (capa)
+        {
+            CapaVidrio.PANEL -> Vidrio.solidoPanel
+            CapaVidrio.FUERTE -> Vidrio.solidoFuerte
+            CapaVidrio.PILDORA -> Vidrio.solidoOsd
+            CapaVidrio.FLOTANTE -> Vidrio.solidoFuerte
+        }
+    }
+    else
+    {
+        when (capa)
+        {
+            CapaVidrio.PANEL -> Color(0xFFFCFCFE)
+            CapaVidrio.FUERTE -> Color.White
+            CapaVidrio.PILDORA -> Color(0xFFFEFEFF)
+            CapaVidrio.FLOTANTE -> Color.White
+        }
+    }
+    val alphaTinte = when (capa)
+    {
+        CapaVidrio.PANEL -> if (oscuro) 0.44f else 0.56f
+        CapaVidrio.FUERTE -> if (oscuro) 0.58f else 0.68f
+        CapaVidrio.PILDORA -> if (oscuro) 0.56f else 0.72f
+        CapaVidrio.FLOTANTE -> if (oscuro) 0.64f else 0.76f
+    }
+    val baseTinte = if (oscuro) Color(0xFF343840) else Color.White
+    val bordeInicial = if (oscuro) Color.White.copy(alpha = 0.24f) else Color.White.copy(alpha = 0.96f)
+    val bordeMedio = if (oscuro) Vidrio.bordeSuave else tema.colores.borde.copy(alpha = 0.86f)
+    val bordeAcento = tema.acento.copy(alpha = if (oscuro) 0.24f else 0.18f)
+    val borde = Brush.linearGradient(listOf(bordeInicial, bordeMedio, bordeAcento, bordeMedio))
+    val brillo = if (oscuro) Color.White.copy(alpha = 0.13f) else Color.White.copy(alpha = 0.72f)
+    val radioBlur = when (capa)
+    {
+        CapaVidrio.PANEL -> 20.dp
+        CapaVidrio.FUERTE -> 24.dp
+        CapaVidrio.PILDORA -> 28.dp
+        CapaVidrio.FLOTANTE -> 30.dp
+    }
+    val elevacion = when (capa)
+    {
+        CapaVidrio.PANEL -> 3.dp
+        CapaVidrio.FUERTE -> 7.dp
+        CapaVidrio.PILDORA -> 9.dp
+        CapaVidrio.FLOTANTE -> 12.dp
+    }
+    return AparienciaVidrio(
+        solido = solido,
+        tinte = baseTinte.copy(alpha = alphaTinte),
+        borde = borde,
+        brillo = brillo,
+        radioBlur = radioBlur,
+        elevacion = elevacion,
+    )
+}
+
+private fun Modifier.elevar(elevacion: Dp, forma: Shape): Modifier =
+    shadow(
+        elevation = elevacion,
+        shape = forma,
+        clip = false,
+        ambientColor = Vidrio.sombra.copy(alpha = 0.22f),
+        spotColor = Vidrio.sombra.copy(alpha = 0.28f),
+    )
+
+@Composable
+private fun Modifier.conDesenfoque(
+    estado: HazeState,
+    forma: Shape,
+    apariencia: AparienciaVidrio,
+): Modifier =
+    elevar(apariencia.elevacion, forma)
+        .clip(forma)
+        .hazeEffect(estado)
+        {
+            blurRadius = apariencia.radioBlur
+            tints = listOf(HazeTint(apariencia.tinte))
+        }
+        .brilloTope(forma, apariencia.brillo)
+        .border(Vidrio.anchoBorde, apariencia.borde, forma)
+
+@Composable
+private fun Modifier.sinDesenfoque(
+    forma: Shape,
+    apariencia: AparienciaVidrio,
+): Modifier =
+    elevar(apariencia.elevacion, forma)
+        .background(apariencia.solido, forma)
+        .brilloTope(forma, apariencia.brillo)
+        .border(Vidrio.anchoBorde, apariencia.borde, forma)
+
+@Composable
+private fun Modifier.aplicarVidrio(
+    capa: CapaVidrio,
+    forma: Shape,
+    desenfocar: Boolean,
+): Modifier
+{
+    val apariencia = aparienciaVidrio(capa)
     val haze = LocalHazeState.current
     if (desenfocar && hayBlur && haze != null)
     {
-        val tinte = if (tema.oscuro) Color(0xFF121212).copy(alpha = if (fuerte) 0.42f else 0.3f)
-            else tema.colores.surface.copy(alpha = if (fuerte) 0.42f else 0.34f)
-        val borde = if (tema.oscuro) Vidrio.borde else tema.colores.borde
-        return this.conBlur(estado = haze, forma = forma, tinte = tinte, radioBlur = 22.dp, borde = borde)
+        return conDesenfoque(haze, forma, apariencia)
     }
-    if (tema.oscuro)
-    {
-        return this
-            .background(if (fuerte) Vidrio.solidoFuerte else Vidrio.solidoPanel, forma)
-            .brilloTope(forma)
-            .border(Vidrio.anchoBorde, Vidrio.bordeSolido, forma)
-    }
-    val colores = tema.colores
-    return this
-        .shadow(if (fuerte) 10.dp else 6.dp, forma, ambientColor = Vidrio.sombra, spotColor = Vidrio.sombra)
-        .background(colores.surface, forma)
-        .brilloTope(forma)
-        .border(Vidrio.anchoBorde, colores.borde, forma)
+    return sinDesenfoque(forma, apariencia)
 }
 
 @Composable
-fun Modifier.pildoraVidrio(): Modifier
-{
-    val tema = LocalTema.current
-    val forma = RoundedCornerShape(Vidrio.radioPildora)
-    val haze = LocalHazeState.current
-    if (hayBlur && haze != null)
-    {
-        val tinte = if (tema.oscuro) Color(0xFF121212).copy(alpha = 0.46f) else tema.colores.surface.copy(alpha = 0.46f)
-        val borde = if (tema.oscuro) Vidrio.borde else tema.colores.borde
-        return this.conBlur(estado = haze, forma = forma, tinte = tinte, radioBlur = 26.dp, borde = borde)
-    }
-    if (tema.oscuro)
-    {
-        return this
-            .background(Vidrio.fondoOsd, forma)
-            .brilloTope(forma)
-            .border(Vidrio.anchoBorde, Vidrio.borde, forma)
-    }
-    val colores = tema.colores
-    return this
-        .shadow(6.dp, forma, ambientColor = Vidrio.sombra, spotColor = Vidrio.sombra)
-        .background(colores.surface.copy(alpha = 0.7f), forma)
-        .brilloTope(forma)
-        .border(Vidrio.anchoBorde, colores.borde, forma)
-}
+fun Modifier.panelVidrio(
+    radio: Dp = Vidrio.radioPanel,
+    fuerte: Boolean = false,
+    desenfocar: Boolean = false,
+): Modifier = aplicarVidrio(
+    capa = if (fuerte) CapaVidrio.FUERTE else CapaVidrio.PANEL,
+    forma = RoundedCornerShape(radio),
+    desenfocar = desenfocar,
+)
 
 @Composable
-fun Modifier.vidrioFlotante(radio: Dp = 22.dp): Modifier
-{
-    val tema = LocalTema.current
-    val forma = RoundedCornerShape(radio)
-    val haze = LocalHazeState.current
-    if (hayBlur && haze != null)
-    {
-        val tinte = if (tema.oscuro) Color(0xFF121212).copy(alpha = 0.44f) else tema.colores.surface.copy(alpha = 0.42f)
-        val borde = if (tema.oscuro) Vidrio.borde else tema.colores.borde
-        return this.conBlur(estado = haze, forma = forma, tinte = tinte, radioBlur = 24.dp, borde = borde)
-    }
-    if (tema.oscuro)
-    {
-        return this
-            .background(Vidrio.fondoFuerte, forma)
-            .brilloTope(forma)
-            .border(Vidrio.anchoBorde, Vidrio.borde, forma)
-    }
-    val colores = tema.colores
-    return this
-        .background(colores.surface.copy(alpha = 0.62f), forma)
-        .brilloTope(forma)
-        .border(Vidrio.anchoBorde, colores.borde, forma)
-}
+fun Modifier.pildoraVidrio(): Modifier = aplicarVidrio(
+    capa = CapaVidrio.PILDORA,
+    forma = RoundedCornerShape(Vidrio.radioPildora),
+    desenfocar = true,
+)
 
 @Composable
-private fun Modifier.brilloTope(forma: Shape): Modifier
+fun Modifier.vidrioFlotante(radio: Dp = 22.dp): Modifier = aplicarVidrio(
+    capa = CapaVidrio.FLOTANTE,
+    forma = RoundedCornerShape(radio),
+    desenfocar = true,
+)
+
+@Composable
+private fun Modifier.brilloTope(forma: Shape, color: Color): Modifier
 {
-    val oscuro = LocalTema.current.oscuro
-    val alto = with(LocalDensity.current) { 2.dp.toPx() }
-    val color = if (oscuro) Color.White.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.55f)
-    return this.background(
+    val alto = with(LocalDensity.current) { 3.dp.toPx() }
+    return background(
         Brush.verticalGradient(0f to color, 1f to Color.Transparent, startY = 0f, endY = alto),
         forma,
     )
