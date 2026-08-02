@@ -106,7 +106,14 @@ class CapturaPrincipalTest
                             conectado = true,
                             alAbrirAjustes = {},
                         )
-                        CampoBusqueda(valor = "", alCambiar = {})
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        )
+                        {
+                            CampoBusqueda(valor = "", alCambiar = {}, modifier = Modifier.weight(1f))
+                            SelectorTransporteUi(transporte = "red") {}
+                        }
                     }
                     BarraPestanas(
                         actual = "chats",

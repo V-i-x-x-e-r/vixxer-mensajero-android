@@ -102,12 +102,12 @@ private fun aparienciaVidrio(capa: CapaVidrio): AparienciaVidrio
     else
     {
         Brush.verticalGradient(
-            0f to Color.White.copy(alpha = 0.95f),
-            0.5f to Color.White.copy(alpha = 0.42f),
-            1f to Color.White.copy(alpha = 0.72f),
+            0f to Color.White.copy(alpha = 0.38f),
+            0.5f to Color.White.copy(alpha = 0.12f),
+            1f to Color.White.copy(alpha = 0.24f),
         )
     }
-    val brillo = if (oscuro) Color.White.copy(alpha = 0.13f) else Color.White.copy(alpha = 0.92f)
+    val brillo = if (oscuro) Color.White.copy(alpha = 0.07f) else Color.White.copy(alpha = 0.50f)
     val radioBlur = when (capa)
     {
         CapaVidrio.PANEL -> 20.dp

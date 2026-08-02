@@ -456,3 +456,34 @@ fun Chevron(color: Color, tamano: Dp = 16.dp)
         trazo("M9 6l6 6-6 6", color)
     }
 }
+
+@Composable
+fun Globo(color: Color, tamano: Dp = 16.dp)
+{
+    Icono24(tamano) {
+        drawCircle(color, radius = 8f, center = Offset(12f, 12f), style = Stroke(width = 2f))
+        drawLine(color, Offset(4.5f, 12f), Offset(19.5f, 12f), strokeWidth = 2f, cap = StrokeCap.Round)
+        trazo("M12 4c-2.6 2.2-2.6 13.8 0 16c2.6-2.2 2.6-13.8 0-16", color)
+    }
+}
+
+@Composable
+fun RunaBluetooth(color: Color, tamano: Dp = 16.dp)
+{
+    Icono24(tamano) {
+        trazo("M12 3v18", color)
+        trazo("M12 3l5 4.5L7 16.5", color)
+        trazo("M7 7.5l10 9L12 21", color)
+    }
+}
+
+@Composable
+fun AntenaLora(color: Color, tamano: Dp = 16.dp)
+{
+    Icono24(tamano) {
+        drawCircle(color, radius = 1.8f, center = Offset(12f, 8f))
+        drawLine(color, Offset(12f, 10f), Offset(12f, 21f), strokeWidth = 2f, cap = StrokeCap.Round)
+        trazo("M7.8 4.2a6 6 0 0 0 0 7.6", color)
+        trazo("M16.2 4.2a6 6 0 0 1 0 7.6", color)
+    }
+}

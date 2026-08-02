@@ -566,11 +566,19 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
                     exit = shrinkVertically() + fadeOut(),
                 )
                 {
-                    CampoBusqueda(
-                        valor = busqueda,
-                        alCambiar = { busqueda = it },
+                    Row(
                         modifier = Modifier.padding(top = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     )
+                    {
+                        CampoBusqueda(
+                            valor = busqueda,
+                            alCambiar = { busqueda = it },
+                            modifier = Modifier.weight(1f),
+                        )
+                        SelectorTransporte(app)
+                    }
                 }
             }
 

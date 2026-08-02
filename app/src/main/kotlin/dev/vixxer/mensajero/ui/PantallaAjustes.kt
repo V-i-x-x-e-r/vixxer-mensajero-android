@@ -80,23 +80,6 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
     var importCodigo by remember { mutableStateOf("") }
     var importEstado by remember { mutableStateOf("") }
 
-    val lanzadorPermisosBle = androidx.activity.compose.rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions(),
-    ) { concedidos ->
-        if (concedidos.values.all { it })
-        {
-            val r = dev.vixxer.mensajero.ble.GestorCercania.activar(app, contexto, true)
-            if (!r.ok && r.razon != null)
-            {
-                android.widget.Toast.makeText(contexto, r.razon, android.widget.Toast.LENGTH_SHORT).show()
-            }
-        }
-        else
-        {
-            android.widget.Toast.makeText(contexto, "Falta el permiso de Dispositivos cercanos", android.widget.Toast.LENGTH_SHORT).show()
-        }
-    }
-
     val selectorRespaldo = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.GetContent(),
     ) { uri ->
@@ -442,80 +425,15 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
             Text(errorPreferencias, fontSize = 13.sp, color = colores.error)
         }
 
-        Seccion("TRANSPORTE", colores)
+        Seccion("CERCANÍA", colores)
         Tarjeta {
-            val gestor = dev.vixxer.mensajero.ble.GestorCercania
-            val transporte = if (gestor.corriendo || gestor.modoGuardado(app)) "bluetooth" else "red"
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            )
-            {
-                Text("Ruta", fontSize = 15.sp, color = colores.texto)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    for ((clave, etiqueta) in listOf("red" to "Red", "bluetooth" to "Bluetooth", "lora" to "LoRa"))
-                    {
-                        val activo = transporte == clave
-                        val disponible = clave != "lora"
-                        Text(
-                            etiqueta,
-                            fontSize = 12.sp,
-                            color = when
-                            {
-                                activo -> colores.botonTexto
-                                disponible -> colores.texto
-                                else -> colores.muted
-                            },
-                            modifier = Modifier
-                                .background(if (activo) colores.botonFondo else Color.Transparent, RoundedCornerShape(Vidrio.radioPildora))
-                                .border(Vidrio.anchoBorde, colores.borde, RoundedCornerShape(Vidrio.radioPildora))
-                                .pulsable {
-                                    when (clave)
-                                    {
-                                        "red" -> gestor.activar(app, contexto, false)
-                                        "bluetooth" ->
-                                        {
-                                            if (!gestor.permisosConcedidos(contexto))
-                                            {
-                                                lanzadorPermisosBle.launch(gestor.permisos())
-                                            }
-                                            else
-                                            {
-                                                val r = gestor.activar(app, contexto, true)
-                                                if (!r.ok && r.razon != null)
-                                                {
-                                                    android.widget.Toast.makeText(contexto, r.razon, android.widget.Toast.LENGTH_SHORT).show()
-                                                }
-                                            }
-                                        }
-                                        else -> android.widget.Toast.makeText(
-                                            contexto,
-                                            "Próximamente: requiere un radio LoRa conectado",
-                                            android.widget.Toast.LENGTH_SHORT,
-                                        ).show()
-                                    }
-                                }
-                                .padding(horizontal = 10.dp, vertical = 6.dp),
-                        )
-                    }
-                }
-            }
+            FilaNav("Ver radar de cercanía", colores) { alNavegar("cercania") }
             Text(
-                if (transporte == "bluetooth")
-                {
-                    "Tus mensajes buscan el mejor camino: internet si hay, y si no, saltan por Bluetooth entre vixxers cercanos. Por Bluetooth solo viajan texto, fotos ligeras y notas de voz."
-                }
-                else
-                {
-                    "Tus mensajes viajan solo por internet. Activa Bluetooth para mensajear sin red con vixxers cercanos."
-                },
+                "La ruta se elige junto al buscador de Chats: internet si hay, y si no, tus mensajes saltan por Bluetooth entre vixxers cercanos.",
                 fontSize = 12.sp,
                 color = colores.muted,
                 modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp),
             )
-            Separador(colores)
-            FilaNav("Ver radar de cercanía", colores) { alNavegar("cercania") }
         }
 
         Seccion("SEGURIDAD", colores)
