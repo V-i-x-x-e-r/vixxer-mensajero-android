@@ -18,9 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -32,9 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -128,38 +124,21 @@ fun PrevioMediaMulti(
             verticalAlignment = Alignment.Bottom,
         )
         {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .background(colores.surface, RoundedCornerShape(22.dp))
-                    .border(Vidrio.anchoBorde, colores.borde, RoundedCornerShape(22.dp))
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+            CampoMensaje(
+                valor = caps[actualIndice] ?: "",
+                alCambiar = { caps[actualIndice] = it },
+                modifier = Modifier.weight(1f),
+                placeholder = "Añade un comentario…",
             )
-            {
-                if ((caps[actualIndice] ?: "").isEmpty())
+            BotonCircularPrimario(
+                descripcion = "Enviar archivos",
+                alPulsar =
                 {
-                    Text("Añade un comentario…", fontSize = 15.sp, color = colores.placeholder)
-                }
-                BasicTextField(
-                    value = caps[actualIndice] ?: "",
-                    onValueChange = { caps[actualIndice] = it },
-                    textStyle = TextStyle(fontSize = 15.sp, color = colores.texto),
-                    cursorBrush = SolidColor(colores.texto),
-                    maxLines = 3,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .background(colores.botonFondo, CircleShape)
-                    .pulsable {
-                        onEnviar(items.mapIndexed { i, item -> item to (caps[i]?.trim()?.ifEmpty { null }) })
-                    },
-                contentAlignment = Alignment.Center,
+                    onEnviar(items.mapIndexed { i, item -> item to (caps[i]?.trim()?.ifEmpty { null }) })
+                },
             )
             {
-                Text("➤", fontSize = 18.sp, color = colores.botonTexto)
+                Enviar(color = colores.botonTexto)
             }
         }
     }

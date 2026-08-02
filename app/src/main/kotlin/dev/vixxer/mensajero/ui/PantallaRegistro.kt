@@ -156,10 +156,9 @@ fun PantallaRegistro(app: AplicacionVixxer, alNavegar: (String) -> Unit)
                     fontSize = 24.sp,
                     fontFamily = FuenteOutfit,
                     fontWeight = FontWeight.SemiBold,
-                    letterSpacing = (-0.5).sp,
                     color = colores.texto,
                 )
-                Text("Sin correo, sin teléfono", fontSize = 14.sp, color = colores.muted, modifier = Modifier.padding(top = 4.dp))
+                Text("Crea tu identidad de Vixxer", fontSize = 14.sp, color = colores.muted, modifier = Modifier.padding(top = 4.dp))
             }
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Campo(valor = usuario, alCambiar = { usuario = it }, placeholder = "Usuario", sinMayusculas = true)

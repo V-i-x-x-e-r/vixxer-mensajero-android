@@ -1368,8 +1368,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .background(colores.surface, RoundedCornerShape(20.dp))
-                            .border(Vidrio.anchoBorde, colores.borde, RoundedCornerShape(20.dp))
+                            .panelVidrio(radio = 20.dp, desenfocar = true)
                             .padding(horizontal = 14.dp, vertical = 10.dp),
                     )
                     {
@@ -1729,11 +1728,11 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                     {
                         Box(
                             modifier = Modifier
-                                .size(44.dp)
                                 .pulsable(habilitado = !subiendo) {
                                     enfoque.clearFocus()
                                     adjuntando = true
-                                },
+                                }
+                                .size(44.dp),
                             contentAlignment = Alignment.Center,
                         )
                         {
@@ -1751,38 +1750,17 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                                 Clip(color = colores.muted)
                             }
                         }
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .background(colores.surface, RoundedCornerShape(22.dp))
-                                .border(Vidrio.anchoBorde, colores.borde, RoundedCornerShape(22.dp))
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                        CampoMensaje(
+                            valor = texto,
+                            alCambiar = { escribir(it) },
+                            modifier = Modifier.weight(1f),
                         )
-                        {
-                            if (texto.isEmpty())
-                            {
-                                Text("Mensaje", fontSize = 15.sp, color = colores.placeholder)
-                            }
-                            BasicTextField(
-                                value = texto,
-                                onValueChange = { escribir(it) },
-                                textStyle = TextStyle(fontSize = 15.sp, color = colores.texto),
-                                cursorBrush = SolidColor(colores.texto),
-                                maxLines = 5,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        }
                         if (texto.isBlank() && editando == null)
                         {
-                            Box(
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .background(colores.surface, CircleShape)
-                                    .border(Vidrio.anchoBorde, colores.borde, CircleShape)
-                                    .pulsable(habilitado = !subiendo) {
-                                        permisoMicRef[0]?.invoke()
-                                    },
-                                contentAlignment = Alignment.Center,
+                            BotonCircularVidrio(
+                                descripcion = "Grabar nota de voz",
+                                habilitado = !subiendo,
+                                alPulsar = { permisoMicRef[0]?.invoke() },
                             )
                             {
                                 Microfono(color = colores.texto, tamano = 20.dp)
@@ -1790,15 +1768,12 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                         }
                         else
                         {
-                            Box(
-                                modifier = Modifier
-                                    .pulsable { enviar() }
-                                    .size(44.dp)
-                                    .background(colores.botonFondo, CircleShape),
-                                contentAlignment = Alignment.Center,
+                            BotonCircularPrimario(
+                                descripcion = "Enviar mensaje",
+                                alPulsar = { enviar() },
                             )
                             {
-                                Text("➤", fontSize = 18.sp, color = colores.botonTexto)
+                                Enviar(color = colores.botonTexto, tamano = 19.dp)
                             }
                         }
                     }
@@ -1958,20 +1933,17 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                         terminarGrabacion(false)
                     },
                 )
-                Box(
-                    modifier = Modifier
-                        .size(34.dp)
-                        .background(colores.surface, CircleShape)
-                        .border(Vidrio.anchoBorde, colores.borde, CircleShape)
-                        .pulsable {
-                            val activa = grabadora[0]
-                            if (activa != null)
-                            {
-                                if (activa.pausada) activa.continuar() else activa.pausar()
-                                grabacionPausada = activa.pausada
-                            }
-                        },
-                    contentAlignment = Alignment.Center,
+                BotonCircularVidrio(
+                    descripcion = if (grabacionPausada) "Continuar grabación" else "Pausar grabación",
+                    tamano = 34.dp,
+                    alPulsar = {
+                        val activa = grabadora[0]
+                        if (activa != null)
+                        {
+                            if (activa.pausada) activa.continuar() else activa.pausar()
+                            grabacionPausada = activa.pausada
+                        }
+                    },
                 )
                 {
                     if (grabacionPausada)
@@ -1983,17 +1955,13 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
                         Pausa(color = colores.texto, tamano = 16.dp)
                     }
                 }
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(colores.botonFondo, CircleShape)
-                        .pulsable {
-                            terminarGrabacion(true)
-                        },
-                    contentAlignment = Alignment.Center,
+                BotonCircularPrimario(
+                    descripcion = "Enviar nota de voz",
+                    tamano = 40.dp,
+                    alPulsar = { terminarGrabacion(true) },
                 )
                 {
-                    Text("➤", fontSize = 16.sp, color = colores.botonTexto)
+                    Enviar(color = colores.botonTexto, tamano = 17.dp)
                 }
             }
             }
