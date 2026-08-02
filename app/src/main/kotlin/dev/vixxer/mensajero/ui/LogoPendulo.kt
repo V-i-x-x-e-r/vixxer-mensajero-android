@@ -27,13 +27,17 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -42,15 +46,52 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
+private const val LOGO_ANCHO = 300f
+private const val LOGO_ALTO = 264f
 private const val LOGIN_BY = 130f
 private const val PIVOTE = 12f
-private val LOGIN_CX = floatArrayOf(58f, 104f, 150f, 196f, 242f)
+private val LOGIN_CX = floatArrayOf(70f, 110f, 150f, 190f, 230f)
 
 private val salidaCubica = Easing { t -> 1f - (1f - t) * (1f - t) * (1f - t) }
 private val entradaCubica = Easing { t -> t * t * t }
 private val salidaCuadrada = Easing { t -> 1f - (1f - t) * (1f - t) }
 private val entradaCuadrada = Easing { t -> t * t }
+private val salidaPendulo = Easing { t -> sin(t * PI.toFloat() / 2f) }
+private val entradaPendulo = Easing { t -> 1f - cos(t * PI.toFloat() / 2f) }
+
+private enum class MovimientoPendulo
+{
+    CICLO,
+    GOLPE,
+    CAOS,
+}
+
+private data class OrdenPendulo(
+    val instante: Long,
+    val movimiento: MovimientoPendulo,
+)
+
+private class SecuenciaTaps
+{
+    private var cantidad = 0
+    private var ultimo = 0L
+
+    fun registrar(ahora: Long): Boolean
+    {
+        cantidad = if (ahora - ultimo < 450) cantidad + 1 else 1
+        ultimo = ahora
+        if (cantidad < 3)
+        {
+            return false
+        }
+        cantidad = 0
+        return true
+    }
+}
 
 internal fun DrawScope.vCincelada(cx: Float, cy: Float, r: Float)
 {
@@ -99,7 +140,14 @@ internal fun DrawScope.vCincelada(cx: Float, cy: Float, r: Float)
     }
 }
 
-internal fun DrawScope.bola(x: Float, y: Float, r: Float, central: Boolean = false, mini: Boolean = false)
+internal fun DrawScope.bola(
+    x: Float,
+    y: Float,
+    r: Float,
+    central: Boolean = false,
+    mini: Boolean = false,
+    mostrarMarca: Boolean = central,
+)
 {
     val fx = if (central) 0.38f else 0.36f
     val fy = if (central) 0.26f else 0.28f
@@ -156,7 +204,7 @@ internal fun DrawScope.bola(x: Float, y: Float, r: Float, central: Boolean = fal
         size = Size(2f * rx, 2f * ry),
         alpha = if (mini) 0.45f else if (central) 0.3f else 0.26f,
     )
-    if (central)
+    if (mostrarMarca)
     {
         vCincelada(x, y, r)
     }
@@ -199,155 +247,264 @@ fun LogoPenduloFila(alto: Dp)
 }
 
 @Composable
-fun LogoPendulo(alto: Dp, colorTexto: Color, colorBarra: Color = Color(0xFF9AA2AD), velocidad: Int = 1500)
+private fun CapaLogo(
+    modifier: Modifier = Modifier,
+    dibujar: DrawScope.() -> Unit,
+)
 {
-    val ancho = alto * (300f / 264f)
-    val izq = remember { Animatable(0f) }
-    val der = remember { Animatable(0f) }
-    val giro = remember { Animatable(0f) }
-    var orden by remember { mutableStateOf(0L to "ciclo") }
-    val taps = remember { longArrayOf(0L, 0L) }
-
-    LaunchedEffect(orden, velocidad) {
-        when (orden.second)
+    Canvas(modifier = Modifier.fillMaxSize().then(modifier))
+    {
+        val escala = size.width / LOGO_ANCHO
+        withTransform({ scale(escala, escala, pivot = Offset.Zero) })
         {
-            "golpe" ->
+            dibujar()
+        }
+    }
+}
+
+private suspend fun asentarPendulo(
+    izquierda: Animatable<Float, *>,
+    derecha: Animatable<Float, *>,
+    giro: Animatable<Float, *>,
+)
+{
+    coroutineScope {
+        launch {
+            if (izquierda.value != 0f)
             {
-                coroutineScope {
-                    launch {
-                        izq.animateTo(-19f, tween(300, easing = salidaCubica))
-                        izq.animateTo(0f, tween(240, easing = entradaCubica))
-                    }
-                    launch {
-                        delay(430)
-                        der.animateTo(19f, tween(300, easing = salidaCubica))
-                        der.animateTo(0f, tween(260, easing = entradaCubica))
-                    }
-                }
-                delay(410)
-                orden = System.currentTimeMillis() to "ciclo"
+                izquierda.animateTo(0f, tween(120, easing = salidaCuadrada))
             }
-            "caos" ->
+        }
+        launch {
+            if (derecha.value != 0f)
             {
-                coroutineScope {
-                    launch {
-                        izq.animateTo(-30f, tween(280, easing = salidaCubica))
-                        izq.animateTo(7f, tween(220, easing = entradaCubica))
-                        izq.animateTo(-11f, tween(200, easing = salidaCuadrada))
-                        izq.animateTo(0f, tween(200, easing = entradaCuadrada))
-                    }
-                    launch {
-                        der.animateTo(30f, tween(280, easing = salidaCubica))
-                        der.animateTo(-7f, tween(220, easing = entradaCubica))
-                        der.animateTo(11f, tween(200, easing = salidaCuadrada))
-                        der.animateTo(0f, tween(200, easing = entradaCuadrada))
-                    }
-                    launch {
-                        giro.snapTo(0f)
-                        delay(140)
-                        giro.animateTo(360f, tween(950, easing = salidaCubica))
-                    }
-                }
-                delay(910)
-                orden = System.currentTimeMillis() to "ciclo"
+                derecha.animateTo(0f, tween(120, easing = salidaCuadrada))
             }
-            else ->
+        }
+        launch {
+            if (giro.value != 0f)
             {
-                izq.snapTo(0f)
-                der.snapTo(0f)
-                giro.snapTo(0f)
-                val a = (velocidad * 0.3f).toInt()
-                val b = (velocidad * 0.28f).toInt()
-                while (true)
-                {
-                    coroutineScope {
-                        launch {
-                            izq.animateTo(-12f, tween(a, easing = salidaCubica))
-                            izq.animateTo(0f, tween(b, easing = entradaCubica))
-                        }
-                        launch {
-                            delay((a + b).toLong())
-                            der.animateTo(12f, tween(a, easing = salidaCubica))
-                            der.animateTo(0f, tween(b, easing = entradaCubica))
-                        }
-                    }
-                }
+                giro.animateTo(360f, tween(160, easing = salidaCuadrada))
             }
+            giro.snapTo(0f)
+        }
+    }
+}
+
+private suspend fun animarCiclo(
+    izquierda: Animatable<Float, *>,
+    derecha: Animatable<Float, *>,
+    giro: Animatable<Float, *>,
+    duracion: Int,
+)
+{
+    asentarPendulo(izquierda, derecha, giro)
+    val medioCiclo = duracion.coerceAtLeast(800) / 2
+    val ida = (medioCiclo * 0.52f).toInt()
+    val vuelta = medioCiclo - ida
+    while (true)
+    {
+        izquierda.animateTo(-12f, tween(ida, easing = salidaPendulo))
+        izquierda.animateTo(0f, tween(vuelta, easing = entradaPendulo))
+        derecha.animateTo(12f, tween(ida, easing = salidaPendulo))
+        derecha.animateTo(0f, tween(vuelta, easing = entradaPendulo))
+    }
+}
+
+private suspend fun animarGolpe(
+    izquierda: Animatable<Float, *>,
+    derecha: Animatable<Float, *>,
+    giro: Animatable<Float, *>,
+)
+{
+    asentarPendulo(izquierda, derecha, giro)
+    izquierda.animateTo(-19f, tween(280, easing = salidaPendulo))
+    izquierda.animateTo(0f, tween(230, easing = entradaPendulo))
+    derecha.animateTo(19f, tween(280, easing = salidaPendulo))
+    derecha.animateTo(0f, tween(230, easing = entradaPendulo))
+}
+
+private suspend fun animarCaos(
+    izquierda: Animatable<Float, *>,
+    derecha: Animatable<Float, *>,
+    giro: Animatable<Float, *>,
+)
+{
+    asentarPendulo(izquierda, derecha, giro)
+    coroutineScope {
+        launch {
+            izquierda.animateTo(-30f, tween(280, easing = salidaCubica))
+            izquierda.animateTo(7f, tween(220, easing = entradaCubica))
+            izquierda.animateTo(-11f, tween(200, easing = salidaCuadrada))
+            izquierda.animateTo(0f, tween(200, easing = entradaCuadrada))
+        }
+        launch {
+            derecha.animateTo(30f, tween(280, easing = salidaCubica))
+            derecha.animateTo(-7f, tween(220, easing = entradaCubica))
+            derecha.animateTo(11f, tween(200, easing = salidaCuadrada))
+            derecha.animateTo(0f, tween(200, easing = entradaCuadrada))
+        }
+        launch {
+            delay(140)
+            giro.animateTo(360f, tween(950, easing = salidaCubica))
+        }
+    }
+}
+
+private fun DrawScope.fondoLogo()
+{
+    drawLine(Color(0xFF4A525E), Offset(84f, 240f), Offset(66f, 256f), strokeWidth = 11f, cap = StrokeCap.Round)
+    drawLine(Color(0xFF4A525E), Offset(216f, 240f), Offset(234f, 256f), strokeWidth = 11f, cap = StrokeCap.Round)
+    clipRect(0f, 0f, LOGO_ANCHO, 72f)
+    {
+        val zona = Rect(Offset(24f, 6f), Size(252f, 200f))
+        drawRoundRect(
+            brochaMarco(zona),
+            topLeft = zona.topLeft,
+            size = zona.size,
+            cornerRadius = CornerRadius(52f),
+            style = Stroke(width = 10f),
+            alpha = 0.9f,
+        )
+    }
+}
+
+private fun DrawScope.pendulosCentrales(colorBarra: Color)
+{
+    hilos(LOGIN_CX[1], colorBarra)
+    hilos(LOGIN_CX[2], colorBarra)
+    hilos(LOGIN_CX[3], colorBarra)
+    bola(LOGIN_CX[1], LOGIN_BY, 19f)
+    bola(LOGIN_CX[3], LOGIN_BY, 19f)
+}
+
+private fun DrawScope.penduloExterior(indice: Int, colorBarra: Color)
+{
+    val x = LOGIN_CX[indice]
+    hilos(x, colorBarra)
+    bola(x, LOGIN_BY, 19f)
+}
+
+private fun DrawScope.frenteLogo()
+{
+    val zona = Rect(Offset(24f, 18f), Size(252f, 222f))
+    drawRoundRect(
+        brochaMarco(zona),
+        topLeft = zona.topLeft,
+        size = zona.size,
+        cornerRadius = CornerRadius(52f),
+        style = Stroke(width = 13f),
+    )
+    drawRoundRect(
+        Color(0xFFB4BEC9),
+        topLeft = Offset(30.5f, 24.5f),
+        size = Size(239f, 209f),
+        cornerRadius = CornerRadius(46f),
+        style = Stroke(width = 1.3f),
+        alpha = 0.5f,
+    )
+}
+
+private fun origenGiro(x: Float, y: Float): TransformOrigin
+{
+    return TransformOrigin(x / LOGO_ANCHO, y / LOGO_ALTO)
+}
+
+@Composable
+fun LogoPendulo(
+    alto: Dp,
+    colorTexto: Color,
+    colorBarra: Color = Color(0xFF9AA2AD),
+    duracionCiclo: Int = 1500,
+)
+{
+    val ancho = alto * (LOGO_ANCHO / LOGO_ALTO)
+    val izquierda = remember { Animatable(0f) }
+    val derecha = remember { Animatable(0f) }
+    val giro = remember { Animatable(0f) }
+    var orden by remember {
+        mutableStateOf(OrdenPendulo(System.nanoTime(), MovimientoPendulo.CICLO))
+    }
+    val taps = remember { SecuenciaTaps() }
+
+    LaunchedEffect(orden, duracionCiclo)
+    {
+        when (orden.movimiento)
+        {
+            MovimientoPendulo.CICLO -> animarCiclo(izquierda, derecha, giro, duracionCiclo)
+            MovimientoPendulo.GOLPE -> animarGolpe(izquierda, derecha, giro)
+            MovimientoPendulo.CAOS -> animarCaos(izquierda, derecha, giro)
+        }
+        if (orden.movimiento != MovimientoPendulo.CICLO)
+        {
+            delay(260)
+            orden = OrdenPendulo(System.nanoTime(), MovimientoPendulo.CICLO)
         }
     }
 
     fun tocar()
     {
-        val ahora = System.currentTimeMillis()
-        taps[0] = if (ahora - taps[1] < 450) taps[0] + 1 else 1
-        taps[1] = ahora
-        if (taps[0] >= 3)
+        val ahora = System.nanoTime() / 1_000_000L
+        val movimiento = if (taps.registrar(ahora))
         {
-            taps[0] = 0
-            orden = ahora to "caos"
-            return
+            MovimientoPendulo.CAOS
         }
-        orden = ahora to "golpe"
+        else
+        {
+            MovimientoPendulo.GOLPE
+        }
+        orden = OrdenPendulo(System.nanoTime(), movimiento)
     }
 
     Box(
         modifier = Modifier
             .width(ancho)
             .height(alto)
-            .pointerInput(Unit) {
+            .semantics { contentDescription = "Vixxer" }
+            .pointerInput(Unit)
+            {
                 detectTapGestures { tocar() }
             },
     )
     {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val e = size.width / 300f
-            withTransform({ scale(e, e, pivot = Offset.Zero) }) {
-                drawLine(Color(0xFF4A525E), Offset(84f, 240f), Offset(66f, 256f), strokeWidth = 11f, cap = StrokeCap.Round)
-                drawLine(Color(0xFF4A525E), Offset(216f, 240f), Offset(234f, 256f), strokeWidth = 11f, cap = StrokeCap.Round)
-                clipRect(0f, 0f, 300f, 72f) {
-                    val zonaTras = Rect(Offset(24f, 6f), Size(252f, 200f))
-                    drawRoundRect(
-                        brochaMarco(zonaTras),
-                        topLeft = zonaTras.topLeft,
-                        size = zonaTras.size,
-                        cornerRadius = CornerRadius(52f),
-                        style = Stroke(width = 10f),
-                        alpha = 0.9f,
-                    )
-                }
-                hilos(LOGIN_CX[1], colorBarra)
-                hilos(LOGIN_CX[2], colorBarra)
-                hilos(LOGIN_CX[3], colorBarra)
-                bola(LOGIN_CX[1], LOGIN_BY, 19f)
-                withTransform({ rotate(-giro.value, pivot = Offset(LOGIN_CX[2], LOGIN_BY)) }) {
-                    bola(LOGIN_CX[2], LOGIN_BY, 20f, central = true)
-                }
-                bola(LOGIN_CX[3], LOGIN_BY, 19f)
-                withTransform({ rotate(-izq.value, pivot = Offset(LOGIN_CX[0], PIVOTE)) }) {
-                    hilos(LOGIN_CX[0], colorBarra)
-                    bola(LOGIN_CX[0], LOGIN_BY, 19f)
-                }
-                withTransform({ rotate(-der.value, pivot = Offset(LOGIN_CX[4], PIVOTE)) }) {
-                    hilos(LOGIN_CX[4], colorBarra)
-                    bola(LOGIN_CX[4], LOGIN_BY, 19f)
-                }
-                val zonaFrente = Rect(Offset(24f, 18f), Size(252f, 222f))
-                drawRoundRect(
-                    brochaMarco(zonaFrente),
-                    topLeft = zonaFrente.topLeft,
-                    size = zonaFrente.size,
-                    cornerRadius = CornerRadius(52f),
-                    style = Stroke(width = 13f),
-                )
-                drawRoundRect(
-                    Color(0xFFB4BEC9),
-                    topLeft = Offset(30.5f, 24.5f),
-                    size = Size(239f, 209f),
-                    cornerRadius = CornerRadius(46f),
-                    style = Stroke(width = 1.3f),
-                    alpha = 0.5f,
-                )
-            }
+        CapaLogo {
+            fondoLogo()
+        }
+        CapaLogo {
+            pendulosCentrales(colorBarra)
+        }
+        CapaLogo(
+            modifier = Modifier.graphicsLayer
+            {
+                transformOrigin = origenGiro(LOGIN_CX[2], LOGIN_BY)
+                rotationZ = -giro.value
+            },
+        )
+        {
+            bola(LOGIN_CX[2], LOGIN_BY, 20f, central = true)
+        }
+        CapaLogo(
+            modifier = Modifier.graphicsLayer
+            {
+                transformOrigin = origenGiro(LOGIN_CX[0], PIVOTE)
+                rotationZ = -izquierda.value
+            },
+        )
+        {
+            penduloExterior(0, colorBarra)
+        }
+        CapaLogo(
+            modifier = Modifier.graphicsLayer
+            {
+                transformOrigin = origenGiro(LOGIN_CX[4], PIVOTE)
+                rotationZ = -derecha.value
+            },
+        )
+        {
+            penduloExterior(4, colorBarra)
+        }
+        CapaLogo {
+            frenteLogo()
         }
         Text(
             text = "VIXXER",

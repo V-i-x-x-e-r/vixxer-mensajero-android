@@ -39,6 +39,18 @@ class CapturaPenduloTest
         capturar(oscuro = true, nombre = "pendulo-oscuro")
     }
 
+    @Test
+    fun splashDuranteLaOrbita()
+    {
+        capturarSplash(520, "splash-orbita")
+    }
+
+    @Test
+    fun splashAlConverger()
+    {
+        capturarSplash(1100, "splash-convergido")
+    }
+
     private fun capturar(oscuro: Boolean, nombre: String)
     {
         compose.mainClock.autoAdvance = false
@@ -58,6 +70,19 @@ class CapturaPenduloTest
             }
         }
         compose.mainClock.advanceTimeBy(500)
+        compose.onRoot().captureRoboImage("src/test/capturas/$nombre.png", roborazziOptions = OPCIONES_CAPTURA)
+    }
+
+    private fun capturarSplash(instante: Long, nombre: String)
+    {
+        compose.mainClock.autoAdvance = false
+        compose.setContent {
+            SplashOrbita(
+                listoParaSalir = false,
+                alTerminar = {},
+            )
+        }
+        compose.mainClock.advanceTimeBy(instante)
         compose.onRoot().captureRoboImage("src/test/capturas/$nombre.png", roborazziOptions = OPCIONES_CAPTURA)
     }
 }
