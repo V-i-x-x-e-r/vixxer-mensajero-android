@@ -26,7 +26,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
@@ -44,6 +46,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -117,7 +120,7 @@ private fun previewDe(texto: String): String
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirChat: (Amigo) -> Unit)
 {
@@ -129,6 +132,7 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
     var estados by remember { mutableStateOf(EstadosChat.Estados(emptyList(), emptyList(), emptyList(), emptyList(), emptyList())) }
     var verArchivados by remember { mutableStateOf(false) }
     var cargando by remember { mutableStateOf(true) }
+    var refrescando by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf(false) }
     var estadoConexion by remember { mutableStateOf("conectando…") }
     var sel by remember { mutableStateOf<String?>(null) }
@@ -141,6 +145,8 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
     val conexionBusqueda = remember {
         object : NestedScrollConnection
         {
+            var revelando = false
+
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset
             {
                 if (available.y < -6f && buscadorVisible && busqueda.isEmpty())
@@ -153,11 +159,26 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
 
             override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset
             {
-                if (source == NestedScrollSource.UserInput && available.y > 6f && !buscadorVisible && sel == null)
+                if (source != NestedScrollSource.UserInput || available.y <= 0f)
+                {
+                    return Offset.Zero
+                }
+                if (!buscadorVisible && sel == null && amigos.isNotEmpty() && available.y > 6f)
                 {
                     buscadorVisible = true
+                    revelando = true
+                }
+                if (revelando)
+                {
+                    return Offset(0f, available.y)
                 }
                 return Offset.Zero
+            }
+
+            override suspend fun onPreFling(available: Velocity): Velocity
+            {
+                revelando = false
+                return Velocity.Zero
             }
         }
     }
@@ -553,14 +574,25 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
                 }
             }
 
-            Box(
+            PullToRefreshBox(
+                isRefreshing = refrescando,
+                onRefresh = {
+                    alcance.launch {
+                        refrescando = true
+                        cargar()
+                        refrescando = false
+                    }
+                },
                 modifier = Modifier
                     .weight(1f)
-                    .padding(top = 10.dp)
-                    .nestedScroll(conexionBusqueda),
+                    .padding(top = 10.dp),
             )
             {
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .nestedScroll(conexionBusqueda),
+                ) {
                     if (!verArchivados && sel == null && busqueda.isEmpty() && numArchivados > 0)
                     {
                         item {
