@@ -158,13 +158,26 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
     val nombres = remember { ConcurrentHashMap<String, String>() }
     val marcados = remember { HashSet<String>() }
     val listaEstado = rememberLazyListState()
+    var cargaInicialCompleta by remember(grupoId) { mutableStateOf(false) }
+    var posicionInicialPendiente by remember(grupoId) { mutableStateOf(true) }
+    val visibles = remember(mensajes, ocultos) {
+        if (ocultos.isEmpty()) mensajes else mensajes.filter { !ocultos.contains(it.id) }
+    }
+    LaunchedEffect(cargaInicialCompleta, visibles.size, posicionInicialPendiente)
+    {
+        if (cargaInicialCompleta && posicionInicialPendiente && visibles.isNotEmpty())
+        {
+            desplazarAlUltimoMensaje(listaEstado, visibles.size)
+            posicionInicialPendiente = false
+        }
+    }
     val tecladoVisible = WindowInsets.isImeVisible
     LaunchedEffect(tecladoVisible) {
-        if (tecladoVisible && mensajes.isNotEmpty())
+        if (tecladoVisible && visibles.isNotEmpty())
         {
-            listaEstado.animateScrollToItem(mensajes.size)
+            listaEstado.animateScrollToItem(visibles.lastIndex)
             delay(260)
-            listaEstado.animateScrollToItem(mensajes.size)
+            listaEstado.animateScrollToItem(visibles.lastIndex)
         }
     }
     val tecleandoJob = remember { arrayOf<Job?>(null) }
@@ -748,10 +761,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
         {
             DrenadorOutbox.drenar(app, miId, Outbox.Tipo.GRUPO, grupoId, forzar = true)
         }
-        if (mensajes.isNotEmpty())
-        {
-            listaEstado.scrollToItem(maxOf(0, mensajes.size - 1))
-        }
+        cargaInicialCompleta = true
     }
 
     LaunchedEffect(grabando) {
@@ -791,7 +801,7 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
 
     LaunchedEffect(listaEstado) {
         snapshotFlow { listaEstado.firstVisibleItemIndex }.collect { indice ->
-            if (indice <= 1 && hayMas && !masCargando && mensajes.isNotEmpty())
+            if (!posicionInicialPendiente && cargaInicialCompleta && indice <= 1 && hayMas && !masCargando && mensajes.isNotEmpty())
             {
                 masCargando = true
                 runCatching {
@@ -1061,8 +1071,10 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 6.dp)
+                .panelVidrio(radio = 12.dp, fuerte = true, desenfocar = true)
                 .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { alNavegar("grupo-info/$grupoId") }
-                .padding(horizontal = 16.dp, vertical = 10.dp),
+                .padding(horizontal = 10.dp, vertical = 7.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         )
@@ -1110,7 +1122,6 @@ fun PantallaChatGrupo(app: AplicacionVixxer, grupoId: String, nombreInicial: Str
             }
         }
 
-        val visibles = if (ocultos.isEmpty()) mensajes else mensajes.filter { !ocultos.contains(it.id) }
         val porId = remember(mensajes) { mensajes.associateBy { it.id } }
         LazyColumn(
             state = listaEstado,

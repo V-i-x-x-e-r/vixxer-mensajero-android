@@ -234,6 +234,8 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
     val enfoque = androidx.compose.ui.platform.LocalFocusManager.current
     val envioMedia = remember { EnvioMedia(app, contexto) }
     val listaEstado = rememberLazyListState()
+    var cargaInicialCompleta by remember(otroId) { mutableStateOf(false) }
+    var posicionInicialPendiente by remember(otroId) { mutableStateOf(true) }
     val escribiendoJob = remember { arrayOf<Job?>(null) }
     val apagarEscribiendo = remember { arrayOf<Job?>(null) }
     val purgados = remember { HashSet<String>() }
@@ -249,6 +251,15 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
         if (ocultos.isEmpty()) mensajes else mensajes.filter { !ocultos.contains(it.id) }
     }
     val mensajesPorId = remember(mensajes) { mensajes.associateBy { it.id } }
+
+    LaunchedEffect(cargaInicialCompleta, visibles.size, posicionInicialPendiente)
+    {
+        if (cargaInicialCompleta && posicionInicialPendiente && visibles.isNotEmpty())
+        {
+            desplazarAlUltimoMensaje(listaEstado, visibles.size)
+            posicionInicialPendiente = false
+        }
+    }
     val coincidencias = remember(visibles, consulta, buscando) {
         val q = consulta.trim().lowercase()
         if (buscando && q.isNotEmpty())
@@ -274,9 +285,9 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
     LaunchedEffect(tecladoVisible) {
         if (tecladoVisible && !buscando && visibles.isNotEmpty())
         {
-            listaEstado.animateScrollToItem(visibles.size)
+            listaEstado.animateScrollToItem(visibles.lastIndex)
             delay(260)
-            listaEstado.animateScrollToItem(visibles.size)
+            listaEstado.animateScrollToItem(visibles.lastIndex)
         }
     }
 
@@ -1009,10 +1020,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
             runCatching { presencia = app.api.presencia(otroId) as? JSONObject }
         }
         sincronizar()
-        if (mensajes.isNotEmpty())
-        {
-            listaEstado.scrollToItem(maxOf(0, mensajes.size - 1))
-        }
+        cargaInicialCompleta = true
     }
 
     LaunchedEffect(otroId) {
@@ -1284,7 +1292,7 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
             {
                 nuevosAbajo = 0
             }
-            if (indice <= 1 && hayMas && !masCargando && mensajes.isNotEmpty() && !buscando)
+            if (!posicionInicialPendiente && cargaInicialCompleta && indice <= 1 && hayMas && !masCargando && mensajes.isNotEmpty() && !buscando)
             {
                 masCargando = true
                 runCatching {
@@ -1418,7 +1426,11 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
             else
             {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                        .panelVidrio(radio = 12.dp, fuerte = true, desenfocar = true)
+                        .padding(horizontal = 10.dp, vertical = 7.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 )

@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import dev.vixxer.mensajero.AplicacionVixxer
+import dev.vixxer.mensajero.nucleo.ErrorApi
 import dev.vixxer.mensajero.nucleo.Medios
 import dev.vixxer.mensajero.nucleo.RedMedia
 import java.io.ByteArrayOutputStream
@@ -483,6 +484,27 @@ fun comprimirImagen(contexto: Context, uri: Uri): ImagenLista?
     {
         mapa?.takeIf { !it.isRecycled }?.recycle()
     }
+}
+
+fun comprimirAvatar(contexto: Context, uri: Uri): ImagenLista?
+{
+    val original = comprimirImagen(contexto, uri) ?: return null
+    return miniaturaDe(
+        imagen = original,
+        ladoMax = 720,
+        topeBytes = 700 * 1024,
+    )
+}
+
+internal fun mensajeErrorAvatar(error: Throwable?): String = when (error)
+{
+    is ErrorApi -> when (error.status)
+    {
+        0 -> "No hay conexión para actualizar la foto."
+        413 -> "La imagen elegida es demasiado grande."
+        else -> error.message ?: "No pudimos actualizar la foto."
+    }
+    else -> "No pudimos procesar la imagen elegida."
 }
 
 @Composable

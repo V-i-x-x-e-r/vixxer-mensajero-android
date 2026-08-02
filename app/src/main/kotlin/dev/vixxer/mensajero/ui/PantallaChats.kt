@@ -426,8 +426,8 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
                 .fillMaxSize()
                 .statusBarsPadding()
                 .padding(horizontal = 20.dp)
-                .padding(top = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(top = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         )
         {
             val seleccionado = sel
@@ -582,12 +582,12 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
                                         alPulsar = { if (sel != null) sel = item.id else alAbrirChat(item) },
                                     )
                                     .background(if (elegido) colores.surface else Color.Transparent, RoundedCornerShape(12.dp))
-                                    .padding(vertical = 12.dp, horizontal = 10.dp),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    .padding(vertical = 8.dp, horizontal = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             )
                             {
-                                Avatar(nombre = nombre, uri = item.avatarUrl.ifEmpty { null }, tamano = 44.dp)
+                                Avatar(nombre = nombre, uri = item.avatarUrl.ifEmpty { null }, tamano = 40.dp)
                                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                                         if (fijado)
@@ -652,7 +652,7 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
                                     }
                                 }
                             }
-                            Box(modifier = Modifier.fillMaxWidth().padding(start = 66.dp).height(1.dp).background(colores.borde))
+                            Box(modifier = Modifier.fillMaxWidth().padding(start = 58.dp).height(1.dp).background(colores.borde))
                         }
                     }
                     item {

@@ -99,8 +99,8 @@ fun PantallaAmigos(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCh
             .fondoVixxer()
             .statusBarsPadding()
             .padding(horizontal = 20.dp)
-            .padding(top = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+            .padding(top = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     )
     {
         val seleccionado = sel
@@ -214,15 +214,15 @@ fun PantallaAmigos(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCh
                                     alMantener = { sel = item.id },
                                     alPulsar = { if (sel != null) sel = item.id else alAbrirChat(item) },
                                 )
-                                .padding(vertical = 12.dp, horizontal = 10.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                .padding(vertical = 8.dp, horizontal = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         )
                         {
-                            Avatar(nombre = item.usuario, uri = item.avatarUrl.ifEmpty { null }, tamano = 44.dp)
+                            Avatar(nombre = item.usuario, uri = item.avatarUrl.ifEmpty { null }, tamano = 40.dp)
                             Text(item.usuario, fontSize = 16.sp, color = colores.texto, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
-                        Box(modifier = Modifier.fillMaxWidth().padding(start = 66.dp).height(1.dp).background(colores.borde))
+                        Box(modifier = Modifier.fillMaxWidth().padding(start = 58.dp).height(1.dp).background(colores.borde))
                     }
                 }
                 item {
