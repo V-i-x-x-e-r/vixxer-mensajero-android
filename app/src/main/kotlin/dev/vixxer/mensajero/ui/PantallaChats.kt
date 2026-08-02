@@ -555,6 +555,7 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
                     estado = estadoConexion,
                     conectado = conectado,
                     alAbrirAjustes = { alNavegar("ajustes") },
+                    porBluetooth = dev.vixxer.mensajero.ble.GestorCercania.let { it.corriendo || it.modoGuardado(app) },
                 )
             }
 
@@ -577,7 +578,7 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
                             alCambiar = { busqueda = it },
                             modifier = Modifier.weight(1f),
                         )
-                        SelectorTransporte(app)
+                        SelectorTransporte(app, alAbrirRadar = { alNavegar("cercania") })
                     }
                 }
             }

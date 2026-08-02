@@ -58,7 +58,7 @@ fun CabeceraPrincipal(
             BotonCircularPrimario(
                 descripcion = descripcionAccion,
                 alPulsar = alPulsarAccion,
-                tamano = 42.dp,
+                tamano = 36.dp,
             )
             {
                 iconoAccion(colores.botonTexto)
@@ -69,7 +69,7 @@ fun CabeceraPrincipal(
             BotonCircularVidrio(
                 descripcion = descripcionAccion,
                 alPulsar = alPulsarAccion,
-                tamano = 42.dp,
+                tamano = 36.dp,
             )
             {
                 iconoAccion(colores.texto)
@@ -83,6 +83,7 @@ fun CabeceraMensajero(
     estado: String,
     conectado: Boolean,
     alAbrirAjustes: () -> Unit,
+    porBluetooth: Boolean = false,
 )
 {
     val colores = LocalTema.current.colores
@@ -116,12 +117,16 @@ fun CabeceraMensajero(
             {
                 EstadoConexion(conectado)
                 Text(estado, fontSize = 11.sp, color = colores.muted)
+                if (porBluetooth)
+                {
+                    RunaBluetooth(color = colores.muted, tamano = 11.dp)
+                }
             }
         }
         BotonCircularVidrio(
             descripcion = "Abrir ajustes",
             alPulsar = alAbrirAjustes,
-            tamano = 42.dp,
+            tamano = 36.dp,
         )
         {
             Engrane(color = colores.texto)

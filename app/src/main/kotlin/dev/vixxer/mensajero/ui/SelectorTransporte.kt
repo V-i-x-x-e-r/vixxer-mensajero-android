@@ -24,7 +24,11 @@ import dev.vixxer.mensajero.AplicacionVixxer
 import dev.vixxer.mensajero.ble.GestorCercania
 
 @Composable
-fun SelectorTransporte(app: AplicacionVixxer, modifier: Modifier = Modifier)
+fun SelectorTransporte(
+    app: AplicacionVixxer,
+    modifier: Modifier = Modifier,
+    alAbrirRadar: () -> Unit = {},
+)
 {
     val contexto = LocalContext.current
     val gestor = GestorCercania
@@ -46,7 +50,7 @@ fun SelectorTransporte(app: AplicacionVixxer, modifier: Modifier = Modifier)
     }
     val transporte = if (gestor.corriendo || gestor.modoGuardado(app)) "bluetooth" else "red"
 
-    SelectorTransporteUi(transporte, modifier) { clave ->
+    SelectorTransporteUi(transporte, modifier, alMantenerBluetooth = alAbrirRadar) { clave ->
         when (clave)
         {
             "red" -> gestor.activar(app, contexto, false)
@@ -78,6 +82,7 @@ fun SelectorTransporte(app: AplicacionVixxer, modifier: Modifier = Modifier)
 fun SelectorTransporteUi(
     transporte: String,
     modifier: Modifier = Modifier,
+    alMantenerBluetooth: () -> Unit = {},
     alElegir: (String) -> Unit,
 )
 {
@@ -105,9 +110,16 @@ fun SelectorTransporteUi(
                 disponible -> colores.texto
                 else -> colores.muted
             }
+            val gesto = if (clave == "bluetooth")
+            {
+                Modifier.pulsableLargo(alMantener = alMantenerBluetooth, alPulsar = { alElegir(clave) })
+            }
+            else
+            {
+                Modifier.pulsable { alElegir(clave) }
+            }
             Box(
-                modifier = Modifier
-                    .pulsable { alElegir(clave) }
+                modifier = gesto
                     .semantics
                     {
                         contentDescription = descripcion
