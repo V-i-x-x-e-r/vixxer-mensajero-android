@@ -16,6 +16,19 @@ class MeshCercaniaTest
     }
 
     @Test
+    fun elSobreCuentaLosSaltosAlReenviarse()
+    {
+        val vistos = Vistos()
+        val sobre = MeshCercania.crearSobre("u-ana", "u-beto", "c", "n")
+
+        val reenviado = MeshCercania.procesar(sobre, "u-carla", vistos).sobre
+        val vuelto = MeshCercania.deJson(MeshCercania.aJson(reenviado!!))
+
+        assertEquals(1, vuelto?.saltos)
+        assertEquals(MeshCercania.TTL_MAXIMO - 1, vuelto?.ttl)
+    }
+
+    @Test
     fun elSobreConservaLaRespuestaAlIrYVolverDeJson()
     {
         val respuesta = "550e8400-e29b-41d4-a716-446655440000"
@@ -73,6 +86,7 @@ class MeshCercaniaTest
     {
         val crudo = """{"id":"a-1","remitenteId":"u-ana","destinatarioId":"u-beto","contenidoCifrado":"c","nonce":"n","ttl":3}"""
         assertEquals(MeshCercania.TIPO_DIRECTO, MeshCercania.deJson(crudo)?.tipo)
+        assertEquals(0, MeshCercania.deJson(crudo)?.saltos)
     }
 
     @Test

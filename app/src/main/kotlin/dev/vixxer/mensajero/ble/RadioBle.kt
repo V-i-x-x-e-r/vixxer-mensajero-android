@@ -32,6 +32,13 @@ import java.util.concurrent.TimeUnit
 
 data class Cercano(val id: String, val nombre: String, val rssi: Int, val token: String? = null, val caps: Int = 0)
 
+data class ResultadoRadio(
+    val exito: Boolean,
+    val enlace: String,
+    val reintentos: Int,
+    val duracionMs: Long,
+)
+
 @SuppressLint("MissingPermission")
 class RadioBle(private val contexto: Context)
 {
@@ -219,19 +226,21 @@ class RadioBle(private val contexto: Context)
         escaner = null
     }
 
-    fun conectarYEnviar(direccion: String, texto: String): Boolean
+    fun conectarYEnviar(direccion: String, texto: String): ResultadoRadio
     {
-        val gestorBt = gestor ?: return false
-        val adaptador = gestorBt.adapter ?: return false
+        val inicio = System.nanoTime()
+        val gestorBt = gestor ?: return resultadoRadio(false, "ble", 0, inicio)
+        val adaptador = gestorBt.adapter ?: return resultadoRadio(false, "ble", 0, inicio)
         val dispositivo = try
         {
             adaptador.getRemoteDevice(direccion)
         }
         catch (_: Exception)
         {
-            return false
+            return resultadoRadio(false, "ble", 0, inicio)
         }
         val bytes = (texto + "\n").toByteArray(Charsets.UTF_8)
+        var reintentos = 0
         if (bytes.size > umbralL2cap && android.os.Build.VERSION.SDK_INT >= 29)
         {
             val psm = psmCacheado(direccion)
@@ -239,17 +248,26 @@ class RadioBle(private val contexto: Context)
             {
                 if (enviarPorL2cap(dispositivo, psm, bytes))
                 {
-                    return true
+                    return resultadoRadio(true, "l2cap", reintentos, inicio)
                 }
                 olvidarCaps(direccion)
+                reintentos += 1
             }
         }
         val (ok, reintentar) = correrSesion(dispositivo, bytes, forzarGatt = false)
         if (ok || !reintentar)
         {
-            return ok
+            return resultadoRadio(ok, "gatt", reintentos, inicio)
         }
-        return correrSesion(dispositivo, bytes, forzarGatt = true).first
+        reintentos += 1
+        val segundo = correrSesion(dispositivo, bytes, forzarGatt = true).first
+        return resultadoRadio(segundo, "gatt", reintentos, inicio)
+    }
+
+    private fun resultadoRadio(exito: Boolean, enlace: String, reintentos: Int, inicio: Long): ResultadoRadio
+    {
+        val duracion = (System.nanoTime() - inicio).coerceAtLeast(0L) / 1_000_000L
+        return ResultadoRadio(exito, enlace, reintentos, duracion)
     }
 
     private fun correrSesion(dispositivo: BluetoothDevice, bytes: ByteArray, forzarGatt: Boolean): Pair<Boolean, Boolean>

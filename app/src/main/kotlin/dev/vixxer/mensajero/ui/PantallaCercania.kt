@@ -38,6 +38,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,7 +62,10 @@ import dev.vixxer.mensajero.nucleo.ConexionSocket
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private val AZUL = Color(0xFF38BDF8)
 private val VERDE = Color(0xFF22C55E)
@@ -108,11 +112,13 @@ fun PantallaCercania(app: AplicacionVixxer, alVolver: () -> Unit)
 {
     val colores = LocalTema.current.colores
     val contexto = LocalContext.current
+    val alcance = rememberCoroutineScope()
     val corriendo = GestorCercania.corriendo
     val peers = GestorCercania.peers
     val soportado = remember { GestorCercania.cercaniaSoportada(contexto) }
     var stats by remember { mutableStateOf(EstadisticasMesh()) }
     var enLinea by remember { mutableStateOf(ConexionSocket.obtener()?.connected() == true) }
+    var diagnostico by remember { mutableStateOf(EstadoDiagnosticoCampo.vacio()) }
     var mensaje by remember { mutableStateOf("") }
     var ofrecerAjustes by remember { mutableStateOf(false) }
 
@@ -162,11 +168,51 @@ fun PantallaCercania(app: AplicacionVixxer, alVolver: () -> Unit)
         encender()
     }
 
-    LaunchedEffect(Unit) {
+    fun exportarDiagnostico()
+    {
+        alcance.launch {
+            val resultado = withContext(Dispatchers.IO)
+            {
+                runCatching {
+                    val actual = leerDiagnosticoCampo(app)
+                    Pair(actual, crearArchivoDiagnostico(contexto, app, actual))
+                }
+            }
+            resultado.onSuccess { exportado ->
+                diagnostico = exportado.first
+                compartirDiagnostico(contexto, exportado.second)
+            }
+            resultado.onFailure {
+                android.widget.Toast.makeText(
+                    contexto,
+                    "No se pudo exportar el diagnóstico.",
+                    android.widget.Toast.LENGTH_SHORT,
+                ).show()
+            }
+        }
+    }
+
+    fun limpiarDiagnostico()
+    {
+        alcance.launch {
+            diagnostico = withContext(Dispatchers.IO)
+            {
+                app.diagnosticoMesh.limpiar()
+                leerDiagnosticoCampo(app)
+            }
+        }
+    }
+
+    LaunchedEffect(Unit)
+    {
         while (true)
         {
             enLinea = ConexionSocket.obtener()?.connected() == true
             stats = if (GestorCercania.corriendo) GestorCercania.mensajeria(app).estadisticas() else EstadisticasMesh()
+            diagnostico = withContext(Dispatchers.IO)
+            {
+                leerDiagnosticoCampo(app)
+            }
             delay(2000)
         }
     }
@@ -262,6 +308,11 @@ fun PantallaCercania(app: AplicacionVixxer, alVolver: () -> Unit)
 
         PanelSalida(salida, stats.ultimaRuta, colores)
         FilaStats(stats, colores)
+        PanelDiagnosticoCampo(
+            estado = diagnostico,
+            alCompartir = { exportarDiagnostico() },
+            alLimpiar = { limpiarDiagnostico() },
+        )
         if (peers.isNotEmpty())
         {
             ListaPeers(peers, colores)

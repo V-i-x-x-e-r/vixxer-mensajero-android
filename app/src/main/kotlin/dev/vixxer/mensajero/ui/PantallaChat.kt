@@ -73,6 +73,7 @@ import dev.vixxer.mensajero.llamadas.GestorLlamadas
 import dev.vixxer.mensajero.nucleo.ClavesSeguras
 import dev.vixxer.mensajero.nucleo.ConexionSocket
 import dev.vixxer.mensajero.nucleo.Cripto
+import dev.vixxer.mensajero.nucleo.DiagnosticoMesh
 import dev.vixxer.mensajero.nucleo.Efimero
 import dev.vixxer.mensajero.nucleo.EnvioDirecto
 import dev.vixxer.mensajero.nucleo.Fechas
@@ -582,7 +583,21 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
             val caja = runCatching {
                 Cripto.cifrar(bytes, nonce, Cripto.deBase64(publica), Cripto.deBase64(privada))
             }.getOrNull() ?: return@withContext null
-            val sesion = dev.vixxer.mensajero.ble.RadioWifi.servir(contexto, caja) ?: return@withContext null
+            val id = IdMensaje.nuevo()
+            val inicioWifi = System.nanoTime()
+            registrarWifi(app, id, DiagnosticoMesh.Etapa.INTENTO)
+            val sesion = dev.vixxer.mensajero.ble.RadioWifi.servir(contexto, caja)
+            if (sesion == null)
+            {
+                registrarWifi(
+                    app,
+                    id,
+                    DiagnosticoMesh.Etapa.ERROR,
+                    inicioWifi,
+                    DiagnosticoMesh.CodigoError.WIFI,
+                )
+                return@withContext null
+            }
             val control = JSONObject()
                 .put("t", "cercania-wifi")
                 .put("ssid", sesion.ssid)
@@ -595,9 +610,15 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
             val sellado = runCatching { Cripto.cifrarTexto(control, publica, privada) }.getOrNull()
                 ?: run {
                     sesion.cerrar()
+                    registrarWifi(
+                        app,
+                        id,
+                        DiagnosticoMesh.Etapa.ERROR,
+                        inicioWifi,
+                        DiagnosticoMesh.CodigoError.PREPARACION,
+                    )
                     return@withContext null
                 }
-            val id = IdMensaje.nuevo()
             val resultado = GestorCercania.mensajeria(app).enviarDirectoA(
                 GestorCercania.macsDeAmigo(otroId),
                 otroId,
@@ -608,9 +629,24 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
             if (resultado.entregados == 0)
             {
                 sesion.cerrar()
+                registrarWifi(
+                    app,
+                    id,
+                    DiagnosticoMesh.Etapa.ERROR,
+                    inicioWifi,
+                    DiagnosticoMesh.CodigoError.WIFI,
+                )
                 return@withContext null
             }
-            if (sesion.esperarEntrega(90)) Pair(id, plano) else null
+            val entregado = sesion.esperarEntrega(90)
+            registrarWifi(
+                app,
+                id,
+                if (entregado) DiagnosticoMesh.Etapa.ENVIADO else DiagnosticoMesh.Etapa.ERROR,
+                inicioWifi,
+                if (entregado) null else DiagnosticoMesh.CodigoError.WIFI,
+            )
+            if (entregado) Pair(id, plano) else null
         }
         if (entregadoId == null)
         {
@@ -2109,6 +2145,27 @@ fun PantallaChat(app: AplicacionVixxer, amigo: Amigo, alNavegar: (String) -> Uni
             alCancelar = { confirmarKebab = null },
         )
     }
+}
+
+private fun registrarWifi(
+    app: AplicacionVixxer,
+    mensajeId: String,
+    etapa: DiagnosticoMesh.Etapa,
+    inicio: Long? = null,
+    error: DiagnosticoMesh.CodigoError? = null,
+)
+{
+    app.diagnosticoMesh.registrar(
+        mensajeId = mensajeId,
+        etapa = etapa,
+        transporte = DiagnosticoMesh.Transporte.WIFI,
+        enlace = "wifi_direct",
+        duracionMs = inicio?.let {
+            (System.nanoTime() - it).coerceAtLeast(0L) / 1_000_000L
+        },
+        intento = if (etapa == DiagnosticoMesh.Etapa.INTENTO) 1 else null,
+        error = error,
+    )
 }
 
 @Composable

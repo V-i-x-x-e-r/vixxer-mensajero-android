@@ -4,6 +4,7 @@ import dev.vixxer.mensajero.ble.GestorCercania
 import dev.vixxer.mensajero.nucleo.ClavesSeguras
 import dev.vixxer.mensajero.nucleo.ConexionSocket
 import dev.vixxer.mensajero.nucleo.Cripto
+import dev.vixxer.mensajero.nucleo.DiagnosticoMesh
 import dev.vixxer.mensajero.nucleo.EnvioDirecto
 import dev.vixxer.mensajero.nucleo.ErrorApi
 import dev.vixxer.mensajero.nucleo.EnviosEnVuelo
@@ -79,12 +80,16 @@ object DrenadorOutbox
         {
             return
         }
+        val transporte = transporteActual()
+        val intento = pendiente.datos.optInt("intentos") + 1
+        val inicio = System.nanoTime()
         try
         {
             if (!withContext(Dispatchers.IO) { app.contieneOutbox(cuentaId, pendiente) })
             {
                 return
             }
+            registrarIntento(app, pendiente, transporte, intento)
             val (idServidor, porCercania) = when (pendiente.tipo)
             {
                 Outbox.Tipo.DIRECTO -> enviarDirecto(app, cuentaId, pendiente)
@@ -97,6 +102,16 @@ object DrenadorOutbox
             {
                 return
             }
+            registrarResultado(
+                app,
+                cuentaId,
+                pendiente,
+                transporte,
+                idServidor,
+                porCercania,
+                intento,
+                inicio,
+            )
             avisar(resultado(cuentaId, pendiente, idServidor, porCercania))
         }
         catch (cancelacion: CancellationException)
@@ -106,6 +121,7 @@ object DrenadorOutbox
         catch (_: Exception)
         {
             registrarFallo(app, cuentaId, pendiente)
+            registrarExcepcion(app, cuentaId, pendiente, transporte, intento, inicio)
         }
         finally
         {
@@ -379,6 +395,104 @@ object DrenadorOutbox
             avisar(resultado(cuentaId, pendiente, idServidor = null))
         }
     }
+
+    private fun transporteActual(): DiagnosticoMesh.Transporte
+    {
+        val socket = ConexionSocket.obtener()
+        if (socket != null && socket.connected())
+        {
+            return DiagnosticoMesh.Transporte.SERVIDOR
+        }
+        if (GestorCercania.corriendo)
+        {
+            return DiagnosticoMesh.Transporte.BLE
+        }
+        return DiagnosticoMesh.Transporte.SIN_RUTA
+    }
+
+    private suspend fun registrarIntento(
+        app: AplicacionVixxer,
+        pendiente: Outbox.Pendiente,
+        transporte: DiagnosticoMesh.Transporte,
+        intento: Int,
+    )
+    {
+        withContext(Dispatchers.IO)
+        {
+            app.diagnosticoMesh.registrar(
+                mensajeId = pendiente.clienteId,
+                etapa = DiagnosticoMesh.Etapa.INTENTO,
+                transporte = transporte,
+                intento = intento,
+            )
+        }
+    }
+
+    private suspend fun registrarResultado(
+        app: AplicacionVixxer,
+        cuentaId: String,
+        pendiente: Outbox.Pendiente,
+        transporte: DiagnosticoMesh.Transporte,
+        idServidor: String?,
+        porCercania: Boolean,
+        intento: Int,
+        inicio: Long,
+    )
+    {
+        withContext(Dispatchers.IO)
+        {
+            val cola = app.leerOutbox(cuentaId).size
+            val etapa = when
+            {
+                idServidor != null -> DiagnosticoMesh.Etapa.ENVIADO
+                transporte == DiagnosticoMesh.Transporte.BLE -> DiagnosticoMesh.Etapa.ENCOLADO
+                else -> DiagnosticoMesh.Etapa.ERROR
+            }
+            val error = when
+            {
+                idServidor != null || porCercania -> null
+                transporte == DiagnosticoMesh.Transporte.SERVIDOR -> DiagnosticoMesh.CodigoError.SIN_ACUSE
+                transporte == DiagnosticoMesh.Transporte.BLE -> DiagnosticoMesh.CodigoError.SIN_VECINO
+                transporte == DiagnosticoMesh.Transporte.SIN_RUTA -> DiagnosticoMesh.CodigoError.SIN_RUTA
+                else -> null
+            }
+            app.diagnosticoMesh.registrar(
+                mensajeId = pendiente.clienteId,
+                etapa = etapa,
+                transporte = transporte,
+                duracionMs = duracionDesde(inicio),
+                intento = intento,
+                cola = cola,
+                error = error,
+            )
+        }
+    }
+
+    private suspend fun registrarExcepcion(
+        app: AplicacionVixxer,
+        cuentaId: String,
+        pendiente: Outbox.Pendiente,
+        transporte: DiagnosticoMesh.Transporte,
+        intento: Int,
+        inicio: Long,
+    )
+    {
+        withContext(Dispatchers.IO)
+        {
+            app.diagnosticoMesh.registrar(
+                mensajeId = pendiente.clienteId,
+                etapa = DiagnosticoMesh.Etapa.ERROR,
+                transporte = transporte,
+                duracionMs = duracionDesde(inicio),
+                intento = intento,
+                cola = app.leerOutbox(cuentaId).size,
+                error = DiagnosticoMesh.CodigoError.PREPARACION,
+            )
+        }
+    }
+
+    private fun duracionDesde(inicio: Long): Long =
+        (System.nanoTime() - inicio).coerceAtLeast(0L) / 1_000_000L
 
     private fun resultado(
         cuentaId: String,

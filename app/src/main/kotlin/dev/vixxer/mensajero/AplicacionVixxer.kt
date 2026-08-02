@@ -10,6 +10,7 @@ import dev.vixxer.mensajero.nucleo.ClavesSeguras
 import dev.vixxer.mensajero.nucleo.ClienteApi
 import dev.vixxer.mensajero.nucleo.ConexionSocket
 import dev.vixxer.mensajero.nucleo.Cripto
+import dev.vixxer.mensajero.nucleo.DiagnosticoMesh
 import dev.vixxer.mensajero.nucleo.EstadosChat
 import dev.vixxer.mensajero.nucleo.Firma
 import dev.vixxer.mensajero.nucleo.Identidad
@@ -40,6 +41,8 @@ class AplicacionVixxer : Application()
     lateinit var aliasLocal: Alias
         private set
     lateinit var outbox: Outbox
+        private set
+    lateinit var diagnosticoMesh: DiagnosticoMesh
         private set
     var alExpirarSesion: () -> Unit = {}
     private lateinit var bovedaBase: BovedaSegura
@@ -78,6 +81,7 @@ class AplicacionVixxer : Application()
         borradores = Borradores(estado)
         aliasLocal = Alias(estado)
         outbox = Outbox(boveda)
+        diagnosticoMesh = DiagnosticoMesh(estado)
         if (cuentaId != null)
         {
             migrarOutbox()
