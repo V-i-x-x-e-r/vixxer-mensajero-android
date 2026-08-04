@@ -39,14 +39,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -139,49 +135,13 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
     var tecleando by remember { mutableStateOf(mapOf<String, Boolean>()) }
     var borrando by remember { mutableStateOf(false) }
     var busqueda by remember { mutableStateOf("") }
-    var buscadorVisible by remember { mutableStateOf(false) }
     var alias by remember { mutableStateOf(mapOf<String, String>()) }
     val focos = LocalFocusManager.current
-    val conexionBusqueda = remember {
-        object : NestedScrollConnection
-        {
-            var revelando = false
-
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset
-            {
-                if (available.y < -6f && buscadorVisible && busqueda.isEmpty())
-                {
-                    buscadorVisible = false
-                    focos.clearFocus()
-                }
-                return Offset.Zero
-            }
-
-            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset
-            {
-                if (source != NestedScrollSource.UserInput || available.y <= 0f)
-                {
-                    return Offset.Zero
-                }
-                if (!buscadorVisible && sel == null && amigos.isNotEmpty() && available.y > 6f)
-                {
-                    buscadorVisible = true
-                    revelando = true
-                }
-                if (revelando)
-                {
-                    return Offset(0f, available.y)
-                }
-                return Offset.Zero
-            }
-
-            override suspend fun onPreFling(available: Velocity): Velocity
-            {
-                revelando = false
-                return Velocity.Zero
-            }
-        }
-    }
+    val revelado = recordarReveladoAlJalar(
+        puedeRevelar = { sel == null && amigos.isNotEmpty() },
+        puedeOcultar = { busqueda.isEmpty() },
+        alOcultar = { focos.clearFocus() },
+    )
     val trabajosTecleo = remember { HashMap<String, Job>() }
     val recarga = remember { arrayOf<Job?>(null) }
     var socketActivo by remember { mutableStateOf(ConexionSocket.obtener()) }
@@ -562,7 +522,7 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
             if (amigos.isNotEmpty() && sel == null)
             {
                 AnimatedVisibility(
-                    visible = buscadorVisible,
+                    visible = revelado.visible,
                     enter = expandVertically() + fadeIn(),
                     exit = shrinkVertically() + fadeOut(),
                 )
@@ -600,7 +560,7 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
-                        .nestedScroll(conexionBusqueda),
+                        .nestedScroll(revelado.conexion),
                 ) {
                     if (!verArchivados && sel == null && busqueda.isEmpty() && numArchivados > 0)
                     {
