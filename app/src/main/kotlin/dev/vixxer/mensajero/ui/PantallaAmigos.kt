@@ -1,5 +1,10 @@
 package dev.vixxer.mensajero.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,6 +32,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -50,6 +56,14 @@ fun PantallaAmigos(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCh
     var pendientes by remember { mutableStateOf(0) }
     var sel by remember { mutableStateOf<String?>(null) }
     var confirmar by remember { mutableStateOf(false) }
+    val revelado = recordarReveladoAlJalar(puedeRevelar = { sel == null })
+
+    LaunchedEffect(pendientes) {
+        if (pendientes > 0)
+        {
+            revelado.visible = true
+        }
+    }
 
     suspend fun cargar()
     {
@@ -101,7 +115,6 @@ fun PantallaAmigos(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCh
             .statusBarsPadding()
             .padding(horizontal = 20.dp)
             .padding(top = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
     )
     {
         val seleccionado = sel
@@ -143,6 +156,50 @@ fun PantallaAmigos(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCh
             }
         }
 
+        AnimatedVisibility(
+            visible = revelado.visible,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut(),
+        )
+        {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 10.dp)
+                    .pildoraVidrio()
+                    .padding(horizontal = 4.dp, vertical = 3.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            )
+            {
+                AccionAmigos("Agregar por código", { PersonaMas(it) }, colores, Modifier.weight(1f)) { alNavegar("agregar") }
+                Box(
+                    modifier = Modifier
+                        .width(1.dp)
+                        .height(26.dp)
+                        .background(colores.borde),
+                )
+                Box(modifier = Modifier.weight(1f)) {
+                    AccionAmigos("Solicitudes", { Campana(it) }, colores, Modifier.fillMaxWidth()) { alNavegar("solicitudes") }
+                    if (pendientes > 0)
+                    {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(top = 8.dp, end = 10.dp)
+                                .defaultMinSize(minWidth = 18.dp)
+                                .height(18.dp)
+                                .background(colores.error, CircleShape)
+                                .padding(horizontal = 5.dp),
+                            contentAlignment = Alignment.Center,
+                        )
+                        {
+                            Text("$pendientes", fontSize = 11.sp, color = androidx.compose.ui.graphics.Color.White, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
+        }
+
         PullToRefreshBox(
             isRefreshing = refrescando,
             onRefresh = {
@@ -152,54 +209,22 @@ fun PantallaAmigos(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCh
                     refrescando = false
                 }
             },
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).padding(top = 10.dp),
         )
         {
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .nestedScroll(revelado.conexion),
+            ) {
                 item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 4.dp)
-                            .pildoraVidrio()
-                            .padding(horizontal = 4.dp, vertical = 3.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    )
-                    {
-                        AccionAmigos("Agregar por código", { PersonaMas(it) }, colores, Modifier.weight(1f)) { alNavegar("agregar") }
-                        Box(
-                            modifier = Modifier
-                                .width(1.dp)
-                                .height(26.dp)
-                                .background(colores.borde),
-                        )
-                        Box(modifier = Modifier.weight(1f)) {
-                            AccionAmigos("Solicitudes", { Campana(it) }, colores, Modifier.fillMaxWidth()) { alNavegar("solicitudes") }
-                            if (pendientes > 0)
-                            {
-                                Box(
-                                    modifier = Modifier
-                                        .align(Alignment.TopEnd)
-                                        .padding(top = 8.dp, end = 10.dp)
-                                        .defaultMinSize(minWidth = 18.dp)
-                                        .height(18.dp)
-                                        .background(colores.error, CircleShape)
-                                        .padding(horizontal = 5.dp),
-                                    contentAlignment = Alignment.Center,
-                                )
-                                {
-                                    Text("$pendientes", fontSize = 11.sp, color = androidx.compose.ui.graphics.Color.White, fontWeight = FontWeight.SemiBold)
-                                }
-                            }
-                        }
-                    }
                     Text(
                         "TUS CONTACTOS",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         letterSpacing = 1.sp,
                         color = colores.muted,
-                        modifier = Modifier.padding(top = 16.dp, bottom = 4.dp),
+                        modifier = Modifier.padding(bottom = 4.dp),
                     )
                 }
                 if (lista.isEmpty())
