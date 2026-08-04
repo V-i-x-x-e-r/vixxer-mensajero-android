@@ -58,20 +58,20 @@ private fun aparienciaVidrio(capa: CapaVidrio): AparienciaVidrio
     {
         when (capa)
         {
-            CapaVidrio.PANEL -> Vidrio.solidoPanel.copy(alpha = 0.74f)
-            CapaVidrio.FUERTE -> Vidrio.solidoFuerte.copy(alpha = 0.84f)
-            CapaVidrio.PILDORA -> Vidrio.solidoOsd.copy(alpha = 0.80f)
-            CapaVidrio.FLOTANTE -> Vidrio.solidoFuerte.copy(alpha = 0.90f)
+            CapaVidrio.PANEL -> Vidrio.solidoPanel
+            CapaVidrio.FUERTE -> Vidrio.solidoFuerte
+            CapaVidrio.PILDORA -> Vidrio.solidoOsd
+            CapaVidrio.FLOTANTE -> Vidrio.solidoFuerte
         }
     }
     else
     {
         when (capa)
         {
-            CapaVidrio.PANEL -> Color(0xFFFFFFFF).copy(alpha = 0.46f)
-            CapaVidrio.FUERTE -> Color(0xFFFFFFFF).copy(alpha = 0.58f)
-            CapaVidrio.PILDORA -> Color(0xFFFFFFFF).copy(alpha = 0.52f)
-            CapaVidrio.FLOTANTE -> Color(0xFFFBFCFD).copy(alpha = 0.90f)
+            CapaVidrio.PANEL -> Color(0xFFFCFDFE)
+            CapaVidrio.FUERTE -> Color(0xFFFFFFFF)
+            CapaVidrio.PILDORA -> Color(0xFFFDFEFF)
+            CapaVidrio.FLOTANTE -> Color(0xFFFFFFFF)
         }
     }
     val alphaTinte = when (capa)

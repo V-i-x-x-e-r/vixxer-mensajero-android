@@ -28,7 +28,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
@@ -41,11 +44,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import dev.vixxer.mensajero.AplicacionVixxer
 import dev.vixxer.mensajero.Config
 import dev.vixxer.mensajero.nucleo.ClavesSeguras
@@ -433,8 +439,12 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
         }
     }
 
+    var altoCabecera by remember { mutableStateOf(0.dp) }
+    val densidad = LocalDensity.current
+    val estadoJalon = rememberPullToRefreshState()
+
     Box(modifier = Modifier.fillMaxSize().fondoVixxer()) {
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
@@ -442,107 +452,6 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
                 .padding(top = 10.dp),
         )
         {
-            val seleccionado = sel
-            if (seleccionado != null)
-            {
-                Row(
-                    modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 28.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                )
-                {
-                    Text(
-                        "✕",
-                        fontSize = 22.sp,
-                        color = colores.texto,
-                        modifier = Modifier.pulsable { sel = null },
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.CenterVertically) {
-                        val esFavorito = estados.favoritos.contains(seleccionado)
-                        val esFijado = estados.fijados.contains(seleccionado)
-                        val esSilenciado = estados.silenciados.contains(seleccionado)
-                        val esArchivado = estados.archivados.contains(seleccionado)
-                        Box(modifier = Modifier.pulsable {
-                            accion { app.estadosChat.alternarFavorito(seleccionado) }
-                        }) {
-                            Estrella(color = if (esFavorito) DORADO else colores.muted, relleno = if (esFavorito) DORADO else null, tamano = 20.dp)
-                        }
-                        Box(modifier = Modifier.pulsable {
-                            accion { app.estadosChat.alternarFijado(seleccionado) }
-                        }) {
-                            Pin(color = if (esFijado) colores.texto else colores.muted)
-                        }
-                        Box(modifier = Modifier.pulsable {
-                            accion { app.estadosChat.alternarSilenciado(seleccionado) }
-                        }) {
-                            Silencio(color = if (esSilenciado) colores.texto else colores.muted)
-                        }
-                        Box(modifier = Modifier.pulsable {
-                            sel = null
-                            accion { app.estadosChat.alternarArchivado(seleccionado) }
-                        }) {
-                            Archivar(color = if (esArchivado) colores.texto else colores.muted)
-                        }
-                        Box(modifier = Modifier.pulsable { borrando = true }) {
-                            Bote(color = colores.error)
-                        }
-                    }
-                }
-            }
-            else if (verArchivados)
-            {
-                Row(
-                    modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 28.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                )
-                {
-                    Text(
-                        "‹",
-                        fontSize = 22.sp,
-                        color = colores.texto,
-                        modifier = Modifier.pulsable {
-                            verArchivados = false
-                            busqueda = ""
-                        },
-                    )
-                    Text("Archivados", fontSize = 18.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.SemiBold, color = colores.texto)
-                }
-            }
-            else
-            {
-                CabeceraMensajero(
-                    estado = estadoConexion,
-                    conectado = conectado,
-                    alAbrirAjustes = { alNavegar("ajustes") },
-                    porBluetooth = dev.vixxer.mensajero.ble.GestorCercania.let { it.corriendo || it.modoGuardado(app) },
-                )
-            }
-
-            if (amigos.isNotEmpty() && sel == null)
-            {
-                AnimatedVisibility(
-                    visible = revelado.visible,
-                    enter = expandVertically() + fadeIn(),
-                    exit = shrinkVertically() + fadeOut(),
-                )
-                {
-                    Row(
-                        modifier = Modifier.padding(top = 10.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    )
-                    {
-                        CampoBusqueda(
-                            valor = busqueda,
-                            alCambiar = { busqueda = it },
-                            modifier = Modifier.weight(1f),
-                        )
-                        SelectorTransporte(app, alAbrirRadar = { alNavegar("cercania") })
-                    }
-                }
-            }
-
             PullToRefreshBox(
                 isRefreshing = refrescando,
                 onRefresh = {
@@ -552,15 +461,22 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
                         refrescando = false
                     }
                 },
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(top = 10.dp),
+                state = estadoJalon,
+                indicator = {
+                    PullToRefreshDefaults.Indicator(
+                        state = estadoJalon,
+                        isRefreshing = refrescando,
+                        modifier = Modifier.align(Alignment.TopCenter).padding(top = altoCabecera),
+                    )
+                },
+                modifier = Modifier.fillMaxSize(),
             )
             {
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
                         .nestedScroll(revelado.conexion),
+                    contentPadding = PaddingValues(top = altoCabecera + 10.dp),
                 ) {
                     if (!verArchivados && sel == null && busqueda.isEmpty() && numArchivados > 0)
                     {
@@ -694,6 +610,115 @@ fun PantallaChats(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCha
                         Box(modifier = Modifier.height(90.dp))
                     }
                 }
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onGloballyPositioned { altoCabecera = with(densidad) { it.size.height.toDp() } }
+                    .zIndex(1f),
+            )
+            {
+            val seleccionado = sel
+            if (seleccionado != null)
+            {
+                Row(
+                    modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 28.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                )
+                {
+                    Text(
+                        "✕",
+                        fontSize = 22.sp,
+                        color = colores.texto,
+                        modifier = Modifier.pulsable { sel = null },
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.CenterVertically) {
+                        val esFavorito = estados.favoritos.contains(seleccionado)
+                        val esFijado = estados.fijados.contains(seleccionado)
+                        val esSilenciado = estados.silenciados.contains(seleccionado)
+                        val esArchivado = estados.archivados.contains(seleccionado)
+                        Box(modifier = Modifier.pulsable {
+                            accion { app.estadosChat.alternarFavorito(seleccionado) }
+                        }) {
+                            Estrella(color = if (esFavorito) DORADO else colores.muted, relleno = if (esFavorito) DORADO else null, tamano = 20.dp)
+                        }
+                        Box(modifier = Modifier.pulsable {
+                            accion { app.estadosChat.alternarFijado(seleccionado) }
+                        }) {
+                            Pin(color = if (esFijado) colores.texto else colores.muted)
+                        }
+                        Box(modifier = Modifier.pulsable {
+                            accion { app.estadosChat.alternarSilenciado(seleccionado) }
+                        }) {
+                            Silencio(color = if (esSilenciado) colores.texto else colores.muted)
+                        }
+                        Box(modifier = Modifier.pulsable {
+                            sel = null
+                            accion { app.estadosChat.alternarArchivado(seleccionado) }
+                        }) {
+                            Archivar(color = if (esArchivado) colores.texto else colores.muted)
+                        }
+                        Box(modifier = Modifier.pulsable { borrando = true }) {
+                            Bote(color = colores.error)
+                        }
+                    }
+                }
+            }
+            else if (verArchivados)
+            {
+                Row(
+                    modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 28.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                )
+                {
+                    Text(
+                        "‹",
+                        fontSize = 22.sp,
+                        color = colores.texto,
+                        modifier = Modifier.pulsable {
+                            verArchivados = false
+                            busqueda = ""
+                        },
+                    )
+                    Text("Archivados", fontSize = 18.sp, fontFamily = FuenteOutfit, fontWeight = FontWeight.SemiBold, color = colores.texto)
+                }
+            }
+            else
+            {
+                CabeceraMensajero(
+                    estado = estadoConexion,
+                    conectado = conectado,
+                    alAbrirAjustes = { alNavegar("ajustes") },
+                    porBluetooth = dev.vixxer.mensajero.ble.GestorCercania.let { it.corriendo || it.modoGuardado(app) },
+                )
+            }
+
+            if (amigos.isNotEmpty() && sel == null)
+            {
+                AnimatedVisibility(
+                    visible = revelado.visible,
+                    enter = expandVertically() + fadeIn(),
+                    exit = shrinkVertically() + fadeOut(),
+                )
+                {
+                    Row(
+                        modifier = Modifier.padding(top = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    )
+                    {
+                        CampoBusqueda(
+                            valor = busqueda,
+                            alCambiar = { busqueda = it },
+                            modifier = Modifier.weight(1f),
+                        )
+                        SelectorTransporte(app, alAbrirRadar = { alNavegar("cercania") })
+                    }
+                }
+            }
             }
         }
 
