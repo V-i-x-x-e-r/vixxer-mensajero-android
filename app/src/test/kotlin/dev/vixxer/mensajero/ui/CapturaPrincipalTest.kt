@@ -85,13 +85,16 @@ class CapturaPrincipalTest
                             .fillMaxSize()
                             .fondoDesenfocable(haze)
                             .fondoVixxer()
-                            .padding(horizontal = 20.dp, vertical = 210.dp),
+                            .padding(horizontal = 20.dp)
+                            .padding(top = 60.dp),
                         verticalArrangement = Arrangement.spacedBy(2.dp),
                     )
                     {
                         FilaPrincipal("Diseño", "Revisión de interfaz")
                         FilaPrincipal("Infraestructura", "Sincronización completa")
                         FilaPrincipal("Pruebas de campo", "Radar preparado")
+                        FilaPrincipal("Cercanía", "Tres vixxers a la vista")
+                        FilaPrincipal("Respaldo", "Copia diaria lista")
                     }
                     Column(
                         modifier = Modifier

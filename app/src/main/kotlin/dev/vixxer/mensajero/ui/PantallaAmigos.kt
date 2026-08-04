@@ -22,7 +22,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -33,10 +36,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import dev.vixxer.mensajero.AplicacionVixxer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -108,7 +114,11 @@ fun PantallaAmigos(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCh
         cargar()
     }
 
-    Column(
+    var altoCabecera by remember { mutableStateOf(0.dp) }
+    val densidad = LocalDensity.current
+    val estadoJalon = rememberPullToRefreshState()
+
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .fondoVixxer()
@@ -117,6 +127,93 @@ fun PantallaAmigos(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCh
             .padding(top = 10.dp),
     )
     {
+        PullToRefreshBox(
+            isRefreshing = refrescando,
+            onRefresh = {
+                alcance.launch {
+                    refrescando = true
+                    cargar()
+                    refrescando = false
+                }
+            },
+            state = estadoJalon,
+            indicator = {
+                PullToRefreshDefaults.Indicator(
+                    state = estadoJalon,
+                    isRefreshing = refrescando,
+                    modifier = Modifier.align(Alignment.TopCenter).padding(top = altoCabecera),
+                )
+            },
+            modifier = Modifier.fillMaxSize(),
+        )
+        {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .nestedScroll(revelado.conexion),
+                contentPadding = PaddingValues(top = altoCabecera + 10.dp),
+            ) {
+                item {
+                    Text(
+                        "TUS CONTACTOS",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 1.sp,
+                        color = colores.muted,
+                        modifier = Modifier.padding(bottom = 4.dp),
+                    )
+                }
+                if (lista.isEmpty())
+                {
+                    item {
+                        EstadoLista(
+                            cargando = cargando,
+                            error = error,
+                            vacio = "Aún no tienes contactos. Agrega a alguien por su código.",
+                            alReintentar = {
+                                cargando = true
+                                alcance.launch { cargar() }
+                            },
+                        )
+                    }
+                }
+                items(lista, key = { it.id }) { item ->
+                    Column {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    if (sel == item.id) colores.surface else androidx.compose.ui.graphics.Color.Transparent,
+                                    androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                                )
+                                .pulsableLargo(
+                                    alMantener = { sel = item.id },
+                                    alPulsar = { if (sel != null) sel = item.id else alAbrirChat(item) },
+                                )
+                                .padding(vertical = 8.dp, horizontal = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        )
+                        {
+                            Avatar(nombre = item.usuario, uri = item.avatarUrl.ifEmpty { null }, tamano = 40.dp)
+                            Text(item.usuario, fontSize = 16.sp, color = colores.texto, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        Box(modifier = Modifier.fillMaxWidth().padding(start = 58.dp).height(1.dp).background(colores.borde))
+                    }
+                }
+                item {
+                    Box(modifier = Modifier.height(90.dp))
+                }
+            }
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .onGloballyPositioned { altoCabecera = with(densidad) { it.size.height.toDp() } }
+                .zIndex(1f),
+        )
+        {
         val seleccionado = sel
         if (seleccionado != null)
         {
@@ -199,76 +296,6 @@ fun PantallaAmigos(app: AplicacionVixxer, alNavegar: (String) -> Unit, alAbrirCh
                 }
             }
         }
-
-        PullToRefreshBox(
-            isRefreshing = refrescando,
-            onRefresh = {
-                alcance.launch {
-                    refrescando = true
-                    cargar()
-                    refrescando = false
-                }
-            },
-            modifier = Modifier.weight(1f).padding(top = 10.dp),
-        )
-        {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .nestedScroll(revelado.conexion),
-            ) {
-                item {
-                    Text(
-                        "TUS CONTACTOS",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = 1.sp,
-                        color = colores.muted,
-                        modifier = Modifier.padding(bottom = 4.dp),
-                    )
-                }
-                if (lista.isEmpty())
-                {
-                    item {
-                        EstadoLista(
-                            cargando = cargando,
-                            error = error,
-                            vacio = "Aún no tienes contactos. Agrega a alguien por su código.",
-                            alReintentar = {
-                                cargando = true
-                                alcance.launch { cargar() }
-                            },
-                        )
-                    }
-                }
-                items(lista, key = { it.id }) { item ->
-                    Column {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(
-                                    if (sel == item.id) colores.surface else androidx.compose.ui.graphics.Color.Transparent,
-                                    androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                                )
-                                .pulsableLargo(
-                                    alMantener = { sel = item.id },
-                                    alPulsar = { if (sel != null) sel = item.id else alAbrirChat(item) },
-                                )
-                                .padding(vertical = 8.dp, horizontal = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        )
-                        {
-                            Avatar(nombre = item.usuario, uri = item.avatarUrl.ifEmpty { null }, tamano = 40.dp)
-                            Text(item.usuario, fontSize = 16.sp, color = colores.texto, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                        Box(modifier = Modifier.fillMaxWidth().padding(start = 58.dp).height(1.dp).background(colores.borde))
-                    }
-                }
-                item {
-                    Box(modifier = Modifier.height(90.dp))
-                }
-            }
         }
     }
 

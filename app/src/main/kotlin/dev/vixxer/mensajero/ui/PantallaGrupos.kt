@@ -22,7 +22,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -33,11 +36,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import dev.vixxer.mensajero.AplicacionVixxer
 import dev.vixxer.mensajero.nucleo.ClavesSeguras
 import dev.vixxer.mensajero.nucleo.ConexionSocket
@@ -251,27 +257,19 @@ fun PantallaGrupos(app: AplicacionVixxer, alNavegar: (String) -> Unit)
         }
     }
 
+    var altoCabecera by remember { mutableStateOf(0.dp) }
+    val densidad = LocalDensity.current
+    val estadoJalon = rememberPullToRefreshState()
+
     Box(modifier = Modifier.fillMaxSize().fondoVixxer()) {
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
                 .padding(horizontal = 20.dp)
                 .padding(top = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
         )
         {
-            CabeceraPrincipal(
-                titulo = "Grupos",
-                subtitulo = if (grupos.size == 1) "1 grupo" else "${grupos.size} grupos",
-                descripcionAccion = "Crear grupo",
-                alPulsarAccion = { alNavegar("grupo-crear") },
-                accionPrimaria = true,
-            )
-            {
-                Mas(color = it)
-            }
-
             PullToRefreshBox(
                 isRefreshing = refrescando,
                 onRefresh = {
@@ -281,10 +279,21 @@ fun PantallaGrupos(app: AplicacionVixxer, alNavegar: (String) -> Unit)
                         refrescando = false
                     }
                 },
-                modifier = Modifier.weight(1f),
+                state = estadoJalon,
+                indicator = {
+                    PullToRefreshDefaults.Indicator(
+                        state = estadoJalon,
+                        isRefreshing = refrescando,
+                        modifier = Modifier.align(Alignment.TopCenter).padding(top = altoCabecera),
+                    )
+                },
+                modifier = Modifier.fillMaxSize(),
             )
             {
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(top = altoCabecera + 10.dp),
+                ) {
                     if (grupos.isEmpty())
                     {
                         item {
@@ -353,6 +362,25 @@ fun PantallaGrupos(app: AplicacionVixxer, alNavegar: (String) -> Unit)
                         Box(modifier = Modifier.height(90.dp))
                     }
                 }
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onGloballyPositioned { altoCabecera = with(densidad) { it.size.height.toDp() } }
+                    .zIndex(1f),
+            )
+            {
+            CabeceraPrincipal(
+                titulo = "Grupos",
+                subtitulo = if (grupos.size == 1) "1 grupo" else "${grupos.size} grupos",
+                descripcionAccion = "Crear grupo",
+                alPulsarAccion = { alNavegar("grupo-crear") },
+                accionPrimaria = true,
+            )
+            {
+                Mas(color = it)
+            }
             }
         }
 
