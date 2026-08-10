@@ -12,6 +12,7 @@ object ClavesSeguras
     const val CLAVE_FIRMA_PUBLICA = "vixxer_clave_firma_publica"
     const val CODIGO_RECUP = "vixxer_codigo_recup"
     const val LLAVES_PASADAS = "vixxer_llaves_pasadas"
+    const val SEMILLA_DIFUSION = "vixxer_semilla_difusion"
     const val RESPALDO_PENDIENTE = "vixxer_respaldo_pendiente"
     const val CODIGO_PENDIENTE = "vixxer_codigo_pendiente"
     const val REGISTRO_PENDIENTE = "vixxer_registro_pendiente"

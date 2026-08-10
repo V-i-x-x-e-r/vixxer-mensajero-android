@@ -22,6 +22,7 @@ import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.os.ParcelUuid
 import dev.vixxer.mensajero.nucleo.Cripto
+import dev.vixxer.mensajero.nucleo.DifusionCercania
 import dev.vixxer.mensajero.nucleo.MeshCercania
 import java.io.ByteArrayOutputStream
 import java.util.UUID
@@ -31,6 +32,8 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 data class Cercano(val id: String, val nombre: String, val rssi: Int, val token: String? = null, val caps: Int = 0)
+
+data class CapsVecino(val psm: Int, val llaveDifusion: String?, val cuando: Long)
 
 data class ResultadoRadio(
     val exito: Boolean,
@@ -62,7 +65,8 @@ class RadioBle(private val contexto: Context)
     private var callbackEscaneo: ScanCallback? = null
     private val buffers = LinkedHashMap<String, ByteArrayOutputStream>()
     private val desbordados = HashSet<String>()
-    private val capsConocidas = LinkedHashMap<String, Pair<Int, Long>>()
+    private val capsConocidas = LinkedHashMap<String, CapsVecino>()
+    var llaveDifusionLocal: (() -> String?)? = null
     private var alMensaje: ((String) -> Unit)? = null
     private var entrega: ExecutorService? = null
 
@@ -348,24 +352,31 @@ class RadioBle(private val contexto: Context)
         }
     }
 
-    private fun psmCacheado(direccion: String): Int?
+    private fun capsVigentes(direccion: String): CapsVecino?
     {
         synchronized(capsConocidas) {
-            val (psm, cuando) = capsConocidas[direccion] ?: return null
-            if (System.currentTimeMillis() - cuando > vidaCapsMs)
+            val guardadas = capsConocidas[direccion] ?: return null
+            if (System.currentTimeMillis() - guardadas.cuando > vidaCapsMs)
             {
                 capsConocidas.remove(direccion)
                 return null
             }
-            return psm
+            return guardadas
         }
     }
 
-    private fun recordarCaps(direccion: String, psm: Int)
+    private fun psmCacheado(direccion: String): Int?
+    {
+        return capsVigentes(direccion)?.psm?.takeIf { it > 0 }
+    }
+
+    fun llaveDifusionDe(direccion: String): String? = capsVigentes(direccion)?.llaveDifusion
+
+    private fun recordarCaps(direccion: String, psm: Int, llaveDifusion: String?)
     {
         synchronized(capsConocidas) {
             capsConocidas.remove(direccion)
-            capsConocidas[direccion] = Pair(psm, System.currentTimeMillis())
+            capsConocidas[direccion] = CapsVecino(psm, llaveDifusion, System.currentTimeMillis())
             while (capsConocidas.size > topeCaps)
             {
                 capsConocidas.remove(capsConocidas.keys.first())
@@ -471,8 +482,7 @@ class RadioBle(private val contexto: Context)
         {
             0
         }
-        val flags = if (psm > 0) 1 else 0
-        return byteArrayOf(1, flags.toByte(), ((psm shr 8) and 0xFF).toByte(), (psm and 0xFF).toByte())
+        return DifusionCercania.codificarCapacidades(psm, llaveDifusionLocal?.invoke())
     }
 
     private fun abrirL2cap(adaptador: android.bluetooth.BluetoothAdapter)
@@ -769,22 +779,21 @@ class RadioBle(private val contexto: Context)
                 return
             }
             capsProcesadas = true
-            val psm = if (
-                estado == BluetoothGatt.GATT_SUCCESS &&
-                valor != null &&
-                valor.size >= 4 &&
-                (valor[1].toInt() and 1) == 1
-            )
+            val leidas = if (estado == BluetoothGatt.GATT_SUCCESS)
             {
-                ((valor[2].toInt() and 0xFF) shl 8) or (valor[3].toInt() and 0xFF)
+                DifusionCercania.leerCapacidades(valor)
             }
             else
             {
-                0
+                null
+            }
+            val psm = leidas?.psm ?: 0
+            if (leidas != null)
+            {
+                recordarCaps(dispositivo.address, psm, leidas.llaveDifusion)
             }
             if (psm > 0)
             {
-                recordarCaps(dispositivo.address, psm)
                 psmRemoto = psm
                 try
                 {
