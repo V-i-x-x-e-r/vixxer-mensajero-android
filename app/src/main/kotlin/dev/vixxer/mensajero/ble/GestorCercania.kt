@@ -13,8 +13,10 @@ import dev.vixxer.mensajero.nucleo.ClavesSeguras
 import dev.vixxer.mensajero.nucleo.ConexionSocket
 import dev.vixxer.mensajero.nucleo.Cripto
 import dev.vixxer.mensajero.nucleo.DiagnosticoMesh
+import dev.vixxer.mensajero.nucleo.DifusionCercania
 import dev.vixxer.mensajero.nucleo.IdentidadRotativa
 import dev.vixxer.mensajero.nucleo.Outbox
+import java.security.SecureRandom
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -364,6 +366,33 @@ object GestorCercania
         ventanaTokens = -1L
     }
 
+    fun semillaDifusion(app: AplicacionVixxer): ByteArray?
+    {
+        val guardada = app.boveda.leer(ClavesSeguras.SEMILLA_DIFUSION)
+        if (guardada != null)
+        {
+            return runCatching { Cripto.deBase64(guardada) }.getOrNull()
+        }
+        val nueva = ByteArray(Cripto.TAMANO_CLAVE)
+        SecureRandom().nextBytes(nueva)
+        app.boveda.escribir(ClavesSeguras.SEMILLA_DIFUSION, Cripto.aBase64(nueva))
+        return nueva
+    }
+
+    fun llaveDifusionActual(app: AplicacionVixxer): String?
+    {
+        val semilla = semillaDifusion(app) ?: return null
+        return runCatching {
+            DifusionCercania.publicaActual(semilla, System.currentTimeMillis() / 1000)
+        }.getOrNull()
+    }
+
+    fun secretasDifusionVigentes(app: AplicacionVixxer): List<ByteArray>
+    {
+        val semilla = semillaDifusion(app) ?: return emptyList()
+        return DifusionCercania.secretasVigentes(semilla, System.currentTimeMillis() / 1000)
+    }
+
     private fun prepararRadio(contexto: Context): RadioBle
     {
         val actual = radio
@@ -384,6 +413,7 @@ object GestorCercania
             return actual
         }
         val motor = prepararRadio(app.applicationContext)
+        motor.llaveDifusionLocal = { llaveDifusionActual(app) }
         val nuevo = MensajeriaBle(app, motor)
         mensajeria = nuevo
         return nuevo
