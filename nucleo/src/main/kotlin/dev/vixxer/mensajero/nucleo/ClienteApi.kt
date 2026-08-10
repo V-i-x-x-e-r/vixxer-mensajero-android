@@ -70,6 +70,9 @@ class ClienteApi(
     fun cambiarContrasena(actual: String, nueva: String): Any? =
         pedir("/api/auth/cambiar-contrasena", "POST", JSONObject().put("actual", actual).put("nueva", nueva))
 
+    fun borrarCuenta(contrasena: String): Any? =
+        pedir("/api/auth/borrar-cuenta", "POST", JSONObject().put("contrasena", contrasena))
+
     fun llavePublica(userId: String): Any? = pedir("/api/usuarios/$userId/llave-publica")
 
     fun actualizarLlavePublica(llavePublica: String): Any? =

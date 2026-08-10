@@ -219,6 +219,21 @@ class AplicacionVixxer : Application()
         activarCuenta(null)
     }
 
+    fun borrarDatosLocales()
+    {
+        ConexionSocket.desconectar()
+        CacheMedia.limpiar(this)
+        for (clave in boveda.clavesDeCuenta(bovedaBase.claves()))
+        {
+            boveda.borrar(clave)
+        }
+        for (clave in estado.clavesDeCuenta(estadoBase.claves()))
+        {
+            estado.borrar(clave)
+        }
+        activarCuenta(null)
+    }
+
     private fun migrarLegado()
     {
         boveda.migrarLegado(bovedaBase.claves())

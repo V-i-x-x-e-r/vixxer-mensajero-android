@@ -62,6 +62,10 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
     var errorPreferencias by remember { mutableStateOf("") }
     var guardandoPreferencia by remember { mutableStateOf(false) }
     var confirmarSalir by remember { mutableStateOf(false) }
+    var borrando by remember { mutableStateOf(false) }
+    var borrarClave by remember { mutableStateOf("") }
+    var borrarEstado by remember { mutableStateOf("") }
+    var borrarEnCurso by remember { mutableStateOf(false) }
     var mostrarQr by remember { mutableStateOf(false) }
     var subiendoFoto by remember { mutableStateOf(false) }
     var errorFoto by remember { mutableStateOf("") }
@@ -515,10 +519,20 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
                     .pulsable { confirmarSalir = true }
                     .padding(horizontal = 16.dp, vertical = 14.dp),
             )
+            Separador(colores)
+            Text(
+                "Eliminar mi cuenta",
+                fontSize = 15.sp,
+                color = colores.error,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .pulsable { borrando = true }
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+            )
         }
 
         Text(
-            "Vixxer 0.2.0-f2",
+            "Vixxer ${dev.vixxer.mensajero.BuildConfig.VERSION_NAME}",
             fontSize = 12.sp,
             color = colores.muted,
             modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
@@ -562,6 +576,44 @@ fun PantallaAjustes(app: AplicacionVixxer, alNavegar: (String) -> Unit)
                 importArchivo = null
                 importCodigo = ""
                 importEstado = ""
+            },
+        )
+    }
+
+    if (borrando)
+    {
+        BorrarCuenta(
+            colores = colores,
+            contrasena = borrarClave,
+            estado = borrarEstado,
+            enCurso = borrarEnCurso,
+            alCambiarContrasena = { borrarClave = it },
+            alBorrar = {
+                borrarEnCurso = true
+                borrarEstado = ""
+                alcance.launch {
+                    val error = withContext(Dispatchers.IO)
+                    {
+                        runCatching { app.api.borrarCuenta(borrarClave) }
+                            .fold({ null }, { it.message ?: "No se pudo eliminar la cuenta" })
+                    }
+                    if (error != null)
+                    {
+                        borrarEnCurso = false
+                        borrarEstado = error
+                        return@launch
+                    }
+                    withContext(Dispatchers.IO) { app.borrarDatosLocales() }
+                    borrando = false
+                    borrarClave = ""
+                    borrarEnCurso = false
+                    alNavegar("login")
+                }
+            },
+            alCerrar = {
+                borrando = false
+                borrarClave = ""
+                borrarEstado = ""
             },
         )
     }
@@ -710,6 +762,109 @@ internal fun FilaValor(
         Text(etiqueta, fontSize = 15.sp, color = if (apagada) colores.muted else colores.texto)
         Text(valor, fontSize = 14.sp, color = colores.muted)
     }
+}
+
+@Composable
+private fun BorrarCuenta(
+    colores: Paleta,
+    contrasena: String,
+    estado: String,
+    enCurso: Boolean,
+    alCambiarContrasena: (String) -> Unit,
+    alBorrar: () -> Unit,
+    alCerrar: () -> Unit,
+)
+{
+    androidx.compose.ui.window.Dialog(onDismissRequest = alCerrar)
+    {
+        ContenidoBorrarCuenta(
+            colores = colores,
+            contrasena = contrasena,
+            estado = estado,
+            enCurso = enCurso,
+            alCambiarContrasena = alCambiarContrasena,
+            alBorrar = alBorrar,
+            alCerrar = alCerrar,
+        )
+    }
+}
+
+@Composable
+internal fun ContenidoBorrarCuenta(
+    colores: Paleta,
+    contrasena: String,
+    estado: String,
+    enCurso: Boolean,
+    alCambiarContrasena: (String) -> Unit,
+    alBorrar: () -> Unit,
+    alCerrar: () -> Unit,
+)
+{
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(colores.surface, RoundedCornerShape(16.dp))
+                .padding(22.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        )
+        {
+            Text(
+                "Eliminar mi cuenta",
+                fontSize = 17.sp,
+                fontFamily = FuenteOutfit,
+                fontWeight = FontWeight.SemiBold,
+                color = colores.error,
+            )
+            Text(
+                "Se borran tu cuenta, tus llaves, tu respaldo, tu foto, tus amigos y tus " +
+                    "conversaciones, también del lado de quien te escribió. Esto no se puede deshacer " +
+                    "y no hay forma de recuperar nada después.",
+                fontSize = 13.sp,
+                color = colores.muted,
+            )
+            Campo(
+                valor = contrasena,
+                alCambiar = alCambiarContrasena,
+                placeholder = "Escribe tu contraseña para confirmar",
+                esContrasena = true,
+            )
+            if (estado.isNotEmpty())
+            {
+                Text(estado, fontSize = 13.sp, color = colores.error)
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            )
+            {
+                Text(
+                    "Cancelar",
+                    fontSize = 15.sp,
+                    color = colores.muted,
+                    modifier = Modifier
+                        .weight(1f)
+                        .pulsable { alCerrar() }
+                        .padding(vertical = 12.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                )
+                Text(
+                    if (enCurso) "Eliminando..." else "Eliminar",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (contrasena.isEmpty() || enCurso) colores.muted else colores.error,
+                    modifier = Modifier
+                        .weight(1f)
+                        .pulsable {
+                            if (contrasena.isNotEmpty() && !enCurso)
+                            {
+                                alBorrar()
+                            }
+                        }
+                        .padding(vertical = 12.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                )
+            }
+        }
 }
 
 @Composable
