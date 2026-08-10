@@ -1,7 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
-    id("com.google.gms.google-services") version "4.4.3"
+    id("com.google.gms.google-services") version "4.5.0"
 }
 
 android {
@@ -73,16 +73,16 @@ dependencies {
         exclude(group = "net.java.dev.jna", module = "jna")
     }
     implementation("com.goterl:lazysodium-android:5.2.0@aar")
-    implementation("net.java.dev.jna:jna:5.17.0@aar")
+    implementation("net.java.dev.jna:jna:5.19.1@aar")
     implementation("androidx.security:security-crypto:1.1.0")
     implementation(platform("androidx.compose:compose-bom:2026.06.01"))
     implementation("androidx.activity:activity-compose:1.13.0")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui")
     implementation("io.coil-kt:coil-compose:2.7.0")
-    implementation("androidx.media3:media3-exoplayer:1.5.1")
-    implementation("androidx.media3:media3-ui:1.5.1")
-    implementation("com.google.zxing:core:3.5.3")
+    implementation("androidx.media3:media3-exoplayer:1.11.0")
+    implementation("androidx.media3:media3-ui:1.11.0")
+    implementation("com.google.zxing:core:3.5.4")
     implementation("androidx.biometric:biometric:1.1.0")
     implementation("dev.chrisbanes.haze:haze:1.7.2")
     implementation("androidx.camera:camera-core:1.4.1")
@@ -90,14 +90,14 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:1.4.1")
     implementation("androidx.camera:camera-view:1.4.1")
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
-    implementation("io.getstream:stream-webrtc-android:1.3.8")
-    implementation("com.google.firebase:firebase-messaging:25.0.0")
+    implementation("io.getstream:stream-webrtc-android:1.3.10")
+    implementation("com.google.firebase:firebase-messaging:25.1.1")
 
     testImplementation(platform("androidx.compose:compose-bom:2026.06.01"))
     testImplementation("junit:junit:4.13.2")
-    testImplementation("org.robolectric:robolectric:4.15.1")
+    testImplementation("org.robolectric:robolectric:4.16.1")
     testImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
-    testImplementation("io.github.takahirom.roborazzi:roborazzi:1.43.1")
-    testImplementation("io.github.takahirom.roborazzi:roborazzi-compose:1.43.1")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi:1.71.0")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi-compose:1.71.0")
 }
