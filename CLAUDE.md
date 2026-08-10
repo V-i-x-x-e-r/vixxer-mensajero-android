@@ -23,7 +23,7 @@ Si algo se puede probar sin Android, va en `nucleo`.
 ## Antes de dar algo por terminado
 
 ```
-./gradlew :nucleo:test                                  # 113 tests de lógica
+./gradlew :nucleo:test                                  # 147 tests de lógica
 ./gradlew :app:testDebugUnitTest -Pcapturas=verificar    # nada movió un pixel
 ./gradlew :app:compileReleaseKotlin                      # R8 no se rompe
 ```
