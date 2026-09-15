@@ -32,6 +32,12 @@ Los tres corren solos en CI en cada push y PR. Si tocaste UI a propósito,
 regraba con `-Pcapturas=grabar` y **mira los PNG** antes de subirlos: son la
 única forma de ver la app sin instalarla.
 
+Dentro de `:nucleo:test` viven los tests de interoperabilidad, que comparan
+byte a byte contra `vectores-interop.json` (generado con el TweetNaCl del
+cliente RN) y `vectores-espejo.json` (la lógica pura de su `lib/`). Si uno de
+esos falla, el cambio rompe la compatibilidad con lo que hay en campo y no se
+mergea, por más que el resto esté verde.
+
 ## Convenciones de UI
 
 - Todo lo que se toca lleva `Modifier.pulsable` o `pulsableLargo`. Nunca
