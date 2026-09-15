@@ -4,3 +4,13 @@ local.properties
 .idea/
 *.iml
 .kotlin/
+
+# Notas locales de trabajo
+CLAUDE.md
+
+# Firmas y credenciales: nunca al repo
+*.jks
+*.keystore
+keystore.properties
+*.p12
+*.pem
