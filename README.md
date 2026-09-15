@@ -1,25 +1,9 @@
-# vixxer-mensajero-android
+# Vixxer Mensajero — Android
 
-Cliente Android nativo de Vixxer (Kotlin + Jetpack Compose), en migración
-por fases desde el cliente React Native. El backend es el mismo; los dos
-clientes hablan el mismo protocolo E2EE.
+Cliente Android de Vixxer (Kotlin + Jetpack Compose).
 
-## Módulos
-
-- `nucleo`: lógica sin UI (cripto E2EE con libsodium, formato de media por
-  trozos, mensaje canónico de firma, y la lógica pura portada de `lib/` del
-  cliente RN: efímeros, resumen de mensajes, enlaces, fechas, borradores,
-  alias, ocultos, fijados, grupos vistos). JVM puro: se prueba sin emulador.
-  El estado local usa la interfaz `Almacen` con las mismas claves que
-  AsyncStorage, para que la migración de datos de F6 lea directo.
-- `app`: la aplicación Android (Jetpack Compose, applicationId
-  `dev.vixxer.mensajero.nativo` mientras convive con la beta RN). Inyecta
-  `SodiumAndroid` en `Cripto` al arrancar e implementa `Almacen` con
-  EncryptedSharedPreferences (`BovedaSegura`, equivalente de
-  expo-secure-store) y SharedPreferences (`AlmacenPreferencias`,
-  equivalente de AsyncStorage). La UI porta el tema del cliente RN
-  (paletas claro/oscuro/colorido, acentos y fuente Outfit) y la pantalla
-  de login con el logo de péndulo animado dibujado en Canvas.
+La arquitectura, el stack y las guías del proyecto son documentación interna
+del equipo.
 
 ## Compilar
 
@@ -28,27 +12,5 @@ clientes hablan el mismo protocolo E2EE.
 ./gradlew :app:assembleDebug
 ```
 
-Requiere `ANDROID_HOME` con `platforms;android-36` y
-`build-tools;35.0.0`. El APK debug queda en
-`app/build/outputs/apk/debug/app-debug.apk`.
-
-## Interoperabilidad
-
-`nucleo/src/test/resources/vectores-interop.json` contiene vectores
-generados con tweetnacl desde el cliente React Native. Los tests de
-`InteropTest` exigen igualdad byte a byte en ambas direcciones; si un test
-de interop falla, el cambio rompe compatibilidad con los clientes en campo
-y no se mergea. `vectores-espejo.json` cubre la lógica pura portada
-(formato de efímeros, resúmenes, extracción de enlaces, fechas): se generó
-ejecutando los módulos JS reales de `lib/` con node.
-
-```
-./gradlew :nucleo:test
-```
-
-## Convenciones
-
-- Identificadores en español, sin comentarios.
-- Llaves estilo Allman en declaraciones y control de flujo; las trailing
-  lambdas de Kotlin llevan la llave en la misma línea porque el lenguaje
-  no permite bajarla.
+Requiere `ANDROID_HOME` con `platforms;android-36` y `build-tools;35.0.0`. El
+APK queda en `app/build/outputs/apk/debug/app-debug.apk`.
