@@ -8,8 +8,8 @@ kotlin {
 }
 
 dependencies {
-    implementation("com.goterl:lazysodium-java:5.1.4")
-    implementation("net.java.dev.jna:jna:5.17.0")
+    implementation("com.goterl:lazysodium-java:5.2.0")
+    implementation("net.java.dev.jna:jna:5.19.1")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     api("io.socket:socket.io-client:2.1.2") {
         exclude(group = "org.json", module = "json")
